@@ -1,0 +1,970 @@
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 100%;
+    min-width: 320px;
+    min-height: 100%;
+    margin: 0;
+}
+
+body {
+    color: #1d1715;
+    font-family: Nunito, Arial, sans-serif;
+    font-weight: 800;
+    background: #77c4d8;
+}
+
+button {
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.pet-game {
+    --edge: clamp(10px, 2vw, 32px);
+    --panel-radius: clamp(15px, 1.25vw, 22px);
+    position: relative;
+    width: 100%;
+    height: 100dvh;
+    min-height: 620px;
+    overflow: hidden;
+    isolation: isolate;
+    background: #efd0a9 url('../assets/backgrounds/room1.png') center / cover no-repeat;
+}
+
+.pet-game:after {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(255, 255, 255, .08), rgba(255, 245, 221, .02));
+    pointer-events: none;
+}
+
+.glass-card {
+    border: 2px solid rgba(255, 255, 255, .92);
+    background: linear-gradient(145deg, rgba(255, 255, 255, .94), rgba(255, 250, 246, .82));
+    box-shadow: 0 5px 15px rgba(62, 56, 72, .24), inset 0 1px 0 rgba(255, 255, 255, .75);
+    border-radius: var(--panel-radius);
+}
+
+/* =========================
+   TOP-LEFT: PLAYER
+   ========================= */
+
+.player-card {
+    position: absolute;
+    z-index: 2;
+    top: var(--edge);
+    left: var(--edge);
+    width: clamp(285px, 23vw, 380px);
+    min-height: clamp(92px, 11vh, 116px);
+    padding: clamp(7px, .7vw, 11px);
+    display: flex;
+    align-items: center;
+    gap: clamp(9px, 1vw, 15px);
+    border-color: rgba(45, 38, 39, .82);
+}
+
+.avatar {
+    width: clamp(72px, 5.7vw, 102px);
+    height: clamp(76px, 6vw, 106px);
+    overflow: hidden;
+    flex: 0 0 auto;
+    border: 3px solid rgba(45, 38, 39, .8);
+    border-radius: 13px;
+    background: #cfeef4;
+}
+
+.avatar img {
+    width: 160%;
+    height: 160%;
+    object-fit: contain;
+    object-position: 53% 48%;
+    transform: translate(-17%, -17%);
+    mix-blend-mode: multiply;
+}
+
+.player-card p {
+    margin: 4px 0;
+    font-size: clamp(13px, 1.05vw, 18px);
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+/* =========================
+   TOP-CENTER: STATS
+   ========================= */
+
+.stats-card {
+    position: absolute;
+    z-index: 2;
+    top: var(--edge);
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(500px, 38vw);
+    min-width: 390px;
+    padding: clamp(8px, .8vw, 12px) clamp(10px, 1vw, 15px);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(5px, .55vw, 8px) clamp(10px, 1.25vw, 19px);
+}
+
+.stat {
+    min-width: 0;
+}
+
+.stat-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    font-size: clamp(14px, 1.25vw, 20px);
+    line-height: 1.15;
+}
+
+.stat-line span,
+.stat-line b {
+    white-space: nowrap;
+}
+
+.stat:nth-child(1) .stat-line span {
+    color: #dc4d55;
+}
+
+.stat:nth-child(2) .stat-line span {
+    color: #e0a62e;
+}
+
+.stat:nth-child(3) .stat-line span {
+    color: #5d963d;
+}
+
+.stat:nth-child(4) .stat-line span {
+    color: #8250a8;
+}
+
+.meter {
+    height: clamp(12px, 1.35vw, 17px);
+    margin-top: 2px;
+    border: 2px solid rgba(32, 27, 26, .9);
+    border-radius: 99px;
+    overflow: hidden;
+    background: #e8e8e8;
+}
+
+.meter i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    border-right: 1px solid rgba(0, 0, 0, .35);
+}
+
+.green i {
+    background: #72c876;
+}
+
+.yellow i {
+    background: #f8d553;
+}
+
+.orange i {
+    background: #ef8338;
+}
+
+.purple i {
+    background: #a772d0;
+}
+
+/* =========================
+   TOP-RIGHT: CURRENCY
+   ========================= */
+
+.currency {
+    position: absolute;
+    z-index: 2;
+    top: var(--edge);
+    right: var(--edge);
+    width: clamp(210px, 18vw, 285px);
+    display: grid;
+    gap: clamp(5px, .6vw, 9px);
+}
+
+.currency-row {
+    min-height: clamp(38px, 4.2vh, 48px);
+    padding: 0 clamp(7px, .8vw, 14px) 0 4px;
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, .7vw, 10px);
+    font-size: clamp(16px, 1.45vw, 24px);
+    border-color: rgba(45, 38, 39, .78);
+}
+
+.currency-row b {
+    margin-left: auto;
+}
+
+.coin,
+.gem {
+    width: clamp(34px, 3.1vw, 48px);
+    height: clamp(34px, 3.1vw, 48px);
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    font-size: clamp(28px, 2.5vw, 40px);
+    line-height: 1;
+    filter: drop-shadow(1px 2px 0 #5b3217);
+}
+
+.coin {
+    color: #ffd44f;
+}
+
+.gem {
+    color: #4ac6e9;
+}
+
+/* =========================
+   DAILY QUEST
+   ========================= */
+
+.quest-card {
+    position: absolute;
+    z-index: 2;
+    top: calc(var(--edge) + clamp(150px, 13vh, 150px));
+    right: var(--edge);
+    width: clamp(82px, 6.5vw, 100px);
+    min-height: clamp(110px, 14vh, 145px);
+    padding: 5px 6px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    border: 2px solid rgba(255, 255, 255, .92);
+    font-size: clamp(14px, 1.25vw, 20px);
+    line-height: 1.1;
+}
+
+.quest-card span {
+    height: clamp(55px, 7vh, 76px);
+    display: grid;
+    place-items: center;
+    font-size: clamp(40px, 3.5vw, 54px);
+}
+
+/* =========================
+   PET
+   ========================= */
+
+.pet-stage {
+    position: absolute;
+    z-index: 3;
+    left: 54%;
+    top: 70%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none;
+}
+
+.pet-name {
+    display: none;
+}
+
+.pet-image {
+    width: clamp(220px, 21vw, 280px);
+    height: clamp(220px, 21vw, 280px);
+    object-fit: contain;
+    mix-blend-mode: multiply;
+    filter: drop-shadow(0 11px 2px rgba(68, 35, 19, .18));
+}
+
+/* =========================
+   BOTTOM-LEFT: TRAINING
+   ========================= */
+
+.training {
+    position: absolute;
+    z-index: 2;
+    left: var(--edge);
+    bottom: var(--edge);
+    width: clamp(330px, 27vw, 420px);
+}
+
+.section-tag {
+    position: absolute;
+    z-index: 1;
+    top: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 14px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(72, 48, 42, .34);
+    font-size: clamp(16px, 1.2vw, 24px);
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.training-actions {
+    min-height: clamp(150px, 20vh, 205px);
+    padding: clamp(18px, 1.8vw, 22px) clamp(12px, 1.5vw, 18px) clamp(12px, 1.2vw, 14px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 24px;
+}
+
+.training-row {
+    width: 100%;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: clamp(18px, 1.5vw, 28px);
+    padding: 0 clamp(12px, 1vw, 18px);
+}
+
+.training-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(10px, 1vw, 14px);
+}
+
+.round-button {
+    width: clamp(92px, 7.5vw, 130px);
+    aspect-ratio: 1 / 1;
+    border: 3px solid rgba(255, 255, 255, .9);
+    border-radius: 50%;
+    font-size: clamp(30px, 2.5vw, 42px);
+    box-shadow: inset 0 0 0 2px rgba(30, 30, 30, .55), 0 3px 6px rgba(60, 35, 20, .32);
+}
+
+.round-button.exercise {
+    background: #f7d94f;
+}
+
+.round-button.practice {
+    background: #d4aaf0;
+}
+
+.practice-text,
+.study-text {
+    margin: 0;
+    font-size: clamp(18px, 1.8vw, 30px);
+    line-height: .95;
+    text-align: center;
+    font-weight: 900;
+    color: #1d1715;
+}
+
+.practice-text {
+    max-width: 150px;
+}
+
+/* =========================
+   RIGHT: MAIN ACTIONS
+   ========================= */
+
+.main-actions,
+.quick-actions {
+    position: absolute;
+    z-index: 2;
+}
+
+.main-actions {
+    top: 57%;
+    right: var(--edge);
+    transform: translateY(-50%);
+    width: clamp(220px, 17vw, 265px);
+    height: clamp(250px, 32vh, 300px);
+    padding: clamp(8px, 1vw, 14px);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: clamp(4px, .65vw, 9px);
+    place-items: center;
+}
+
+.action {
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    min-height: 0;
+    border: 0;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(3px, .6vw, 8px);
+    font-size: clamp(15px, 1.4vw, 22px);
+    padding: 2px;
+}
+
+.action span {
+    width: clamp(62px, 5.4vw, 84px);
+    aspect-ratio: 1 / 1;
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    border: 3px solid rgba(255, 255, 255, .95);
+    border-radius: 50%;
+    font-size: clamp(31px, 2.7vw, 43px);
+    box-shadow: inset 0 0 0 2px rgba(38, 30, 28, .65), 0 3px 6px rgba(50, 27, 15, .28);
+}
+
+.action b {
+    max-width: 100%;
+    line-height: 1.05;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.feed span {
+    background: #afe1b3;
+}
+
+.play span,
+.shop span {
+    background: #ffe277;
+}
+
+.sleep span,
+.inventory span {
+    background: #bde4ef;
+}
+
+.bath span {
+    background: #ddbef0;
+}
+
+.decorate span {
+    background: #badfbe;
+}
+
+/* =========================
+   BOTTOM-RIGHT: QUICK ACTIONS
+   ========================= */
+
+.quick-actions {
+    right: var(--edge);
+    bottom: var(--edge);
+    width: clamp(300px, 24vw, 365px);
+    min-height: clamp(112px, 13vh, 135px);
+    padding: clamp(5px, .7vw, 10px);
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(8px, 1vw, 14px);
+    align-items: center;
+}
+
+.quick-actions .action {
+    overflow: visible;
+}
+
+.quick-actions .action b {
+    font-size: clamp(13px, 1.15vw, 18px);
+    white-space: nowrap;
+    letter-spacing: -.2px;
+}
+
+.quick-actions .action span {
+    width: clamp(58px, 5vw, 76px);
+}
+
+/* Hover/focus */
+.action:hover span,
+.round-button:hover {
+    transform: translateY(-3px) scale(1.04);
+    filter: brightness(1.04);
+}
+
+.action span,
+.round-button {
+    transition: transform .16s ease, filter .16s ease;
+}
+
+.action:focus-visible,
+.round-button:focus-visible,
+.quest-card:focus-visible {
+    outline: 3px solid #352013;
+    outline-offset: 3px;
+}
+
+/* =========================
+   1280px AND SMALLER
+   ========================= */
+
+@media (max-width: 1280px) {
+    .stats-card {
+        width: min(460px, 36vw);
+        min-width: 350px;
+    }
+
+    .player-card {
+        width: clamp(265px, 24vw, 330px);
+    }
+
+    .main-actions {
+        width: 220px;
+        height: 255px;
+    }
+
+    .quick-actions {
+        width: 315px;
+    }
+}
+
+/* =========================
+   TABLET / SMALL LAPTOP
+   ========================= */
+
+@media (max-width: 1050px) {
+    .pet-game {
+        min-height: 600px;
+    }
+
+    .stats-card {
+        width: 390px;
+        min-width: 0;
+        top: clamp(10px, 1.5vw, 18px);
+    }
+
+    .stat-line {
+        font-size: 15px;
+    }
+
+    .currency {
+        width: 220px;
+    }
+
+    .player-card {
+        width: 250px;
+    }
+
+    .player-card p {
+        font-size: 17px;
+    }
+
+    .avatar {
+        width: 76px;
+        height: 80px;
+    }
+
+    .main-actions {
+        width: 205px;
+        height: 235px;
+    }
+
+    .action span {
+        width: 66px;
+    }
+
+    .quick-actions {
+        width: 285px;
+    }
+
+    .training {
+        width: 245px;
+    }
+}
+
+/* =========================
+   TABLET PORTRAIT
+   ========================= */
+
+@media (max-width: 800px) and (min-height: 700px) {
+    .pet-game {
+        min-height: 700px;
+    }
+
+    .player-card {
+        width: 200px;
+    }
+
+    .currency {
+        width: 180px;
+    }
+
+    .stats-card {
+        top: 96px;
+        left: 50%;
+        width: min(340px, calc(100% - 420px));
+        min-width: 0;
+    }
+
+    .quest-card {
+        top: 112px;
+    }
+
+    .pet-stage {
+        top: 75%;
+    }
+
+    .main-actions {
+        top: 53%;
+        right: var(--edge);
+        width: 190px;
+        height: 225px;
+    }
+
+    .quick-actions {
+        width: 250px;
+    }
+
+    .training {
+        width: 210px;
+    }
+}
+
+/* =========================
+   PHONE / NARROW SCREEN
+   ========================= */
+
+@media (max-width: 600px) {
+    .training {
+        display: none;
+    }
+
+    .pet-game {
+        min-height: 650px;
+        background-position: center;
+    }
+
+    .player-card {
+        top: 8px;
+        left: 8px;
+        width: min(220px, calc(100vw - 170px));
+        min-height: 70px;
+        padding: 5px;
+        gap: 6px;
+        border-radius: 14px;
+    }
+
+    .avatar {
+        width: 58px;
+        height: 62px;
+        border-width: 2px;
+    }
+
+    .player-card p {
+        margin: 2px 0;
+        font-size: clamp(11px, 3.2vw, 14px);
+    }
+
+    .currency {
+        top: 8px;
+        right: 8px;
+        width: 145px;
+        gap: 3px;
+    }
+
+    .currency-row {
+        min-height: 30px;
+        padding: 0 5px;
+        gap: 4px;
+        font-size: 12px;
+        border-width: 1.5px;
+        border-radius: 12px;
+    }
+
+    .coin,
+    .gem {
+        width: 25px;
+        height: 25px;
+        font-size: 22px;
+    }
+
+    .stats-card {
+        top: 82px;
+        left: 8px;
+        right: 8px;
+        transform: none;
+        width: auto;
+        min-width: 0;
+        padding: 7px;
+        gap: 4px 8px;
+        border-radius: 14px;
+    }
+
+    .stat-line {
+        font-size: clamp(11px, 3vw, 14px);
+        line-height: 15px;
+    }
+
+    .meter {
+        height: 10px;
+        border-width: 1.5px;
+    }
+
+    .quest-card {
+        top: 160px;
+        right: 8px;
+        width: 70px;
+        min-height: 82px;
+        padding: 3px;
+        font-size: 11px;
+        line-height: 12px;
+        border-radius: 13px;
+    }
+
+    .quest-card span {
+        height: 40px;
+        font-size: 30px;
+    }
+
+    .pet-stage {
+        top: 74%;
+        z-index: 3;
+    }
+
+    .pet-image {
+        width: clamp(145px, 40vw, 185px);
+        height: clamp(145px, 40vw, 185px);
+    }
+
+    .training {
+        left: 8px;
+        bottom: 8px;
+        width: 130px;
+    }
+
+    .section-tag {
+        top: -17px;
+        font-size: 11px;
+        padding: 2px 7px;
+    }
+
+    .training-actions {
+        min-height: 84px;
+        padding: 11px 4px 3px;
+        column-gap: 2px;
+        border-radius: 14px;
+    }
+
+    .round-button {
+        width: 50px;
+        border-width: 2px;
+        font-size: 22px;
+    }
+
+    .practice-text {
+        font-size: 11px;
+        line-height: 12px;
+    }
+
+    .main-actions {
+        top: 47%;
+        right: 8px;
+        transform: translateY(-50%);
+        width: 164px;
+        height: 195px;
+        padding: 5px;
+        gap: 2px;
+        border-radius: 14px;
+    }
+
+    .action {
+        font-size: 11px;
+        gap: 2px;
+    }
+
+    .action span {
+        width: 48px;
+        border-width: 2px;
+        font-size: 23px;
+    }
+
+    .quick-actions {
+        right: 8px;
+        bottom: 8px;
+        width: min(150px, calc(100vw - 170px));
+        min-width: 150px;
+        min-height: 82px;
+        padding: 3px;
+        gap: 3px;
+        border-radius: 14px;
+    }
+
+    .quick-actions .action {
+        font-size: 10px;
+        gap: 2px;
+    }
+
+    .quick-actions .action span {
+        width: 40px;
+        font-size: 19px;
+    }
+
+    .quick-actions .action b {
+        font-size: 9px;
+        white-space: nowrap;
+    }
+}
+
+/* =========================
+   VERY SMALL PHONES
+   ========================= */
+
+@media (max-width: 430px) {
+    .player-card {
+        width: 190px;
+    }
+
+    .currency {
+        width: 125px;
+    }
+
+    .stats-card {
+        top: 78px;
+    }
+
+    .quest-card {
+        top: 150px;
+    }
+
+    .main-actions {
+        top: 48%;
+        width: 150px;
+        height: 180px;
+    }
+
+    .action span {
+        width: 43px;
+        font-size: 20px;
+    }
+
+    .training {
+        width: 145px;
+    }
+
+    .training-actions {
+        min-height: 78px;
+    }
+
+    .round-button {
+        width: 45px;
+        font-size: 20px;
+    }
+
+    .practice-text,
+    .study-text {
+        font-size: 10px;
+    }
+
+    .quick-actions {
+        width: 180px;
+        min-width: 180px;
+        min-height: 72px;
+    }
+
+    .quick-actions .action span {
+        width: 38px;
+        font-size: 18px;
+    }
+}
+
+/* =========================
+   SHORT / LANDSCAPE SCREENS
+   ========================= */
+
+@media (max-height: 650px) and (min-width: 601px) {
+    .pet-game {
+        min-height: 480px;
+    }
+
+    .player-card,
+    .stats-card,
+    .currency {
+        top: 8px;
+    }
+
+    .player-card {
+        min-height: 78px;
+    }
+
+    .avatar {
+        width: 70px;
+        height: 73px;
+    }
+
+    .player-card p {
+        font-size: 15px;
+    }
+
+    .stats-card {
+        width: 400px;
+        padding: 6px 9px;
+    }
+
+    .stat-line {
+        font-size: 14px;
+    }
+
+    .meter {
+        height: 11px;
+    }
+
+    .currency {
+        width: 210px;
+    }
+
+    .currency-row {
+        min-height: 34px;
+        font-size: 15px;
+    }
+
+    .quest-card {
+        top: 92px;
+        min-height: 90px;
+    }
+
+    .pet-stage {
+        top: 78%;
+        z-index: 3;
+    }
+
+    .pet-image {
+        width: 155px;
+        height: 155px;
+    }
+
+    .main-actions {
+        width: 185px;
+        height: 190px;
+    }
+
+    .action span {
+        width: 55px;
+        font-size: 27px;
+    }
+
+    .training {
+        width: 215px;
+    }
+
+    .training-actions {
+        min-height: 105px;
+    }
+
+    .round-button {
+        width: 58px;
+    }
+
+    .quick-actions {
+        width: 225px;
+        min-height: 92px;
+    }
+
+    .quick-actions .action span {
+        width: 55px;
+    }
+}
