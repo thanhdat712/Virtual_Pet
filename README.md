@@ -34,13 +34,14 @@ Users can take care of virtual pets, practice programming through exercises, ear
 
 ## 3. Project Structure
 
+## Project Structure
+
+```text
 Pet-Raising-Project/
 ├── frontend/
 │   ├── index.html
 │   ├── css/
-│   │   └── style.css
 │   ├── js/
-│   │   └── app.js
 │   └── assets/
 ├── backend/
 │   ├── include/
@@ -51,7 +52,7 @@ Pet-Raising-Project/
 ├── tests/
 ├── .gitignore
 └── README.md
-
+```
 - `frontend/` - Contains the website interface, stylesheets, JavaScript, and visual assets
 - `backend/` - Contains C++ source code and application logic
 - `database/` - Contains database-related files and scripts
