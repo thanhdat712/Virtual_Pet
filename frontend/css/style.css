@@ -1,4 +1,3 @@
-
 * {
     box-sizing: border-box;
 }
@@ -53,10 +52,6 @@ button {
     border-radius: var(--panel-radius);
 }
 
-/* =========================
-   TOP-LEFT: PLAYER
-   ========================= */
-
 .player-card {
     position: absolute;
     z-index: 2;
@@ -97,10 +92,6 @@ button {
     white-space: nowrap;
 }
 
-/* =========================
-   TOP-CENTER: STATS
-   ========================= */
-
 .stats-card {
     position: absolute;
     z-index: 2;
@@ -133,21 +124,10 @@ button {
     white-space: nowrap;
 }
 
-.stat:nth-child(1) .stat-line span {
-    color: #dc4d55;
-}
-
-.stat:nth-child(2) .stat-line span {
-    color: #e0a62e;
-}
-
-.stat:nth-child(3) .stat-line span {
-    color: #5d963d;
-}
-
-.stat:nth-child(4) .stat-line span {
-    color: #8250a8;
-}
+.stat:nth-child(1) .stat-line span { color: #dc4d55; }
+.stat:nth-child(2) .stat-line span { color: #e0a62e; }
+.stat:nth-child(3) .stat-line span { color: #5d963d; }
+.stat:nth-child(4) .stat-line span { color: #8250a8; }
 
 .meter {
     height: clamp(12px, 1.35vw, 17px);
@@ -165,25 +145,10 @@ button {
     border-right: 1px solid rgba(0, 0, 0, .35);
 }
 
-.green i {
-    background: #72c876;
-}
-
-.yellow i {
-    background: #f8d553;
-}
-
-.orange i {
-    background: #ef8338;
-}
-
-.purple i {
-    background: #a772d0;
-}
-
-/* =========================
-   TOP-RIGHT: CURRENCY
-   ========================= */
+.green i { background: #72c876; }
+.yellow i { background: #f8d553; }
+.orange i { background: #ef8338; }
+.purple i { background: #a772d0; }
 
 .currency {
     position: absolute;
@@ -221,17 +186,8 @@ button {
     filter: drop-shadow(1px 2px 0 #5b3217);
 }
 
-.coin {
-    color: #ffd44f;
-}
-
-.gem {
-    color: #4ac6e9;
-}
-
-/* =========================
-   DAILY QUEST
-   ========================= */
+.coin { color: #ffd44f; }
+.gem { color: #4ac6e9; }
 
 .quest-card {
     position: absolute;
@@ -257,10 +213,6 @@ button {
     font-size: clamp(40px, 3.5vw, 54px);
 }
 
-/* =========================
-   PET
-   ========================= */
-
 .pet-stage {
     position: absolute;
     z-index: 3;
@@ -284,10 +236,6 @@ button {
     mix-blend-mode: multiply;
     filter: drop-shadow(0 11px 2px rgba(68, 35, 19, .18));
 }
-
-/* =========================
-   BOTTOM-LEFT: TRAINING
-   ========================= */
 
 .training {
     position: absolute;
@@ -369,10 +317,6 @@ button {
     max-width: 150px;
 }
 
-/* =========================
-   RIGHT: MAIN ACTIONS
-   ========================= */
-
 .main-actions,
 .quick-actions {
     position: absolute;
@@ -428,31 +372,13 @@ button {
     white-space: nowrap;
 }
 
-.feed span {
-    background: #afe1b3;
-}
-
+.feed span { background: #afe1b3; }
 .play span,
-.shop span {
-    background: #ffe277;
-}
-
+.shop span { background: #ffe277; }
 .sleep span,
-.inventory span {
-    background: #bde4ef;
-}
-
-.bath span {
-    background: #ddbef0;
-}
-
-.decorate span {
-    background: #badfbe;
-}
-
-/* =========================
-   BOTTOM-RIGHT: QUICK ACTIONS
-   ========================= */
+.inventory span { background: #bde4ef; }
+.bath span { background: #ddbef0; }
+.decorate span { background: #badfbe; }
 
 .quick-actions {
     right: var(--edge);
@@ -480,7 +406,6 @@ button {
     width: clamp(58px, 5vw, 76px);
 }
 
-/* Hover/focus */
 .action:hover span,
 .round-button:hover {
     transform: translateY(-3px) scale(1.04);
@@ -498,10 +423,6 @@ button {
     outline: 3px solid #352013;
     outline-offset: 3px;
 }
-
-/* =========================
-   1280px AND SMALLER
-   ========================= */
 
 @media (max-width: 1280px) {
     .stats-card {
@@ -522,10 +443,6 @@ button {
         width: 315px;
     }
 }
-
-/* =========================
-   TABLET / SMALL LAPTOP
-   ========================= */
 
 @media (max-width: 1050px) {
     .pet-game {
@@ -577,10 +494,6 @@ button {
     }
 }
 
-/* =========================
-   TABLET PORTRAIT
-   ========================= */
-
 @media (max-width: 800px) and (min-height: 700px) {
     .pet-game {
         min-height: 700px;
@@ -624,10 +537,6 @@ button {
         width: 210px;
     }
 }
-
-/* =========================
-   PHONE / NARROW SCREEN
-   ========================= */
 
 @media (max-width: 600px) {
     .training {
@@ -756,7 +665,8 @@ button {
         font-size: 22px;
     }
 
-    .practice-text {
+    .practice-text,
+    .study-text {
         font-size: 11px;
         line-height: 12px;
     }
@@ -809,10 +719,6 @@ button {
         white-space: nowrap;
     }
 }
-
-/* =========================
-   VERY SMALL PHONES
-   ========================= */
 
 @media (max-width: 430px) {
     .player-card {
@@ -871,10 +777,6 @@ button {
         font-size: 18px;
     }
 }
-
-/* =========================
-   SHORT / LANDSCAPE SCREENS
-   ========================= */
 
 @media (max-height: 650px) and (min-width: 601px) {
     .pet-game {
