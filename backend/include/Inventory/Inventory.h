@@ -24,6 +24,8 @@ public:
     bool removeItem(int itemId, int quantity); // trả về false nếu không đủ số lượng để xóa
 
     int getQuantity(int itemId) const;
+    bool hasItem(int itemId) const; // túi có chứa item này không
+    bool isEmpty() const;           // túi có đang rỗng không
     const std::vector<InventorySlot>& getSlots() const;
 };
 

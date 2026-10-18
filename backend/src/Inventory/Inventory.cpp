@@ -38,6 +38,14 @@ int Inventory::getQuantity(int itemId) const {
     return index == -1 ? 0 : slots[index].quantity;
 }
 
+bool Inventory::hasItem(int itemId) const {
+    return findSlotIndex(itemId) != -1;
+}
+
+bool Inventory::isEmpty() const {
+    return slots.empty();
+}
+
 const std::vector<InventorySlot>& Inventory::getSlots() const {
     return slots;
 }
