@@ -1,6 +1,7 @@
 #include "Shop.h"
 #include "../Item/Food.h"
 #include "../Item/Decoration.h"
+#include "../User/User.h"
 
 Shop::Shop() {
     // --- Món ăn (Food) ---
@@ -40,4 +41,25 @@ Shop::Shop() {
 
 const std::vector<std::shared_ptr<Item>>& Shop::getItemsForSale() const {
     return itemsForSale;
+}
+
+std::shared_ptr<Item> Shop::getItemById(int itemId) const {
+    for (const auto& item : itemsForSale) {
+        if (item->getId() == itemId) {
+            return item;
+        }
+    }
+    return nullptr;
+}
+
+bool Shop::buyItem(User& user, int itemId) {
+    std::shared_ptr<Item> item = getItemById(itemId);
+    if (!item) {
+        return false; // shop khong ban mon nay
+    }
+    if (!user.spendCoins(item->getPrice())) {
+        return false; // khong du xu
+    }
+    user.getInventory().addItem(item, 1); // mua thanh cong -> bo vao tui
+    return true;
 }
