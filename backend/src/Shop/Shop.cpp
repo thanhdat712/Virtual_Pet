@@ -43,6 +43,31 @@ const std::vector<std::shared_ptr<Item>>& Shop::getItemsForSale() const {
     return itemsForSale;
 }
 
+std::vector<std::shared_ptr<Item>> Shop::getFoods() const {
+    std::vector<std::shared_ptr<Item>> result;
+    for (const auto& item : itemsForSale) {
+        if (item->getType() == ItemType::FOOD) {
+            result.push_back(item);
+        }
+    }
+    return result;
+}
+
+std::vector<std::shared_ptr<Item>> Shop::getDecorationsBySlot(DecorationSlot slot) const {
+    std::vector<std::shared_ptr<Item>> result;
+    for (const auto& item : itemsForSale) {
+        if (item->getType() != ItemType::DECORATION) {
+            continue; // bo qua do an, chi xet trang tri
+        }
+        // ep kieu tu Item xuong Decoration de doc duoc slot (hat/background/floor)
+        auto deco = std::dynamic_pointer_cast<Decoration>(item);
+        if (deco && deco->getSlot() == slot) {
+            result.push_back(item);
+        }
+    }
+    return result;
+}
+
 std::shared_ptr<Item> Shop::getItemById(int itemId) const {
     for (const auto& item : itemsForSale) {
         if (item->getId() == itemId) {

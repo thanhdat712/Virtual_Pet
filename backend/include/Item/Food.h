@@ -5,8 +5,8 @@
 
 class Food : public Item {
 private:
-    int hungerRestore;    // ăn vào giảm đói bao nhiêu
-    int happinessRestore; // ăn vào tăng vui bao nhiêu, mặc định 0
+    int hungerRestore;    // ăn vào tăng chỉ số no thêm bao nhiêu %, thang 0-100
+    int happinessRestore; // ăn vào tăng chỉ số vui thêm bao nhiêu %, thang 0-100, mặc định 0
 
 public:
     Food(int id, const std::string& name, const std::string& description, int price,
