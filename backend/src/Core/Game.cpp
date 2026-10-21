@@ -2,11 +2,11 @@
 #include "Game.h"
 
 Game::Game() {
-    initialize();
+    // GameState đã tự khởi tạo trong constructor của nó
 }
 
 void Game::initialize() {
-    gameState.setStatus(GameStatus::NOT_STARTED);
+    gameState.initialize();
 }
 
 void Game::start() {
@@ -47,3 +47,10 @@ void Game::end() {
 GameStatus Game::getStatus() const {
     return gameState.getStatus();
 }
+
+User& Game::getPlayer() { return gameState.getPlayer(); }
+const User& Game::getPlayer() const { return gameState.getPlayer(); }
+Pet& Game::getPet() { return gameState.getPet(); }
+const Pet& Game::getPet() const { return gameState.getPet(); }
+Shop& Game::getShop() { return gameState.getShop(); }
+const Shop& Game::getShop() const { return gameState.getShop(); }
