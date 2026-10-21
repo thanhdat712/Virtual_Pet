@@ -4,6 +4,7 @@
 #include <vector>
 #include <memory>
 #include "../Item/Item.h"
+#include "../Item/Decoration.h" // can DecorationSlot de loc do trang tri theo khu (hat/background/floor)
 
 class User; // khai bao truoc: mua hang can tru xu + them vao tui do cua User
 
@@ -15,6 +16,10 @@ public:
     Shop(); // tạo shop và tự bày sẵn danh sách món ăn mặc định lên kệ
 
     const std::vector<std::shared_ptr<Item>>& getItemsForSale() const;
+
+    // Lay rieng tung nhom hang de hien thi theo khu vuc trong shop (KAN-47)
+    std::vector<std::shared_ptr<Item>> getFoods() const;                        // chi lay do an
+    std::vector<std::shared_ptr<Item>> getDecorationsBySlot(DecorationSlot slot) const; // lay trang tri theo loai
 
     std::shared_ptr<Item> getItemById(int itemId) const; // tim mon theo id, nullptr neu khong co
 
