@@ -194,6 +194,37 @@ img { image-rendering: pixelated; }
     text-align: right;
 }
 
+.account-row {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: calc(var(--u) * .6);
+    font-size: calc(var(--u) * 1.3);
+}
+
+.account-row > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.account-row .account-button {
+    flex: 0 0 auto;
+    min-height: calc(var(--u) * 3);
+    margin: 0;
+    padding: 0 calc(var(--u) * .8);
+    border: 0;
+    background: var(--px-head);
+    box-shadow: inset 0 0 0 var(--px) var(--px-edge), 0 var(--px) 0 var(--px-shade);
+    color: #fff;
+    font-size: calc(var(--u) * 1.2);
+}
+
+.account-row .account-button:hover:not(:disabled) {
+    background: var(--px-accent);
+}
+
 .hud-weather {
     top: calc(var(--edge) + var(--u) * 11.6);
     left: calc(var(--edge) + var(--px));

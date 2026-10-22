@@ -1,6 +1,5 @@
 #include <iostream>
 #include "Game.h"
-#include "User.h"
 #include "Pet.h"
 #include "Shop.h"
 
