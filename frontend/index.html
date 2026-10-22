@@ -10,6 +10,8 @@
 
 <body>
     <main class="pet-game" aria-label="Màn hình chăm sóc thú cưng">
+        <div class="lobby-scene" id="lobby-scene" aria-hidden="true"></div>
+        <div class="lobby-floor" id="lobby-floor" aria-hidden="true"></div>
         <section class="player-card glass-card" aria-label="Thông tin thú cưng">
             <div class="avatar"><img src="assets/pets/meomeo.png" alt="PetLovery"></div>
             <div>
@@ -71,7 +73,7 @@
         <nav class="quick-actions glass-card" aria-label="Điều hướng nhanh">
             <button class="action shop" id="open-shop" type="button" aria-haspopup="dialog" aria-controls="shop-panel"><span>🛒</span><b>Shop</b></button>
             <button class="action inventory" id="open-inventory" type="button" aria-haspopup="dialog" aria-controls="inventory-panel"><span>🎒</span><b>Inventory</b></button>
-            <button class="action decorate" type="button"><span>🖌</span><b>Decorate</b></button>
+            <button class="action decorate" id="open-decorate" type="button" aria-haspopup="dialog" aria-controls="decorate-panel"><span>🖌</span><b>Decorate</b></button>
         </nav>
 
         <section class="inventory-backdrop" id="inventory-panel" lang="en" role="dialog" aria-modal="true" aria-labelledby="inventory-title" aria-label="Inventory" hidden>
@@ -122,6 +124,29 @@
 
                 <p class="shop-message" id="shop-message" role="status" aria-live="polite"></p>
                 <div class="shop-grid" id="shop-grid"></div>
+            </div>
+        </section>
+
+        <section class="inventory-backdrop" id="decorate-panel" lang="en" role="dialog" aria-modal="true" aria-labelledby="decorate-title" aria-label="Decorate" hidden>
+            <div class="inventory-window">
+                <header class="inventory-header">
+                    <div>
+                        <p class="inventory-kicker">PETLOVERY / DECORATE</p>
+                        <h1 id="decorate-title">Decorate the Lobby</h1>
+                        <p class="inventory-subtitle">Pick a background and floor you own to redecorate the waiting room.</p>
+                    </div>
+                    <button class="inventory-close" id="close-decorate" type="button" aria-label="Close decorate">×</button>
+                </header>
+
+                <div class="inventory-toolbar">
+                    <div class="inventory-tabs" role="group" aria-label="Choose decoration slot">
+                        <button class="inventory-tab decorate-tab is-active" type="button" data-decor-slot="background" aria-pressed="true">Background</button>
+                        <button class="inventory-tab decorate-tab" type="button" data-decor-slot="floor" aria-pressed="false">Floor</button>
+                    </div>
+                    <p class="inventory-count" id="decorate-hint" aria-live="polite"></p>
+                </div>
+
+                <div class="inventory-grid" id="decorate-grid"></div>
             </div>
         </section>
     </main>

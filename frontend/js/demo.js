@@ -27,7 +27,8 @@
 		user: { id: 1, coins: 100 },
 		pet: { name: 'UIA', level: 1, exp: 0, happiness: 85, hunger: 30, energy: 70 },
 		inventory: [{ id: 1, quantity: 3 }, { id: 2, quantity: 2 }],
-		progress: []
+		progress: [],
+		decor: { background: null, floor: null }
 	});
 	function validState(saved) {
 		return saved && Number.isSafeInteger(saved.user?.coins) && saved.user.coins >= 0
@@ -43,7 +44,14 @@
 				&& exercises.some((exercise) => exercise.id === entry.exerciseId)
 				&& [0, 100].includes(entry.bestScore) && Number.isSafeInteger(entry.attempts) && entry.attempts > 0
 				&& entry.status === (entry.bestScore === 100 ? 'completed' : 'in_progress'))
-			&& new Set(saved.progress.map((entry) => entry.exerciseId)).size === saved.progress.length;
+			&& new Set(saved.progress.map((entry) => entry.exerciseId)).size === saved.progress.length
+			&& (saved.decor === undefined || saved.decor === null || (typeof saved.decor === 'object'
+				&& ['background', 'floor'].every((slot) => {
+					const value = saved.decor[slot];
+					return value === null || value === undefined
+						|| (catalog.some((entry) => entry.id === value && entry.filter === slot)
+							&& saved.inventory.some((owned) => owned.id === value));
+				})));
 	}
 	let state = initialState();
 	try {
@@ -52,6 +60,7 @@
 	} catch {
 		state = initialState();
 	}
+	state.decor = { background: state.decor?.background ?? null, floor: state.decor?.floor ?? null };
 	function persist(next) {
 		try {
 			localStorage.setItem(storageKey, JSON.stringify(next));
@@ -93,6 +102,20 @@
 				next.pet.level += 1;
 				next.pet.happiness -= 100;
 			}
+			return persist(next);
+		},
+		async equipDecoration(slot, itemId) {
+			if (slot !== 'background' && slot !== 'floor') throw new Error('Unknown decoration slot.');
+			const next = copy(state);
+			if (!next.decor) next.decor = { background: null, floor: null };
+			if (itemId === null || itemId === undefined) {
+				next.decor[slot] = null;
+				return persist(next);
+			}
+			const item = catalog.find((entry) => entry.id === itemId && entry.category === 'decoration' && entry.filter === slot);
+			if (!item) throw new Error('That decoration does not fit here.');
+			if (!state.inventory.some((entry) => entry.id === itemId)) throw new Error('You do not own this decoration yet.');
+			next.decor[slot] = itemId;
 			return persist(next);
 		},
 		async submitExercise(exerciseId, answer) {
