@@ -21,6 +21,18 @@ const shopTabs = document.querySelectorAll('.shop-tab');
 let activeShopFilter = 'all';
 let purchaseDialog = null;
 
+const decoratePanel = document.querySelector('#decorate-panel');
+const decorateGrid = document.querySelector('#decorate-grid');
+const decorateHint = document.querySelector('#decorate-hint');
+const openDecorateButton = document.querySelector('#open-decorate');
+const closeDecorateButton = document.querySelector('#close-decorate');
+const decorateTabs = document.querySelectorAll('.decorate-tab');
+let activeDecorSlot = 'background';
+const equippedDecor = { background: null, floor: null };
+const lobbyScene = document.querySelector('#lobby-scene');
+const lobbyFloor = document.querySelector('#lobby-floor');
+const petGame = document.querySelector('.pet-game');
+
 function updateCoinDisplays() {
 	coinBalance.textContent = coins;
 	shopCoinBalance.textContent = coins;
@@ -370,6 +382,9 @@ document.addEventListener('keydown', (event) => {
 	if (event.key === 'Escape' && !shopPanel.hidden) {
 		closeShop();
 	}
+	if (event.key === 'Escape' && !decoratePanel.hidden) {
+		closeDecorate();
+	}
 });
 
 inventoryTabs.forEach((tab) => {
@@ -405,6 +420,121 @@ shopGrid.addEventListener('click', (event) => {
 		}
 		shopMessage.textContent = '';
 	}
+});
+
+// Áp nền & sàn đang trang bị lên sảnh chờ (khu vực .pet-game).
+function applyLobbyDecor() {
+	if (equippedDecor.background) {
+		lobbyScene.dataset.scene = String(equippedDecor.background);
+		lobbyScene.classList.add('is-active');
+		petGame.classList.add('has-scene');
+	} else {
+		lobbyScene.removeAttribute('data-scene');
+		lobbyScene.classList.remove('is-active');
+		petGame.classList.remove('has-scene');
+	}
+	if (equippedDecor.floor) {
+		lobbyFloor.dataset.floor = String(equippedDecor.floor);
+		lobbyFloor.classList.add('is-active');
+	} else {
+		lobbyFloor.removeAttribute('data-floor');
+		lobbyFloor.classList.remove('is-active');
+	}
+}
+
+function buildDecorCard(item) {
+	const id = item ? item.id : null;
+	const selected = equippedDecor[activeDecorSlot] === id;
+	const card = document.createElement('button');
+	card.type = 'button';
+	card.className = `decorate-card${selected ? ' is-selected' : ''}`;
+	card.setAttribute('aria-pressed', String(selected));
+
+	const art = document.createElement('div');
+	art.className = 'decorate-card-art';
+	if (item) {
+		art.dataset[activeDecorSlot === 'background' ? 'scene' : 'floor'] = String(id);
+	} else {
+		art.classList.add('decorate-card-default');
+	}
+
+	const name = document.createElement('span');
+	name.className = 'decorate-card-name';
+	name.textContent = item ? item.name : 'Default room';
+
+	const status = document.createElement('span');
+	status.className = 'decorate-card-status';
+	status.textContent = selected ? 'In use' : 'Tap to use';
+
+	card.append(art, name, status);
+	card.addEventListener('click', () => chooseDecor(id));
+	return card;
+}
+
+function renderDecorate() {
+	decorateGrid.replaceChildren();
+	const owned = inventory.filter((item) => item.category === 'decoration' && item.filter === activeDecorSlot);
+	decorateHint.textContent = owned.length
+		? `${owned.length} ${activeDecorSlot} item${owned.length > 1 ? 's' : ''} owned`
+		: `No ${activeDecorSlot} items yet`;
+
+	const options = document.createElement('div');
+	options.className = 'decorate-options';
+	options.append(buildDecorCard(null));
+	owned.forEach((item) => options.append(buildDecorCard(item)));
+	decorateGrid.append(options);
+
+	if (owned.length === 0) {
+		const empty = document.createElement('p');
+		empty.className = 'decorate-empty';
+		empty.innerHTML = `<strong>Nothing here yet</strong>Buy a ${activeDecorSlot} in the shop to decorate the lobby.`;
+		decorateGrid.append(empty);
+	}
+}
+
+async function chooseDecor(itemId) {
+	if (!accountReady) return;
+	try {
+		const result = await api.equipDecoration(activeDecorSlot, itemId);
+		applyAccountState(result);
+	} catch (failure) {
+		decorateHint.textContent = failure.message;
+	}
+}
+
+function openDecorate() {
+	if (!accountReady) return;
+	decoratePanel.hidden = false;
+	document.body.classList.add('inventory-open');
+	renderDecorate();
+	closeDecorateButton.focus();
+}
+
+function closeDecorate() {
+	decoratePanel.hidden = true;
+	document.body.classList.remove('inventory-open');
+	openDecorateButton.focus();
+}
+
+openDecorateButton.addEventListener('click', openDecorate);
+closeDecorateButton.addEventListener('click', closeDecorate);
+
+decoratePanel.addEventListener('click', (event) => {
+	if (event.target === decoratePanel) {
+		closeDecorate();
+	}
+});
+
+decorateTabs.forEach((tab) => {
+	tab.addEventListener('click', () => {
+		activeDecorSlot = tab.dataset.decorSlot;
+		decorateTabs.forEach((button) => {
+			const isActive = button === tab;
+			button.classList.toggle('is-active', isActive);
+			button.setAttribute('aria-pressed', String(isActive));
+		});
+		renderDecorate();
+	});
 });
 
 renderInventory();

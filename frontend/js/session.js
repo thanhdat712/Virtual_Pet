@@ -23,11 +23,17 @@ function applyAccountState(state) {
 		});
 	}
 	if (state.progress) accountProgress = state.progress;
+	if (state.decor) {
+		equippedDecor.background = state.decor.background ?? null;
+		equippedDecor.floor = state.decor.floor ?? null;
+	}
 	accountReady = true;
 	updateCoinDisplays();
 	renderInventory();
 	renderShop();
 	renderFood();
+	applyLobbyDecor();
+	renderDecorate();
 }
 
 async function loadAccount() {
