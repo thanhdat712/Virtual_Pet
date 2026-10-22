@@ -1,3 +1,119 @@
+.pet-game .stats-card {
+    top: auto;
+    bottom: 110px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: min(560px, 48%);
+    min-width: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 14px;
+    border-radius: 8px;
+}
+
+.pet-game .stat-line { font-size: 14px; flex-wrap: wrap; }
+.pet-game .meter { height: 12px; }
+.pet-game .quick-actions {
+    left: 50%;
+    right: auto;
+    bottom: 20px;
+    transform: translateX(-50%);
+    width: min(560px, 48%);
+    min-height: 76px;
+    border-radius: 8px;
+}
+.pet-game .quick-actions .action { flex-direction: row; gap: 8px; }
+.pet-game .quick-actions .action span { width: 40px; font-size: 22px; }
+.pet-game .quick-actions .action b { font-size: 13px; letter-spacing: 0; }
+.pet-game .training { width: 210px; bottom: 20px; }
+.pet-game .training-actions { min-height: 130px; border-radius: 8px; padding: 12px; }
+.pet-game .training-row { padding: 0; gap: 10px; }
+.pet-game .round-button { width: 62px; font-size: 28px; }
+.pet-game .study-text, .pet-game .practice-text { font-size: 16px; }
+.pet-game .section-tag { font-size: 12px; top: -20px; border-radius: 4px; }
+.pet-game .pet-stage { top: 48%; left: 50%; pointer-events: auto; cursor: pointer; }
+.pet-game .pet-image { width: 240px; height: 240px; }
+.pet-game .main-actions { top: 36%; width: 90px; height: 112px; border-radius: 8px; }
+.pet-game .main-actions .action span { width: 54px; font-size: 28px; }
+.pet-game .main-actions .action b { font-size: 14px; }
+.food-drawer[hidden] { display: none; }
+.food-drawer {
+    position: absolute;
+    z-index: 5;
+    top: 46%;
+    right: var(--edge);
+    width: 210px;
+    max-height: 45%;
+    overflow-y: auto;
+    padding: 12px;
+    border-radius: 8px;
+}
+.food-drawer header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.food-drawer h2 { margin: 0; font-size: 18px; }
+.food-drawer header button { width: 32px; height: 32px; border: 0; border-radius: 50%; background: var(--rug-yellow); font-size: 24px; }
+#food-list { display: grid; gap: 10px; }
+.food-choice {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px;
+    min-height: 64px;
+    padding: 6px;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    background: var(--wood-primary);
+    box-shadow: 0 3px 0 var(--wood-shadow);
+    color: #352b12;
+    font-size: 13px;
+    touch-action: none;
+    user-select: none;
+}
+.food-choice[aria-pressed="true"] { border-color: #fff; }
+.food-choice img { width: 48px; height: 48px; object-fit: contain; pointer-events: none; }
+.food-choice span { overflow-wrap: anywhere; }
+.food-drag-ghost { position: fixed; z-index: 100; width: 68px; height: 68px; object-fit: contain; transform: translate(-50%, -50%); pointer-events: none; filter: drop-shadow(0 6px 4px #0005); }
+.pet-stage.is-drop-target { filter: drop-shadow(0 0 12px #ffed85); }
+.pet-stage:focus-visible { outline: 3px dashed var(--rug-yellow); border-radius: 50%; }
+.is-eating .pet-image { animation: pet-chew .22s ease-in-out 5; }
+.eating-food { position: absolute; top: 42%; left: 40%; width: 56px; height: 56px; object-fit: contain; pointer-events: none; animation: food-bite 1s ease-out forwards; }
+.feeding-status { position: absolute; z-index: 6; top: 66%; left: 50%; transform: translateX(-50%); max-width: 75%; margin: 0; color: #fff; text-shadow: 0 2px 3px #000; font-size: 16px; text-align: center; pointer-events: none; }
+@keyframes pet-chew { 50% { transform: translateY(-6px) rotate(3deg) scale(1.04, .97); } }
+@keyframes food-bite { 0% { transform: translate(45px, 25px) scale(1); opacity: 1; } 65% { transform: translate(0, -10px) scale(.65); opacity: 1; } 100% { transform: translate(0, -15px) scale(.1); opacity: 0; } }
+@media (max-width: 900px) {
+    .pet-game .training { width: 150px; }
+    .pet-game .round-button { width: 48px; font-size: 22px; }
+    .pet-game .quick-actions .action { flex-direction: column; gap: 3px; }
+    .pet-game .stats-card { width: 50%; padding: 10px; }
+    .pet-game .stat-line { font-size: 12px; }
+    .pet-game .quick-actions { width: 50%; }
+}
+@media (max-width: 600px) {
+    .pet-game .training { left: 8px; bottom: 14px; width: 104px; }
+    .pet-game .training-actions { min-height: 135px; padding: 10px 4px; }
+    .pet-game .training-row { flex-direction: column; align-items: stretch; gap: 12px; }
+    .pet-game .training-item { flex-direction: row; gap: 5px; }
+    .pet-game .round-button { width: 38px; font-size: 18px; }
+    .pet-game .study-text, .pet-game .practice-text { font-size: 11px; }
+    .pet-game .stats-card { bottom: 106px; left: 120px; right: 8px; width: auto; transform: none; gap: 8px; grid-template-columns: 1fr; padding: 8px; }
+    .pet-game .stat-line { flex-wrap: nowrap; font-size: 11px; }
+    .pet-game .meter { height: 8px; }
+    .pet-game .quick-actions { bottom: 14px; left: 120px; right: 8px; width: auto; transform: none; gap: 3px; }
+    .pet-game .quick-actions .action span { width: 34px; font-size: 18px; }
+    .pet-game .quick-actions .action b { font-size: 10px; }
+    .pet-game .main-actions { top: 28%; width: 72px; height: 88px; }
+    .pet-game .main-actions .action span { width: 42px; font-size: 22px; }
+    .pet-game .pet-stage { top: 47%; left: 37%; }
+    .pet-game .pet-image { width: 180px; height: 180px; }
+    .food-drawer { top: 35%; right: 8px; width: 128px; max-height: 32%; padding: 8px; }
+    .food-choice { grid-template-columns: 36px minmax(0, 1fr); font-size: 11px; gap: 4px; }
+    .food-choice img { width: 36px; height: 36px; grid-row: span 2; }
+    .food-choice b { text-align: left; }
+    .feeding-status { top: 61%; font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .is-eating .pet-image { animation: none; }
+    .eating-food { animation-duration: .01s; }
+}
 * {
     box-sizing: border-box;
 }
@@ -47,9 +163,10 @@ button {
 
 .glass-card {
     border: 2px solid rgba(255, 255, 255, .92);
-    background: linear-gradient(145deg, rgba(255, 255, 255, .94), rgba(255, 250, 246, .82));
-    box-shadow: 0 5px 15px rgba(62, 56, 72, .24), inset 0 1px 0 rgba(255, 255, 255, .75);
+    background: linear-gradient(145deg, rgba(82, 177, 199, .98), rgba(58, 146, 166, .96));
+    box-shadow: 0 5px 0 #287487, 0 14px 24px rgba(0, 0, 0, .12), inset 0 2px 0 rgba(255, 255, 255, .28);
     border-radius: var(--panel-radius);
+    color: #fff;
 }
 
 .player-card {
@@ -1691,4 +1808,249 @@ body.inventory-open {
 .purchase-dialog input:focus-visible {
     outline: 3px solid var(--rug-yellow);
     outline-offset: 3px;
+}
+
+.account-button,
+.primary-button {
+    min-height: 38px;
+    padding: 6px 14px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--rug-yellow);
+    box-shadow: 0 3px 0 #bba53f;
+    color: #352b12;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.account-button {
+    margin-top: 6px;
+}
+
+button:disabled {
+    cursor: wait;
+    opacity: .65;
+}
+
+.account-dialog,
+.exercise-dialog {
+    width: min(440px, calc(100% - 24px));
+    max-height: calc(100dvh - 32px);
+    overflow: auto;
+    padding: 24px;
+    border: 2px solid #a2deeb;
+    border-radius: 8px;
+    background: var(--bg-wall);
+    box-shadow: 0 6px 0 #287487, 0 18px 40px #163c5066;
+    color: #fff;
+    font-family: Tahoma, Arial, sans-serif;
+    font-weight: 400;
+}
+
+.account-dialog::backdrop,
+.exercise-dialog::backdrop {
+    background: #163e50aa;
+    backdrop-filter: blur(4px);
+}
+
+.account-dialog h2,
+.exercise-dialog h2 {
+    margin: 0 0 18px;
+    font-size: 24px;
+}
+
+.account-dialog label,
+.exercise-row label {
+    display: block;
+    margin: 14px 0 7px;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.account-dialog input,
+.exercise-row textarea {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 2px solid #a2deeb;
+    border-radius: 6px;
+    background: #fff;
+    color: #222;
+    font: inherit;
+    font-size: 16px;
+}
+
+.exercise-row textarea {
+    resize: vertical;
+    margin-bottom: 12px;
+}
+
+.account-dialog :focus-visible,
+.exercise-dialog :focus-visible {
+    outline: 3px solid var(--rug-yellow);
+    outline-offset: 3px;
+}
+
+.form-message {
+    min-height: 22px;
+    margin: 14px 0;
+    color: #fff2bc;
+    font-size: 14px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.text-button {
+    display: block;
+    margin-top: 16px;
+    padding: 4px 0;
+    border: 0;
+    background: transparent;
+    color: #fff;
+    font-size: 14px;
+    text-decoration: underline;
+}
+
+.exercise-dialog {
+    width: min(760px, calc(100% - 24px));
+}
+
+.exercise-row {
+    padding: 22px 0;
+    border-bottom: 1px dashed #b4e3ed;
+}
+
+.exercise-row h3 {
+    margin: 0;
+    font-size: 19px;
+}
+
+.exercise-row p {
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.exercise-progress {
+    color: #fff2bc;
+    font-size: 13px;
+}
+
+@media (max-width: 600px) {
+    .training {
+        display: block;
+        width: 160px;
+        bottom: 20px;
+    }
+
+    .training-row {
+        gap: 8px;
+        padding: 0;
+    }
+
+    .training-item {
+        gap: 6px;
+    }
+
+    .player-card p {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .account-button {
+        min-height: 30px;
+        padding: 4px 8px;
+        font-size: 12px;
+    }
+
+    .stats-card {
+        top: 115px;
+    }
+
+    .quick-actions {
+        width: 180px;
+        min-width: 0;
+        bottom: 20px;
+    }
+
+    .account-dialog,
+    .exercise-dialog {
+        padding: 18px;
+    }
+}
+
+@media (max-width: 360px) {
+    .training {
+        width: 126px;
+    }
+
+    .quick-actions {
+        width: 164px;
+    }
+
+    .player-card {
+        width: 174px;
+    }
+
+    .currency {
+        width: 118px;
+    }
+}
+
+.player-card,
+.currency-row {
+    border-color: rgba(255, 255, 255, .92);
+}
+
+.player-card p,
+.stat-line b,
+.currency-row > span:not(.coin) {
+    color: #fff;
+}
+
+.stat:nth-child(1) .stat-line span {
+    color: var(--rug-yellow);
+}
+
+.stat:nth-child(2) .stat-line span {
+    color: #a9e5ad;
+}
+
+.stat:nth-child(3) .stat-line span {
+    color: #eafaff;
+}
+
+.main-actions {
+    width: clamp(116px, 9vw, 140px);
+    height: clamp(140px, 18vh, 170px);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+}
+
+.main-actions .action span {
+    width: clamp(62px, 5vw, 78px);
+}
+
+@media (min-width: 601px) and (max-width: 1050px) {
+    .stats-card {
+        top: 150px;
+        left: var(--edge);
+        right: var(--edge);
+        transform: none;
+        width: auto;
+        min-width: 0;
+    }
+}
+
+@media (max-width: 600px) {
+    .main-actions {
+        top: 50%;
+        right: 8px;
+        width: 104px;
+        height: 120px;
+    }
+
+    .main-actions .action span {
+        width: 52px;
+    }
 }

@@ -11,7 +11,7 @@
 <body>
     <main class="pet-game" aria-label="Màn hình chăm sóc thú cưng">
         <section class="player-card glass-card" aria-label="Thông tin thú cưng">
-            <div class="avatar"><img src="assets/pets/cat1.png" alt="PetLovery"></div>
+            <div class="avatar"><img src="assets/pets/meomeo.png" alt="PetLovery"></div>
             <div>
                 <p>Nickname: <strong>PetLovery</strong></p>
                 <p>Level: <strong>15</strong></p>
@@ -19,10 +19,6 @@
         </section>
 
         <section class="stats-card glass-card" aria-label="Chỉ số thú cưng">
-            <div class="stat">
-                <div class="stat-line"><span>♥ Health:</span><b>90%</b></div>
-                <div class="meter green"><i style="width:90%"></i></div>
-            </div>
             <div class="stat">
                 <div class="stat-line"><span>☻ Happiness:</span><b>85%</b></div>
                 <div class="meter yellow"><i style="width:85%"></i></div>
@@ -39,12 +35,7 @@
 
         <section class="currency" aria-label="Tiền tệ">
             <div class="currency-row glass-card"><span class="coin">$</span><span>Coins:</span><b id="coin-balance">100</b></div>
-            <div class="currency-row glass-card"><span class="gem">◆</span><span>Gems:</span><b>Gems</b></div>
         </section>
-
-        <button class="quest-card glass-card" type="button" aria-label="Nhiệm vụ hằng ngày">
-            <span>📜</span><b>Daily<br>Quests</b>
-        </button>
 
         <section class="pet-stage" aria-label="UIA">
             <div class="pet-name">UIA</div>
@@ -68,11 +59,14 @@
         </section>
 
         <nav class="main-actions glass-card" aria-label="Các hành động chính">
-            <button class="action feed" type="button"><span>🥣</span><b>Feed</b></button>
-            <button class="action play" type="button"><span>🎾</span><b>Play</b></button>
-            <button class="action sleep" type="button"><span>🛏</span><b>Sleep</b></button>
-            <button class="action bath" type="button"><span>🛁</span><b>Bath</b></button>
+            <button class="action feed" id="open-food" type="button" aria-expanded="false" aria-controls="food-drawer"><span>🥣</span><b>Food</b></button>
         </nav>
+
+        <aside class="food-drawer glass-card" id="food-drawer" aria-label="Food" hidden>
+            <header><h2>Food</h2><button id="close-food" type="button" aria-label="Close food">&times;</button></header>
+            <div id="food-list"></div>
+        </aside>
+        <p class="feeding-status" id="feeding-status" role="status" aria-live="polite"></p>
 
         <nav class="quick-actions glass-card" aria-label="Điều hướng nhanh">
             <button class="action shop" id="open-shop" type="button" aria-haspopup="dialog" aria-controls="shop-panel"><span>🛒</span><b>Shop</b></button>
@@ -101,7 +95,6 @@
                 </div>
 
                 <div class="inventory-grid" id="inventory-grid"></div>
-                <p class="inventory-note">Preview mode: inventory data is simulated in the browser and is not synced with the C++ backend.</p>
             </div>
         </section>
 
@@ -129,11 +122,20 @@
 
                 <p class="shop-message" id="shop-message" role="status" aria-live="polite"></p>
                 <div class="shop-grid" id="shop-grid"></div>
-                <p class="inventory-note">Preview mode: purchases are simulated in the browser and are not synced with the C++ backend.</p>
             </div>
         </section>
     </main>
+    <dialog class="exercise-dialog" id="exercise-dialog" aria-labelledby="exercise-title">
+        <header class="inventory-header">
+            <h2 id="exercise-title">Study</h2>
+            <button class="inventory-close" id="close-exercises" type="button" aria-label="Close exercises">×</button>
+        </header>
+        <p class="form-message" id="exercise-message" role="status" aria-live="polite"></p>
+        <div id="exercise-list"></div>
+    </dialog>
+    <script src="js/demo.js" defer></script>
     <script src="js/app.js" defer></script>
+    <script src="js/session.js" defer></script>
 </body>
 
 </html>

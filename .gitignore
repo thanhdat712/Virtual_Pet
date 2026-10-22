@@ -3,3 +3,10 @@ build/
 *.obj
 *.o
 .vscode/
+
+# Database runtime files (du lieu cuc bo, khong commit)
+*.db
+*.db-wal
+*.db-shm
+backend/build/token.txt
+!backend/database/virtual_pet.template.db
