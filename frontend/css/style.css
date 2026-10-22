@@ -73,7 +73,7 @@ button {
     z-index: 1;
     opacity: 0;
     background-size: cover;
-    background-position: center;
+    background-position: center bottom;
     box-shadow: inset 0 8px 16px rgba(0, 0, 0, .14);
     transition: opacity .35s ease;
     pointer-events: none;
@@ -81,40 +81,6 @@ button {
 
 .lobby-floor.is-active {
     opacity: 1;
-}
-
-[data-scene="8"] {
-    background-image: linear-gradient(180deg, #8fd3ff 0%, #bfe9ff 42%, #ffe6a8 58%, #f1cd84 100%);
-}
-
-[data-scene="9"] {
-    background-image:
-        radial-gradient(2px 2px at 15% 20%, #fff, transparent),
-        radial-gradient(2px 2px at 35% 12%, #fff, transparent),
-        radial-gradient(1.5px 1.5px at 60% 24%, #fff, transparent),
-        radial-gradient(2px 2px at 80% 16%, #fff, transparent),
-        radial-gradient(1.5px 1.5px at 50% 38%, #fff, transparent),
-        linear-gradient(180deg, #0b1026 0%, #1b2452 70%, #2a3570 100%);
-}
-
-[data-scene="12"] {
-    background-image: linear-gradient(180deg, #cfeecb 0%, #8fd08a 55%, #4f9b5c 100%);
-}
-
-[data-scene="13"] {
-    background-image: linear-gradient(180deg, #141d33 0%, #2d4068 55%, #51345f 100%);
-}
-
-[data-floor="10"] {
-    background-image: repeating-linear-gradient(90deg, #c58f52 0, #c58f52 38px, #b67f43 38px, #b67f43 76px);
-}
-
-[data-floor="11"] {
-    background-image:
-        radial-gradient(circle at 20% 30%, #ffd1e4 0 6px, transparent 7px),
-        radial-gradient(circle at 60% 62%, #ffc3dc 0 6px, transparent 7px),
-        radial-gradient(circle at 85% 35%, #ffd1e4 0 6px, transparent 7px),
-        linear-gradient(180deg, #ff9ec4, #ff87b6);
 }
 
 .glass-card {
@@ -3002,7 +2968,7 @@ textarea {
 }
 
 body * {
-    font-family: "Courier New", monospace !important;
+    font-family: var(--px-font) !important;
 }
 
 .glass-card,
@@ -3511,7 +3477,7 @@ button:active:not(:disabled),
 /* Keep the account screens in the same crisp pixel-art world as the game. */
 .auth-dialog,
 .auth-dialog * {
-    font-family: "Courier New", monospace !important;
+    font-family: var(--px-font) !important;
 }
 
 .auth-dialog {
@@ -3692,4 +3658,114 @@ button:active:not(:disabled),
     transform: translateY(-2px);
     background: #fff2c4;
     filter: brightness(1.08);
+}
+
+.auth-dialog {
+    width: min(1160px, 94vw);
+    max-height: 94dvh;
+    overscroll-behavior: contain;
+}
+
+.auth-dialog[open] {
+    display: grid;
+    grid-template-columns: minmax(320px, .9fr) minmax(0, 1.1fr);
+    overflow: auto;
+}
+
+.auth-art {
+    min-height: min(700px, calc(94dvh - 8px));
+}
+
+@media (max-width: 760px), (max-height: 620px) {
+    .auth-dialog {
+        width: min(640px, 94vw);
+        max-height: 94dvh;
+    }
+
+    .auth-dialog[open] {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .auth-art {
+        min-height: 112px;
+        height: 112px;
+        padding: 14px 18px;
+        border-right: 0;
+        border-bottom: 4px solid #483b31;
+    }
+
+    .auth-brand {
+        font-size: 10px;
+        gap: 7px;
+    }
+
+    .auth-brand span {
+        width: 26px;
+        height: 26px;
+    }
+
+    .auth-art-copy {
+        max-width: calc(100% - 90px);
+        margin-top: 8px;
+    }
+
+    .auth-eyebrow {
+        margin-bottom: 4px;
+        font-size: 8px;
+    }
+
+    .auth-art-copy h2 {
+        font-size: 19px;
+    }
+
+    .auth-art-copy > p:last-child,
+    .auth-art-note {
+        display: none;
+    }
+
+    .auth-pet-frame {
+        right: 16px;
+        bottom: 12px;
+        width: 76px;
+        aspect-ratio: 16 / 10;
+        border-width: 3px;
+        transform: none;
+    }
+
+    .auth-content {
+        padding: 20px clamp(18px, 5vw, 30px) 18px;
+    }
+
+    .auth-content h2 {
+        margin: 6px 0 4px;
+        font-size: clamp(24px, 6vw, 30px);
+    }
+
+    .auth-content .register-subtitle {
+        margin-bottom: 12px;
+        font-size: 12px;
+    }
+
+    .auth-content form label {
+        margin: 9px 0 5px;
+        font-size: 12px;
+    }
+
+    .auth-content form input {
+        min-height: 44px;
+        font-size: 14px;
+    }
+
+    .auth-content .register-submit {
+        min-height: 44px;
+        font-size: 13px;
+    }
+
+    .auth-content .auth-switch {
+        margin-top: 12px;
+    }
+
+    .auth-content .register-footnote {
+        margin-top: 12px;
+    }
 }

@@ -27,15 +27,15 @@
                 <div class="px-bar exp"><i id="exp-fill" style="width:0%"></i></div>
                 <p class="hud-exp-text" id="exp-text">EXP 0 / 100</p>
                 <div class="account-row">
-                    <span id="account-username">Khách</span>
-                    <button class="account-button" id="account-action" type="button">Đăng nhập</button>
+                    <span id="account-username">Guest</span>
+                    <button class="account-button" id="account-action" type="button">Log in</button>
                 </div>
             </div>
         </section>
 
         <section class="px-box hud-weather" aria-label="Thời tiết và giờ">
             <span class="px-icon big" id="hud-weather-icon" data-px="sun"></span>
-            <div><b id="hud-weather-label">Sunny</b><span id="hud-clock">00:00</span></div>
+            <div><b id="hud-weather-label">Sunny</b><span id="hud-clock" aria-label="Current local time">00:00</span></div>
         </section>
 
         <section class="px-box hud-coins" aria-label="Tiền tệ">
@@ -71,7 +71,7 @@
             <img class="pet-image" src="assets/pets/meomeo_mulen.png" alt="UIA, thú cưng của bạn">
         </section>
 
-        <section class="px-box hud-training" aria-label="Huấn luyện">
+        <section class="px-box hud-training" aria-label="Training">
             <header class="px-head"><span class="px-icon" data-px="dumbbell"></span>Training</header>
             <button class="train-row" id="study-btn" type="button">
                 <span class="px-icon big" data-px="book"></span>
@@ -160,6 +160,7 @@
                         <button class="win-close" id="close-decorate" type="button" aria-label="Close decorate">×</button>
                     </header>
                     <div class="win-tabs" role="group" aria-label="Choose decoration slot">
+                        <button class="win-tab" type="button" data-decor-slot="headwear" aria-pressed="false">Headwear</button>
                         <button class="win-tab is-active" type="button" data-decor-slot="background" aria-pressed="true">Background</button>
                         <button class="win-tab" type="button" data-decor-slot="floor" aria-pressed="false">Floor</button>
                     </div>
@@ -172,83 +173,83 @@
         </section>
     </main>
     <dialog class="account-dialog register-dialog auth-dialog" id="login-dialog" aria-labelledby="login-title">
-        <button class="register-close" id="close-login" type="button" aria-label="Đóng đăng nhập">×</button>
-        <section class="auth-art" aria-label="Ngôi nhà của UIA">
+        <button class="register-close" id="close-login" type="button" aria-label="Close sign in">×</button>
+        <section class="auth-art" aria-label="UIA's home">
             <span class="auth-brand"><span aria-hidden="true">✦</span> PETLOVERY</span>
             <div class="auth-art-copy">
-                <p class="auth-eyebrow">NGÔI NHÀ NHỎ ĐANG NHỚ BẠN</p>
-                <h2>Cuộc vui vẫn<br>đang chờ đó!</h2>
-                <p>UIA đã sẵn sàng cho một ngày mới cùng bạn.</p>
+                <p class="auth-eyebrow">YOUR LITTLE HOME MISSES YOU</p>
+                <h2>The fun is still<br>waiting for you!</h2>
+                <p>UIA is ready for a new day with you.</p>
             </div>
             <div class="auth-pet-frame">
                 <img class="auth-pet-art" src="assets/pets/meomeo_mulen_pixel.png" alt="">
             </div>
-            <span class="auth-art-note">Một chiếc ôm từ UIA đang chờ bạn ♡</span>
+            <span class="auth-art-note">A hug from UIA is waiting for you ♡</span>
         </section>
         <section class="auth-content">
-            <p class="register-kicker">RẤT VUI ĐƯỢC GẶP LẠI</p>
-            <h2 id="login-title">Đăng nhập</h2>
-            <p class="register-subtitle">Tiếp tục hành trình chăm sóc người bạn nhỏ.</p>
+            <p class="register-kicker">GREAT TO SEE YOU AGAIN</p>
+            <h2 id="login-title">Log in</h2>
+            <p class="register-subtitle">Continue caring for your little friend.</p>
 
             <form id="login-form">
-                <label for="login-username">Tên người dùng</label>
+                <label for="login-username">Username</label>
                 <input id="login-username" name="username" type="text" minlength="3" maxlength="20"
-                    pattern="[A-Za-z0-9_]{3,20}" autocomplete="username" placeholder="Tên người dùng của bạn" required>
+                    pattern="[A-Za-z0-9_]{3,20}" autocomplete="username" placeholder="Your username" required>
 
-                <label for="login-password">Mật khẩu</label>
+                <label for="login-password">Password</label>
                 <input id="login-password" name="password" type="password" maxlength="128"
-                    autocomplete="current-password" placeholder="Nhập mật khẩu" required>
+                    autocomplete="current-password" placeholder="Enter your password" required>
 
                 <p class="register-message" id="login-message" role="status" aria-live="polite"></p>
                 <button class="register-submit" id="login-submit" type="submit">
-                    <span>Vào nhà thôi</span><span aria-hidden="true">→</span>
+                    <span>Log in</span><span aria-hidden="true">→</span>
                 </button>
             </form>
-            <p class="auth-switch">Chưa có tài khoản? <button class="text-button" id="switch-to-register" type="button">Tạo tài khoản</button></p>
-            <p class="register-footnote"><span aria-hidden="true">🔒</span> Phiên đăng nhập được bảo vệ và tự hết hạn sau 7 ngày.</p>
+            <p class="auth-switch">New here? <button class="text-button" id="switch-to-register" type="button">Create an account</button></p>
+            <p class="register-footnote"><span aria-hidden="true">🔒</span> Your session is protected and expires after 7 days.</p>
         </section>
     </dialog>
     <dialog class="account-dialog register-dialog auth-dialog" id="register-dialog" aria-labelledby="register-title">
-        <button class="register-close" id="close-register" type="button" aria-label="Đóng đăng ký">×</button>
-        <section class="auth-art" aria-label="Thế giới nhỏ của bạn">
+        <button class="register-close" id="close-register" type="button" aria-label="Close registration">×</button>
+        <section class="auth-art" aria-label="Your little world">
             <span class="auth-brand"><span aria-hidden="true">✦</span> PETLOVERY</span>
             <div class="auth-art-copy">
-                <p class="auth-eyebrow">MỘT NGƯỜI BẠN ĐANG ĐỢI</p>
-                <h2>Thêm một chiếc<br>đuôi vào nhà! </h2>
-                <p>Tạo thế giới nhỏ của riêng bạn và cùng UIA lớn lên mỗi ngày.</p>
+                <p class="auth-eyebrow">A LITTLE FRIEND IS WAITING</p>
+                <h2>Add a little friend<br>to your home!</h2>
+                <p>Create your own little world and grow with UIA every day.</p>
             </div>
             <div class="auth-pet-frame">
                 <img class="auth-pet-art" src="assets/pets/meomeo_mulen_pixel.png" alt="">
             </div>
-            <span class="auth-art-note">Chăm sóc một chút, vui cả ngày ♡</span>
+            <span class="auth-art-note">A little care goes a long way ♡</span>
         </section>
         <section class="auth-content">
-            <p class="register-kicker">BẮT ĐẦU THẬT DỄ DÀNG</p>
-            <h2 id="register-title">Tạo tài khoản</h2>
-            <p class="register-subtitle">Ngôi nhà mới và người bạn nhỏ đã sẵn sàng.</p>
+            <p class="register-kicker">GET STARTED IN A FEW STEPS</p>
+            <h2 id="register-title">Create an account</h2>
+            <p class="register-subtitle">Your new home and little friend are ready.</p>
 
             <form id="register-form">
-                <label for="register-username">Tên người dùng</label>
+                <label for="register-username">Username</label>
                 <input id="register-username" name="username" type="text" minlength="3" maxlength="20"
-                    pattern="[A-Za-z0-9_]{3,20}" autocomplete="username" placeholder="Ví dụ: mimi_01"
+                    pattern="[A-Za-z0-9_]{3,20}" autocomplete="username" placeholder="e.g. mimi_01"
                     aria-describedby="username-hint" required>
-                <small class="register-hint" id="username-hint">3–20 ký tự · chữ không dấu, số hoặc dấu gạch dưới</small>
+                <small class="register-hint" id="username-hint">3-20 characters · letters, numbers, or underscores</small>
 
-                <label for="register-password">Mật khẩu</label>
+                <label for="register-password">Password</label>
                 <input id="register-password" name="password" type="password" minlength="8" maxlength="128"
-                    autocomplete="new-password" placeholder="Ít nhất 8 ký tự" required>
+                    autocomplete="new-password" placeholder="At least 8 characters" required>
 
-                <label for="register-confirm-password">Nhập lại mật khẩu</label>
+                <label for="register-confirm-password">Confirm password</label>
                 <input id="register-confirm-password" name="confirmPassword" type="password" minlength="8"
-                    maxlength="128" autocomplete="new-password" placeholder="Nhập lại để xác nhận" required>
+                    maxlength="128" autocomplete="new-password" placeholder="Enter it again to confirm" required>
 
                 <p class="register-message" id="register-message" role="status" aria-live="polite"></p>
                 <button class="register-submit" id="register-submit" type="submit">
-                    <span>Tạo ngôi nhà</span><span aria-hidden="true">→</span>
+                    <span>Create account</span><span aria-hidden="true">→</span>
                 </button>
             </form>
-            <p class="auth-switch">Đã có tài khoản? <button class="text-button" id="switch-to-login" type="button">Đăng nhập</button></p>
-            <p class="register-footnote"><span aria-hidden="true">🔒</span> Mật khẩu được bảo vệ bằng Argon2id, không lưu dạng văn bản.</p>
+            <p class="auth-switch">Already have an account? <button class="text-button" id="switch-to-login" type="button">Log in</button></p>
+            <p class="register-footnote"><span aria-hidden="true">🔒</span> Passwords are securely hashed and never stored in plain text.</p>
         </section>
     </dialog>
     <script src="js/pixel.js" defer></script>
