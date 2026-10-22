@@ -1,154 +1,7 @@
-const shopItems = [
-	{
-		id: 1,
-		name: 'Bread',
-		description: 'A filling snack at a friendly price.',
-		category: 'food',
-		categoryLabel: 'Food',
-		filter: 'food',
-		price: 5,
-		image: 'assets/items/banh_mi.png',
-		icon: '🥖',
-	},
-	{
-		id: 2,
-		name: 'Apple',
-		description: 'A crisp and refreshing fruit.',
-		category: 'food',
-		categoryLabel: 'Food',
-		filter: 'food',
-		price: 8,
-		image: 'assets/items/tao_do.png',
-		icon: '🍎',
-	},
-	{
-		id: 3,
-		name: 'Golden Apple',
-		description: 'A rare apple with a generous boost.',
-		category: 'food',
-		categoryLabel: 'Food',
-		filter: 'food',
-		price: 25,
-		image: 'assets/items/tao_vang.png',
-		icon: '🍏'
-	},
-	{
-		id: 4,
-		name: 'Cream Cake',
-		description: 'A soft, sweet treat that lifts the mood.',
-		category: 'food',
-		categoryLabel: 'Food',
-		filter: 'food',
-		price: 6,
-		image: 'assets/items/banh_kem.png',
-		icon: '🍰'
-	},
-	{
-		id: 5,
-		name: 'Honey',
-		description: 'Naturally sweet and nourishing.',
-		category: 'food',
-		categoryLabel: 'Food',
-		filter: 'food',
-		price: 3,
-		image: 'assets/items/mat_ong.png',
-		icon: '🍯'
-	},
-	{
-		id: 6,
-		name: 'Wool Hat',
-		description: 'A warm knitted hat for your pet.',
-		category: 'decoration',
-		categoryLabel: 'Decoration · Headwear',
-		filter: 'headwear',
-		price: 15,
-		image: 'assets/items/mu_len.png',
-		icon: '🧢'
-	},
-	{
-		id: 7,
-		name: 'Crown',
-		description: 'A royal crown for your pet.',
-		category: 'decoration',
-		categoryLabel: 'Decoration · Headwear',
-		filter: 'headwear',
-		price: 50,
-		image: 'assets/items/vuong_mien.png',
-		icon: '👑'
-	},
-	{
-		id: 8,
-		name: 'Beach Escape',
-		description: 'A sunny shore with clear blue water.',
-		category: 'decoration',
-		categoryLabel: 'Decoration · Background',
-		filter: 'background',
-		price: 20,
-		image: 'assets/items/nen_bai_bien.png',
-		icon: '🏖️'
-	},
-	{
-		id: 9,
-		name: 'Starry Sky',
-		description: 'A calm night sky filled with stars.',
-		category: 'decoration',
-		categoryLabel: 'Decoration · Background',
-		filter: 'background',
-		price: 30,
-		image: 'assets/items/nen_bau_troi.png',
-		icon: '🌌'
-	},
-	{
-		id: 12,
-		name: 'Forest Hideaway',
-		description: 'A peaceful scene among green trees.',
-		category: 'decoration',
-		categoryLabel: 'Decoration · Background',
-		filter: 'background',
-		price: 25,
-		image: 'assets/items/nen_khu_rung.png',
-		icon: '🌳'
-	},
-	{
-		id: 13,
-		name: 'City Lights',
-		description: 'A lively city glowing after dark.',
-		category: 'decoration',
-		categoryLabel: 'Decoration · Background',
-		filter: 'background',
-		price: 35,
-		image: 'assets/items/nen_thanh_pho.png',
-		icon: '🌃'
-	},
-	{
-		id: 10,
-		name: 'Wooden Floor',
-		description: 'A warm wooden floor for a cozy room.',
-		category: 'decoration',
-		categoryLabel: 'Decoration · Floor',
-		filter: 'floor',
-		price: 18,
-		image: 'assets/items/san_go.png',
-		icon: '🪵'
-	},
-	{
-		id: 11,
-		name: 'Flower Rug',
-		description: 'A soft rug with a cheerful floral pattern.',
-		category: 'decoration',
-		categoryLabel: 'Decoration · Floor',
-		filter: 'floor',
-		price: 22,
-		image: 'assets/items/tham_hoa.png',
-		icon: '🌼'
-	}
-];
-
-const startingQuantities = { 1: 1, 2: 1, 5: 1 };
-const inventory = shopItems
-	.filter((item) => startingQuantities[item.id])
-	.map((item) => ({ ...item, quantity: startingQuantities[item.id] }));
-let coins = 100;
+const shopItems = [];
+const inventory = [];
+let coins = 0;
+let accountReady = false;
 
 const inventoryPanel = document.querySelector('#inventory-panel');
 const inventoryGrid = document.querySelector('#inventory-grid');
@@ -404,7 +257,7 @@ function openPurchaseDialog(item) {
 	confirmButton.type = 'button';
 	confirmButton.className = 'purchase-confirm';
 	confirmButton.textContent = 'Confirm purchase';
-	confirmButton.addEventListener('click', () => {
+	confirmButton.addEventListener('click', async () => {
 		const quantity = quantityInput ? Number.parseInt(quantityInput.value, 10) : 1;
 		if (quantityInput && (!Number.isInteger(quantity) || quantity < 1 || quantity > Number(quantityInput.max))) {
 			error.textContent = `Choose a quantity from 1 to ${quantityInput.max}.`;
@@ -417,19 +270,20 @@ function openPurchaseDialog(item) {
 			return;
 		}
 
-		coins -= totalPrice;
-		const ownedItem = inventory.find((inventoryItem) => inventoryItem.id === item.id);
-		if (ownedItem) {
-			ownedItem.quantity += quantity;
-		} else {
-			inventory.push({ ...item, quantity });
+		confirmButton.disabled = true;
+		cancelButton.disabled = true;
+		error.textContent = '';
+		try {
+			const result = await api.buyItem(item.id, quantity);
+			applyAccountState(result);
+			shopMessage.textContent = `${quantity} × ${item.name} added to your inventory.`;
+			closePurchaseDialog();
+		} catch (failure) {
+			error.textContent = failure.message;
+		} finally {
+			confirmButton.disabled = false;
+			cancelButton.disabled = false;
 		}
-
-		shopMessage.textContent = `${quantity} × ${item.name} added to your inventory.`;
-		updateCoinDisplays();
-		renderShop();
-		renderInventory();
-		closePurchaseDialog();
 	});
 	actions.append(cancelButton, confirmButton);
 
@@ -459,6 +313,7 @@ function openPurchaseDialog(item) {
 }
 
 function openInventory() {
+	if (!accountReady) return;
 	inventoryPanel.hidden = false;
 	document.body.classList.add('inventory-open');
 	closeInventoryButton.focus();
@@ -471,6 +326,7 @@ function closeInventory() {
 }
 
 function openShop() {
+	if (!accountReady) return;
 	shopPanel.hidden = false;
 	document.body.classList.add('inventory-open');
 	shopMessage.textContent = '';
