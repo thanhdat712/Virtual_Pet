@@ -92,6 +92,8 @@ The OOP design helps organize the codebase into manageable modules, supports cod
 - Develop teamwork, version control, and software development skills
 - Build a modular application that can be extended in the future
 
+The account/game-data separation, account validation rules, ER diagram, and SQLite migration are documented in [docs/user-data-model.md](docs/user-data-model.md).
+
 ---
 
 *Developed as a collaborative academic project.*

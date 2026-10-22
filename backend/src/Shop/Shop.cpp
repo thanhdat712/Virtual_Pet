@@ -1,7 +1,7 @@
 #include "Shop.h"
 #include "../Item/Food.h"
 #include "../Item/Decoration.h"
-#include "../User/User.h"
+#include "../User/PlayerGameData.h"
 
 Shop::Shop() {
     // --- Món ăn (Food) ---
@@ -77,14 +77,14 @@ std::shared_ptr<Item> Shop::getItemById(int itemId) const {
     return nullptr;
 }
 
-bool Shop::buyItem(User& user, int itemId) {
+bool Shop::buyItem(PlayerData& player, int itemId) {
     std::shared_ptr<Item> item = getItemById(itemId);
     if (!item) {
         return false; // shop khong ban mon nay
     }
-    if (!user.spendCoins(item->getPrice())) {
+    if (!player.spendCoins(item->getPrice())) {
         return false; // khong du xu
     }
-    user.getInventory().addItem(item, 1); // mua thanh cong -> bo vao tui
+    player.getInventory().addItem(item, 1);
     return true;
 }

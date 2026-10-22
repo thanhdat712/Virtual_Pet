@@ -14,7 +14,7 @@
 #include <windows.h> // SetConsoleOutputCP de in tieng Viet co dau khong bi vo font
 #include "Inventory.h"
 #include "Shop.h"   // danh sach mon + buyItem (KAN-45)
-#include "User.h"   // nguoi choi: co xu + tui do (KAN-44)
+#include "PlayerGameData.h"
 #include "Reward.h" // phan thuong: cong xu + item (KAN-45)
 // In toan bo cac o dang co trong tui.
 static void inTui(const Inventory& tui) {
@@ -42,7 +42,7 @@ int main() {
     SetConsoleOutputCP(CP_UTF8); // bao console hieu chuoi UTF-8 -> tieng Viet co dau hien dung
 
     Shop shop;                       // Shop tu bay san 13 mon (do an + do trang tri)
-    User nguoiChoi(1, "Ban", 100);   // nguoi choi co san 100 xu de mua do (KAN-44)
+    PlayerData nguoiChoi(1, "Ban", 100);
     std::vector<std::shared_ptr<Item>> catalog = shop.getItemsForSale();
 
     std::cout << "=== TEST TAY: USER + INVENTORY + SHOP + REWARD (KAN 41-45) ===\n";
