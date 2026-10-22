@@ -1,5 +1,5 @@
 #include "Reward.h"
-#include "../User/PlayerGameData.h"
+#include "../User/User.h"
 
 Reward::Reward(int coins) : coins(coins) {}
 
@@ -15,9 +15,9 @@ const std::vector<std::shared_ptr<Item>>& Reward::getItems() const {
     return items;
 }
 
-void Reward::grantTo(PlayerData& player) const {
-    player.addCoins(coins);
+void Reward::grantTo(User& user) const {
+    user.addCoins(coins);
     for (const auto& item : items) {
-        player.getInventory().addItem(item, 1);
+        user.getInventory().addItem(item, 1); // moi item thuong them 1 cai vao tui
     }
 }

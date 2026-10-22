@@ -48,8 +48,8 @@ GameStatus Game::getStatus() const {
     return gameState.getStatus();
 }
 
-PlayerData& Game::getPlayer() { return gameState.getPlayer(); }
-const PlayerData& Game::getPlayer() const { return gameState.getPlayer(); }
+User& Game::getPlayer() { return gameState.getPlayer(); }
+const User& Game::getPlayer() const { return gameState.getPlayer(); }
 Pet& Game::getPet() { return gameState.getPet(); }
 const Pet& Game::getPet() const { return gameState.getPet(); }
 Shop& Game::getShop() { return gameState.getShop(); }

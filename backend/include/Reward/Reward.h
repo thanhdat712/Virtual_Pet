@@ -5,7 +5,7 @@
 #include <memory>
 #include "../Item/Item.h"
 
-class PlayerData;
+class User; // khai bao truoc, tranh include vong (User <-> Reward)
 
 // Phan thuong nguoi choi nhan duoc (vi du sau khi hoan thanh bai tap / nhiem vu).
 // Gom mot so xu va (tuy chon) cac item kem theo.
@@ -23,7 +23,7 @@ public:
     const std::vector<std::shared_ptr<Item>>& getItems() const;
 
     // Trao phan thuong cho nguoi choi: cong xu + bo item vao tui do (noi Reward -> Inventory)
-    void grantTo(PlayerData& player) const;
+    void grantTo(User& user) const;
 };
 
 #endif

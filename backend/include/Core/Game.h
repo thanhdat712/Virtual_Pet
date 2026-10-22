@@ -2,7 +2,6 @@
 #define GAME_H
 
 #include "GameState.h"
-#include "PlayerGameData.h"
 
 class Game {
 private:
@@ -20,8 +19,8 @@ public:
     GameStatus getStatus() const;
 
     // Truy cập các đối tượng của ván game (dùng cho KAN-37/38 và tầng API)
-    PlayerData& getPlayer();
-    const PlayerData& getPlayer() const;
+    User& getPlayer();
+    const User& getPlayer() const;
     Pet& getPet();
     const Pet& getPet() const;
     Shop& getShop();

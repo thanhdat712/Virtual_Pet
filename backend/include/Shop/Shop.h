@@ -6,7 +6,7 @@
 #include "../Item/Item.h"
 #include "../Item/Decoration.h" // can DecorationSlot de loc do trang tri theo khu (hat/background/floor)
 
-class PlayerData;
+class User; // khai bao truoc: mua hang can tru xu + them vao tui do cua User
 
 class Shop {
 private:
@@ -25,7 +25,7 @@ public:
 
     // Nguoi choi mua 1 mon theo id: tru xu va bo vao tui do (noi Shop -> Inventory).
     // Tra ve false neu khong tim thay mon hoac khong du xu.
-    bool buyItem(PlayerData& player, int itemId);
+    bool buyItem(User& user, int itemId);
 };
 
 #endif

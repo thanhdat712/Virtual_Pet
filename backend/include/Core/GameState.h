@@ -4,7 +4,7 @@
 #include <memory>
 
 // Khai báo trước để header nhẹ, tránh include vòng
-class PlayerData;
+class User;
 class Pet;
 class Shop;
 
@@ -21,7 +21,7 @@ enum class GameStatus {
 class GameState {
 private:
     GameStatus status;
-    std::unique_ptr<PlayerData> player;
+    std::unique_ptr<User> player;
     std::unique_ptr<Pet> pet;
     std::unique_ptr<Shop> shop;
 
@@ -39,8 +39,8 @@ public:
     GameStatus getStatus() const;
     void setStatus(GameStatus newStatus);
 
-    PlayerData& getPlayer();
-    const PlayerData& getPlayer() const;
+    User& getPlayer();
+    const User& getPlayer() const;
     Pet& getPet();
     const Pet& getPet() const;
     Shop& getShop();
