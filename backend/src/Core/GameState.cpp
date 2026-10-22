@@ -1,6 +1,7 @@
 #include "GameState.h"
 #include "User.h"
 #include "Pet.h"
+#include "Cat.h"
 #include "Shop.h"
 
 namespace {
@@ -22,7 +23,8 @@ GameState::~GameState() = default;
 void GameState::initialize() {
     // Dựng đủ ba đối tượng vào biến tạm trước, nếu có lỗi giữa chừng thì trạng thái cũ không bị hỏng
     auto newPlayer = std::make_unique<User>(DEFAULT_PLAYER_ID, DEFAULT_PLAYER_NAME, STARTING_COINS);
-    auto newPet = std::make_unique<Pet>(DEFAULT_PET_ID, DEFAULT_PET_NAME);
+    auto newPet = std::make_shared<Cat>(DEFAULT_PET_ID, DEFAULT_PET_NAME);
+    newPlayer->setPet(newPet);
     auto newShop = std::make_unique<Shop>();
 
     player = std::move(newPlayer);

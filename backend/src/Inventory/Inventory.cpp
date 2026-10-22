@@ -1,60 +1,49 @@
-#include "Inventory.h"
+#include "GameState.h"
+#include "User.h"
+#include "Pet.h"
+#include "Cat.h"
+#include "Shop.h"
 
-Inventory::Inventory() {}
+namespace {
+constexpr int DEFAULT_PLAYER_ID = 1;
+constexpr const char* DEFAULT_PLAYER_NAME = "Player";
+constexpr int STARTING_COINS = 100;
 
-int Inventory::findSlotIndex(int itemId) const {
-    for (size_t i = 0; i < slots.size(); i++) {
-        if (slots[i].item->getId() == itemId) {
-            return static_cast<int>(i);
-        }
-    }
-    return -1;
+constexpr int DEFAULT_PET_ID = 1;
+constexpr const char* DEFAULT_PET_NAME = "Mimi";
 }
 
-void Inventory::addItem(std::shared_ptr<Item> item, int quantity) {
-    int index = findSlotIndex(item->getId());
-
-    // Do trang tri khong cong don: moi mon chi so huu toi da 1 cai (co = 1, chua co = 0).
-    if (item->getType() == ItemType::DECORATION) {
-        if (index == -1) {
-            slots.push_back({item, 1}); // chua co -> them dung 1 cai
-        }
-        return; // da co roi -> giu nguyen, bo qua so luong truyen vao
-    }
-
-    if (index != -1) {
-        slots[index].quantity += quantity;
-    } else {
-        slots.push_back({item, quantity});
-    }
+GameState::GameState()
+    : status(GameStatus::NOT_STARTED) {
+    initialize();
 }
 
-bool Inventory::removeItem(int itemId, int quantity) {
-    int index = findSlotIndex(itemId);
-    if (index == -1 || slots[index].quantity < quantity) {
-        return false;
-    }
+GameState::~GameState() = default;
 
-    slots[index].quantity -= quantity;
-    if (slots[index].quantity == 0) {
-        slots.erase(slots.begin() + index);
-    }
-    return true;
+void GameState::initialize() {
+    // Dựng đủ ba đối tượng vào biến tạm trước, nếu có lỗi giữa chừng thì trạng thái cũ không bị hỏng
+    auto newPlayer = std::make_unique<User>(DEFAULT_PLAYER_ID, DEFAULT_PLAYER_NAME, STARTING_COINS);
+    auto newPet = std::make_shared<Cat>(DEFAULT_PET_ID, DEFAULT_PET_NAME);
+    newPlayer->setPet(newPet);
+    auto newShop = std::make_unique<Shop>();
+
+    player = std::move(newPlayer);
+    pet = std::move(newPet);
+    shop = std::move(newShop);
+    status = GameStatus::NOT_STARTED;
 }
 
-int Inventory::getQuantity(int itemId) const {
-    int index = findSlotIndex(itemId);
-    return index == -1 ? 0 : slots[index].quantity;
+GameStatus GameState::getStatus() const {
+    return status;
 }
 
-bool Inventory::hasItem(int itemId) const {
-    return findSlotIndex(itemId) != -1;
+void GameState::setStatus(GameStatus newStatus) {
+    status = newStatus;
 }
 
-bool Inventory::isEmpty() const {
-    return slots.empty();
-}
-
-const std::vector<InventorySlot>& Inventory::getSlots() const {
-    return slots;
-}
+User& GameState::getPlayer() { return *player; }
+const User& GameState::getPlayer() const { return *player; }
+Pet& GameState::getPet() { return *pet; }
+const Pet& GameState::getPet() const { return *pet; }
+Shop& GameState::getShop() { return *shop; }
+const Shop& GameState::getShop() const { return *shop; }

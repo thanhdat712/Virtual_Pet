@@ -22,7 +22,7 @@ class GameState {
 private:
     GameStatus status;
     std::unique_ptr<User> player;
-    std::unique_ptr<Pet> pet;
+    std::shared_ptr<Pet> pet;
     std::unique_ptr<Shop> shop;
 
 public:
