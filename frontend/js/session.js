@@ -2,6 +2,7 @@ const exerciseDialog = document.querySelector('#exercise-dialog');
 const exerciseMessage = document.querySelector('#exercise-message');
 const exerciseList = document.querySelector('#exercise-list');
 let accountProgress = [];
+let petLevel = 0;
 
 function applyAccountState(state) {
 	coins = state.user.coins;
@@ -14,6 +15,7 @@ function applyAccountState(state) {
 		const profile = document.querySelectorAll('.player-card p strong');
 		profile[0].textContent = state.pet.name;
 		profile[1].textContent = state.pet.level;
+		petLevel = state.pet.level;
 		['happiness', 'hunger', 'energy'].forEach((name, index) => {
 			const stat = document.querySelectorAll('.stat')[index];
 			stat.querySelector('b').textContent = `${state.pet[name]}%`;
@@ -189,7 +191,9 @@ async function feedFood(item) {
 	feedingStatus.textContent = '';
 	renderFood();
 	try {
-		applyAccountState(await api.feedPet(item.id));
+		const previousLevel = petLevel;
+		const fed = await api.feedPet(item.id);
+		applyAccountState(fed);
 		petStage.classList.remove('is-eating');
 		void petStage.offsetWidth;
 		petStage.classList.add('is-eating');
@@ -199,7 +203,9 @@ async function feedFood(item) {
 		bite.className = 'eating-food';
 		petStage.append(bite);
 		bite.addEventListener('animationend', () => bite.remove(), { once: true });
-		feedingStatus.textContent = `${item.name} eaten!`;
+		feedingStatus.textContent = fed.pet.level > previousLevel
+			? `${item.name} eaten! Level up! UIA is now level ${fed.pet.level}`
+			: `${item.name} eaten!`;
 	} catch (failure) {
 		feedingStatus.textContent = reportFailure(failure);
 	} finally {

@@ -88,7 +88,11 @@
 			next.inventory.find((entry) => entry.id === itemId).quantity -= 1;
 			next.inventory = next.inventory.filter((entry) => entry.quantity > 0);
 			next.pet.hunger = Math.min(100, next.pet.hunger + item.hungerRestore);
-			next.pet.happiness = Math.min(100, next.pet.happiness + item.happinessRestore);
+			next.pet.happiness += item.happinessRestore;
+			while (next.pet.happiness >= 100) {
+				next.pet.level += 1;
+				next.pet.happiness -= 100;
+			}
 			return persist(next);
 		},
 		async submitExercise(exerciseId, answer) {
