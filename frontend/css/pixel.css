@@ -226,20 +226,21 @@ img { image-rendering: pixelated; }
 }
 
 .hud-weather {
-    top: calc(var(--edge) + var(--u) * 11.6);
+    top: calc(var(--edge) + var(--u) * 13.8);
     left: calc(var(--edge) + var(--px));
-    padding: calc(var(--u) * .8) calc(var(--u) * 1.2);
+    padding: calc(var(--u) * .55) calc(var(--u) * .85);
     display: flex;
     align-items: center;
-    gap: calc(var(--u) * 1);
+    gap: calc(var(--u) * .7);
 }
 
 .hud-weather div { display: grid; line-height: 1.1; }
-.hud-weather b { font-size: calc(var(--u) * 1.6); }
-.hud-weather span:not(.px-icon) { font-size: calc(var(--u) * 1.6); }
+.hud-weather .px-icon.big { width: calc(var(--u) * 2.8); height: calc(var(--u) * 2.8); }
+.hud-weather b { font-size: calc(var(--u) * 1.35); }
+.hud-weather span:not(.px-icon) { font-size: calc(var(--u) * 1.2); }
 
 .hud-coins {
-    top: calc(var(--edge) + var(--u) * 18.4);
+    top: calc(var(--edge) + var(--u) * 19.2);
     left: calc(var(--edge) + var(--px));
     width: calc(var(--u) * 14);
     padding: calc(var(--u) * .8) calc(var(--u) * 1.2);

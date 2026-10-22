@@ -27,15 +27,15 @@ function openDialog(dialog, input, message) {
 function setSignedInUser(user) {
 	signedInUser = user;
 	accountUsername.textContent = user.username;
-	accountAction.textContent = 'Đăng xuất';
-	accountAction.setAttribute('aria-label', `Đăng xuất tài khoản ${user.username}`);
+	accountAction.textContent = 'Log out';
+	accountAction.setAttribute('aria-label', `Log out of account ${user.username}`);
 }
 
 function setSignedOut() {
 	signedInUser = null;
-	accountUsername.textContent = 'PetLovery';
-	accountAction.textContent = 'Đăng nhập';
-	accountAction.setAttribute('aria-label', 'Đăng nhập');
+	accountUsername.textContent = 'Guest';
+	accountAction.textContent = 'Log in';
+	accountAction.setAttribute('aria-label', 'Log in');
 }
 
 document.querySelector('#close-login').addEventListener('click', () => loginDialog.close());
@@ -61,14 +61,14 @@ accountAction.addEventListener('click', async () => {
 		const result = await response.json();
 		if (!response.ok) {
 			openDialog(loginDialog, document.querySelector('#login-username'), loginMessage);
-			showMessage(loginMessage, result.message || 'Chưa thể đăng xuất lúc này. Vui lòng thử lại.');
+			showMessage(loginMessage, result.message || 'Unable to log out right now. Please try again.');
 			return;
 		}
 		setSignedOut();
 	} catch (error) {
 		console.error('Could not contact the server to log out:', error);
 		openDialog(loginDialog, document.querySelector('#login-username'), loginMessage);
-		showMessage(loginMessage, 'Không kết nối được máy chủ để đăng xuất. Vui lòng thử lại.');
+		showMessage(loginMessage, 'Could not connect to the server to log out. Please try again.');
 	} finally {
 		accountAction.disabled = false;
 	}
@@ -78,7 +78,7 @@ loginForm.addEventListener('submit', async (event) => {
 	event.preventDefault();
 	showMessage(loginMessage, '');
 	loginSubmit.disabled = true;
-	loginSubmit.querySelector('span').textContent = 'Đang đăng nhập…';
+	loginSubmit.querySelector('span').textContent = 'Signing in...';
 
 	const formData = new FormData(loginForm);
 	const username = String(formData.get('username') ?? '').trim();
@@ -93,7 +93,7 @@ loginForm.addEventListener('submit', async (event) => {
 		const result = await response.json();
 
 		if (!response.ok) {
-			showMessage(loginMessage, result.message || 'Chưa thể đăng nhập. Vui lòng thử lại.');
+			showMessage(loginMessage, result.message || 'Unable to sign in. Please try again.');
 			return;
 		}
 
@@ -101,10 +101,10 @@ loginForm.addEventListener('submit', async (event) => {
 		loginForm.reset();
 		loginDialog.close();
 	} catch {
-		showMessage(loginMessage, 'Không kết nối được máy chủ. Hãy mở game qua máy chủ Virtual Pet rồi thử lại.');
+		showMessage(loginMessage, 'Could not connect to the server. Open Virtual Pet through its server and try again.');
 	} finally {
 		loginSubmit.disabled = false;
-		loginSubmit.querySelector('span').textContent = 'Đăng nhập';
+		loginSubmit.querySelector('span').textContent = 'Log in';
 	}
 });
 
@@ -118,20 +118,20 @@ registerForm.addEventListener('submit', async (event) => {
 	const confirmation = String(formData.get('confirmPassword') ?? '');
 
 	if (password !== confirmation) {
-		showMessage(registerMessage, 'Hai lần nhập mật khẩu chưa khớp.');
+		showMessage(registerMessage, 'The passwords do not match.');
 		document.querySelector('#register-confirm-password').focus();
 		return;
 	}
 
 	if (Array.from(password).length < 8) {
-		showMessage(registerMessage, 'Mật khẩu cần có ít nhất 8 ký tự.');
+		showMessage(registerMessage, 'Password must be at least 8 characters long.');
 		document.querySelector('#register-password').focus();
 		return;
 	}
 
 	registerSubmit.disabled = true;
-	registerSubmit.querySelector('span').textContent = 'Đang tạo tài khoản…';
-	showMessage(registerMessage, 'Đang chuẩn bị ngôi nhà nhỏ cho bạn…');
+	registerSubmit.querySelector('span').textContent = 'Creating account...';
+	showMessage(registerMessage, 'Preparing your new home...');
 
 	try {
 		const response = await fetch('/api/auth/register', {
@@ -142,17 +142,17 @@ registerForm.addEventListener('submit', async (event) => {
 		const result = await response.json();
 
 		if (!response.ok) {
-			showMessage(registerMessage, result.message || 'Chưa thể tạo tài khoản. Vui lòng thử lại.');
+			showMessage(registerMessage, result.message || 'Unable to create your account. Please try again.');
 			return;
 		}
 
-		showMessage(registerMessage, `Chào mừng ${result.user.username}! Hãy đăng nhập để bắt đầu.`, true);
+		showMessage(registerMessage, `Welcome, ${result.user.username}! Sign in to get started.`, true);
 		registerForm.reset();
 	} catch {
-		showMessage(registerMessage, 'Không kết nối được máy chủ. Hãy mở game qua máy chủ Virtual Pet rồi thử lại.');
+		showMessage(registerMessage, 'Could not connect to the server. Open Virtual Pet through its server and try again.');
 	} finally {
 		registerSubmit.disabled = false;
-		registerSubmit.querySelector('span').textContent = 'Tạo tài khoản';
+		registerSubmit.querySelector('span').textContent = 'Create account';
 	}
 });
 

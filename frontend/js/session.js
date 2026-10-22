@@ -24,6 +24,7 @@ function applyAccountState(state) {
 	if (state.decor) {
 		equippedDecor.background = state.decor.background ?? null;
 		equippedDecor.floor = state.decor.floor ?? null;
+		equippedDecor.headwear = state.decor.headwear ?? null;
 	}
 	accountReady = true;
 	updateCoinDisplays();
