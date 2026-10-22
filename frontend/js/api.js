@@ -60,7 +60,7 @@ const api = {
 		return data;
 	},
 
-	// Lấy tài khoản + pet + tiến độ bài tập của người đang đăng nhập.
+	// Lấy tài khoản + pet của người đang đăng nhập.
 	me() {
 		return request('GET', '/api/me');
 	},
@@ -70,10 +70,6 @@ const api = {
 		return request('PUT', '/api/pet', petState);
 	},
 
-	// Danh sách bài tập (công khai).
-	listExercises() {
-		return request('GET', '/api/exercises');
-	},
 	listShop() {
 		return request('GET', '/api/shop');
 	},
@@ -83,10 +79,8 @@ const api = {
 	feedPet(itemId) {
 		return request('POST', '/api/pet/feed', { itemId });
 	},
-
-	// Gui dap an; backend cham diem va luu tien do theo tai khoan.
-	submitExercise(exerciseId, answer) {
-		return request('POST', `/api/exercises/${exerciseId}/submissions`, { answer });
+	sleepPet() {
+		return request('POST', '/api/pet/sleep');
 	}
 };
 

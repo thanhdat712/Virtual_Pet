@@ -1,7 +1,3 @@
-const exerciseDialog = document.querySelector('#exercise-dialog');
-const exerciseMessage = document.querySelector('#exercise-message');
-const exerciseList = document.querySelector('#exercise-list');
-let accountProgress = [];
 let petLevel = 0;
 
 function applyAccountState(state) {
@@ -12,17 +8,19 @@ function applyAccountState(state) {
 		})));
 	}
 	if (state.pet) {
-		const profile = document.querySelectorAll('.player-card p strong');
-		profile[0].textContent = state.pet.name;
-		profile[1].textContent = state.pet.level;
+		document.querySelector('#pet-name').textContent = state.pet.name;
+		document.querySelector('#pet-level').textContent = state.pet.level;
 		petLevel = state.pet.level;
-		['happiness', 'hunger', 'energy'].forEach((name, index) => {
-			const stat = document.querySelectorAll('.stat')[index];
-			stat.querySelector('b').textContent = `${state.pet[name]}%`;
-			stat.querySelector('.meter i').style.width = `${state.pet[name]}%`;
+		const exp = state.pet.exp ?? state.pet.experience ?? 0;
+		const expMax = state.pet.level * 100;
+		document.querySelector('#exp-text').textContent = `EXP ${exp} / ${expMax}`;
+		document.querySelector('#exp-fill').style.width = `${Math.min(100, exp / expMax * 100)}%`;
+		['happiness', 'hunger', 'energy'].forEach((name) => {
+			const stat = document.querySelector(`[data-stat="${name}"]`);
+			stat.querySelector('.hud-stat-value').textContent = `${state.pet[name]} / 100`;
+			stat.querySelector('.px-bar i').style.width = `${state.pet[name]}%`;
 		});
 	}
-	if (state.progress) accountProgress = state.progress;
 	if (state.decor) {
 		equippedDecor.background = state.decor.background ?? null;
 		equippedDecor.floor = state.decor.floor ?? null;
@@ -46,72 +44,7 @@ function reportFailure(failure) {
 	return failure.message || 'Unable to update the demo.';
 }
 
-async function openExercises(mode) {
-	if (!accountReady) return;
-	document.querySelector('#exercise-title').textContent = mode;
-	exerciseList.replaceChildren();
-	exerciseMessage.textContent = 'Loading...';
-	if (!exerciseDialog.open) exerciseDialog.showModal();
-	try {
-		const exercises = await api.listExercises();
-		exerciseMessage.textContent = '';
-		exercises.forEach((exercise) => {
-			const form = document.createElement('form');
-			form.className = 'exercise-row';
-			const heading = document.createElement('h3');
-			heading.textContent = exercise.title;
-			const description = document.createElement('p');
-			description.textContent = exercise.description;
-			const progress = document.createElement('p');
-			progress.className = 'exercise-progress';
-			const updateProgress = () => {
-				const saved = accountProgress.find((entry) => entry.exerciseId === exercise.id);
-				progress.textContent = saved ? `${saved.status === 'completed' ? 'Completed' : 'In progress'} · Best: ${saved.bestScore}/${exercise.maxScore} · Attempts: ${saved.attempts}` : 'Not started';
-			};
-			updateProgress();
-			const label = document.createElement('label');
-			label.htmlFor = `answer-${exercise.id}`;
-			label.textContent = 'Your answer';
-			const answer = document.createElement('textarea');
-			answer.id = label.htmlFor;
-			answer.maxLength = 2048;
-			answer.rows = 2;
-			answer.required = true;
-			const submit = document.createElement('button');
-			submit.className = 'primary-button';
-			submit.type = 'submit';
-			submit.textContent = 'Check answer';
-			const result = document.createElement('p');
-			result.className = 'form-message';
-			result.setAttribute('role', 'status');
-			form.addEventListener('submit', async (event) => {
-				event.preventDefault();
-				submit.disabled = true;
-				result.textContent = 'Checking...';
-				try {
-					const graded = await api.submitExercise(exercise.id, answer.value);
-					accountProgress = accountProgress.filter((entry) => entry.exerciseId !== exercise.id);
-					accountProgress.push(graded.progress);
-					updateProgress();
-					result.textContent = graded.score === 100 ? 'Correct! 100/100' : 'Not correct yet. 0/100';
-				} catch (failure) {
-					result.textContent = reportFailure(failure);
-				} finally {
-					submit.disabled = false;
-				}
-			});
-			form.append(heading, description, progress, label, answer, submit, result);
-			exerciseList.append(form);
-		});
-	} catch (failure) {
-		exerciseMessage.textContent = reportFailure(failure);
-	}
-}
-
-document.querySelector('.round-button.exercise').addEventListener('click', () => openExercises('Study'));
-document.querySelector('.round-button.practice').addEventListener('click', () => openExercises('Practice'));
-document.querySelector('#close-exercises').addEventListener('click', () => exerciseDialog.close());
-document.querySelector('.action.feed').addEventListener('click', () => {
+document.querySelector('#open-food').addEventListener('click', () => {
 	if (!accountReady) return;
 	const drawer = document.querySelector('#food-drawer');
 	drawer.hidden = !drawer.hidden;
@@ -226,6 +159,20 @@ petStage.addEventListener('keydown', (event) => {
 	if (event.key === 'Enter' || event.key === ' ') {
 		event.preventDefault();
 		feedFood(inventory.find((item) => item.id === selectedFood));
+	}
+});
+
+document.querySelector('#sleep-pet').addEventListener('click', async (event) => {
+	if (!accountReady) return;
+	const button = event.currentTarget;
+	button.disabled = true;
+	try {
+		applyAccountState(await api.sleepPet());
+		feedingStatus.textContent = 'UIA took a nap and feels rested!';
+	} catch (failure) {
+		feedingStatus.textContent = reportFailure(failure);
+	} finally {
+		button.disabled = false;
 	}
 });
 

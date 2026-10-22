@@ -1784,8 +1784,7 @@ button:disabled {
     opacity: .65;
 }
 
-.account-dialog,
-.exercise-dialog {
+.account-dialog {
     width: min(440px, calc(100% - 24px));
     max-height: calc(100dvh - 32px);
     overflow: auto;
@@ -1799,28 +1798,24 @@ button:disabled {
     font-weight: 400;
 }
 
-.account-dialog::backdrop,
-.exercise-dialog::backdrop {
+.account-dialog::backdrop {
     background: #163e50aa;
     backdrop-filter: blur(4px);
 }
 
-.account-dialog h2,
-.exercise-dialog h2 {
+.account-dialog h2 {
     margin: 0 0 18px;
     font-size: 24px;
 }
 
-.account-dialog label,
-.exercise-row label {
+.account-dialog label {
     display: block;
     margin: 14px 0 7px;
     font-size: 14px;
     font-weight: 700;
 }
 
-.account-dialog input,
-.exercise-row textarea {
+.account-dialog input {
     display: block;
     width: 100%;
     min-height: 44px;
@@ -1833,13 +1828,7 @@ button:disabled {
     font-size: 16px;
 }
 
-.exercise-row textarea {
-    resize: vertical;
-    margin-bottom: 12px;
-}
-
-.account-dialog :focus-visible,
-.exercise-dialog :focus-visible {
+.account-dialog :focus-visible {
     outline: 3px solid var(--rug-yellow);
     outline-offset: 3px;
 }
@@ -1862,30 +1851,6 @@ button:disabled {
     color: #fff;
     font-size: 14px;
     text-decoration: underline;
-}
-
-.exercise-dialog {
-    width: min(760px, calc(100% - 24px));
-}
-
-.exercise-row {
-    padding: 22px 0;
-    border-bottom: 1px dashed #b4e3ed;
-}
-
-.exercise-row h3 {
-    margin: 0;
-    font-size: 19px;
-}
-
-.exercise-row p {
-    line-height: 1.5;
-    overflow-wrap: anywhere;
-}
-
-.exercise-progress {
-    color: #fff2bc;
-    font-size: 13px;
 }
 
 @media (max-width: 600px) {
@@ -2315,79 +2280,4 @@ main.pet-game {
     .pet-game .round-button {
         width: calc(var(--u) * 5.4);
     }
-}
-
-.decorate-options {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 16px;
-    width: 100%;
-}
-
-.decorate-card {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 10px;
-    border: 2px solid rgba(255, 255, 255, .55);
-    border-radius: 16px;
-    background: rgba(255, 255, 255, .12);
-    color: #fff;
-    text-align: center;
-    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-}
-
-.decorate-card:hover {
-    transform: translateY(-3px);
-    border-color: rgba(255, 255, 255, .9);
-}
-
-.decorate-card.is-selected {
-    border-color: var(--rug-yellow);
-    box-shadow: 0 0 0 3px rgba(248, 213, 83, .55);
-}
-
-.decorate-card-art {
-    height: 92px;
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, .5);
-    background-size: cover;
-    background-position: center;
-}
-
-.decorate-card-default {
-    background: #efd0a9 url('../assets/backgrounds/room1.png') center / cover no-repeat;
-}
-
-.decorate-card-name {
-    font-size: 15px;
-    font-weight: 900;
-}
-
-.decorate-card-status {
-    font-size: 12px;
-    font-weight: 700;
-    color: #eafaff;
-}
-
-.decorate-card.is-selected .decorate-card-status {
-    color: var(--rug-yellow);
-}
-
-.decorate-empty {
-    margin: 18px 0 0;
-    padding: 24px 16px;
-    text-align: center;
-    color: #eafaff;
-    font-size: 14px;
-    font-weight: 700;
-}
-
-.decorate-empty strong {
-    display: block;
-    margin-bottom: 6px;
-    color: var(--rug-yellow);
-    font-family: Tahoma, Arial, sans-serif;
-    font-size: 20px;
-    font-weight: 900;
 }

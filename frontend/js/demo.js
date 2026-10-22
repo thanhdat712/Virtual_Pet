@@ -15,19 +15,11 @@
 		{ id: 10, name: 'Wooden Floor', description: 'A warm wooden floor for a cozy room.', category: 'decoration', categoryLabel: 'Decoration \u00b7 Floor', filter: 'floor', price: 18, image: 'assets/items/san_go.png', icon: '\ud83e\udeb5' },
 		{ id: 11, name: 'Flower Rug', description: 'A soft rug with a cheerful floral pattern.', category: 'decoration', categoryLabel: 'Decoration \u00b7 Floor', filter: 'floor', price: 22, image: 'assets/items/tham_hoa.png', icon: '\ud83c\udf3c' }
 	];
-	const exercises = [
-		{ id: 1, title: 'Hello World', description: 'Return exactly Hello World! (case sensitive).', answer: 'Hello World!' },
-		{ id: 2, title: 'Addition', description: 'Compute 7 + 5. Return the integer result.', answer: '12' },
-		{ id: 3, title: 'Parity', description: 'Is 14 even or odd? Return exactly even (lowercase).', answer: 'even' },
-		{ id: 4, title: 'Maximum', description: 'Find the maximum of 3 9 2 7. Return the integer result.', answer: '9' },
-		{ id: 5, title: 'Sorting', description: 'Sort 5 1 4 2 3 ascending. Return space-separated integers.', answer: '1 2 3 4 5' }
-	];
 	const copy = (value) => JSON.parse(JSON.stringify(value));
 	const initialState = () => ({
 		user: { id: 1, coins: 100 },
 		pet: { name: 'UIA', level: 1, exp: 0, happiness: 85, hunger: 30, energy: 70 },
 		inventory: [{ id: 1, quantity: 3 }, { id: 2, quantity: 2 }],
-		progress: [],
 		decor: { background: null, floor: null }
 	});
 	function validState(saved) {
@@ -40,11 +32,6 @@
 				const item = catalog.find((entry) => entry.id === owned?.id);
 				return item && Number.isSafeInteger(owned.quantity) && owned.quantity > 0 && (item.category === 'food' || owned.quantity === 1);
 			}) && new Set(saved.inventory.map((owned) => owned.id)).size === saved.inventory.length
-			&& Array.isArray(saved.progress) && saved.progress.every((entry) => entry
-				&& exercises.some((exercise) => exercise.id === entry.exerciseId)
-				&& [0, 100].includes(entry.bestScore) && Number.isSafeInteger(entry.attempts) && entry.attempts > 0
-				&& entry.status === (entry.bestScore === 100 ? 'completed' : 'in_progress'))
-			&& new Set(saved.progress.map((entry) => entry.exerciseId)).size === saved.progress.length
 			&& (saved.decor === undefined || saved.decor === null || (typeof saved.decor === 'object'
 				&& ['background', 'floor'].every((slot) => {
 					const value = saved.decor[slot];
@@ -74,9 +61,6 @@
 	window.api = {
 		async me() { return copy(state); },
 		async listShop() { return copy(catalog); },
-		async listExercises() {
-			return exercises.map(({ answer, ...exercise }) => ({ ...exercise, difficulty: 'easy', maxScore: 100 }));
-		},
 		async buyItem(itemId, quantity) {
 			const item = catalog.find((entry) => entry.id === itemId);
 			if (!item) throw new Error('Item not found.');
@@ -104,6 +88,12 @@
 			}
 			return persist(next);
 		},
+		async sleepPet() {
+			if (state.pet.energy >= 100) throw new Error('UIA is not sleepy right now.');
+			const next = copy(state);
+			next.pet.energy = Math.min(100, next.pet.energy + 40);
+			return persist(next);
+		},
 		async equipDecoration(slot, itemId) {
 			if (slot !== 'background' && slot !== 'floor') throw new Error('Unknown decoration slot.');
 			const next = copy(state);
@@ -117,26 +107,6 @@
 			if (!state.inventory.some((entry) => entry.id === itemId)) throw new Error('You do not own this decoration yet.');
 			next.decor[slot] = itemId;
 			return persist(next);
-		},
-		async submitExercise(exerciseId, answer) {
-			const exercise = exercises.find((entry) => entry.id === exerciseId);
-			if (!exercise) throw new Error('Exercise not found.');
-			if (typeof answer !== 'string' || !answer.trim() || answer.length > 2048) throw new Error('Enter an answer of up to 2048 characters.');
-			const score = answer.trim().replace(/\s+/g, ' ') === exercise.answer ? 100 : 0;
-			const next = copy(state);
-			let progress = next.progress.find((entry) => entry.exerciseId === exerciseId);
-			if (!progress) {
-				progress = { exerciseId, status: 'in_progress', bestScore: 0, attempts: 0, completedAt: '' };
-				next.progress.push(progress);
-			}
-			progress.attempts += 1;
-			progress.bestScore = Math.max(progress.bestScore, score);
-			if (score === 100) {
-				progress.status = 'completed';
-				if (!progress.completedAt) progress.completedAt = new Date().toISOString();
-			}
-			persist(next);
-			return { score, progress: copy(progress) };
 		}
 	};
 })();
