@@ -38,8 +38,8 @@
         </section>
 
         <section class="currency" aria-label="Tiền tệ">
-            <div class="currency-row glass-card"><span class="coin">$</span><span>Coins:</span><b>VND</b></div>
-            <div class="currency-row glass-card"><span class="gem">◆</span><span>Gems:</span><b>D</b></div>
+            <div class="currency-row glass-card"><span class="coin">$</span><span>Coins:</span><b id="coin-balance">100</b></div>
+            <div class="currency-row glass-card"><span class="gem">◆</span><span>Gems:</span><b>Gems</b></div>
         </section>
 
         <button class="quest-card glass-card" type="button" aria-label="Nhiệm vụ hằng ngày">
@@ -75,11 +75,65 @@
         </nav>
 
         <nav class="quick-actions glass-card" aria-label="Điều hướng nhanh">
-            <button class="action shop" type="button"><span>🛒</span><b>Shop</b></button>
-            <button class="action inventory" type="button"><span>🎒</span><b>Inventory</b></button>
+            <button class="action shop" id="open-shop" type="button" aria-haspopup="dialog" aria-controls="shop-panel"><span>🛒</span><b>Shop</b></button>
+            <button class="action inventory" id="open-inventory" type="button" aria-haspopup="dialog" aria-controls="inventory-panel"><span>🎒</span><b>Inventory</b></button>
             <button class="action decorate" type="button"><span>🖌</span><b>Decorate</b></button>
         </nav>
+
+        <section class="inventory-backdrop" id="inventory-panel" lang="en" role="dialog" aria-modal="true" aria-labelledby="inventory-title" aria-label="Inventory" hidden>
+            <div class="inventory-window">
+                <header class="inventory-header">
+                    <div>
+                        <p class="inventory-kicker">PETLOVERY / INVENTORY</p>
+                        <h1 id="inventory-title">UIA's Inventory</h1>
+                        <p class="inventory-subtitle">Snacks for later and little treasures for a cozy room.</p>
+                    </div>
+                    <button class="inventory-close" id="close-inventory" type="button" aria-label="Close inventory">×</button>
+                </header>
+
+                <div class="inventory-toolbar">
+                    <div class="inventory-tabs" role="group" aria-label="Filter inventory items">
+                        <button class="inventory-tab is-active" type="button" data-filter="all" aria-pressed="true">All</button>
+                        <button class="inventory-tab" type="button" data-filter="food" aria-pressed="false">Food</button>
+                        <button class="inventory-tab" type="button" data-filter="decoration" aria-pressed="false">Decorations</button>
+                    </div>
+                    <p class="inventory-count" id="inventory-count" aria-live="polite"></p>
+                </div>
+
+                <div class="inventory-grid" id="inventory-grid"></div>
+                <p class="inventory-note">Preview mode: inventory data is simulated in the browser and is not synced with the C++ backend.</p>
+            </div>
+        </section>
+
+        <section class="inventory-backdrop" id="shop-panel" lang="en" role="dialog" aria-modal="true" aria-labelledby="shop-title" aria-label="Shop" hidden>
+            <div class="inventory-window shop-window">
+                <header class="inventory-header">
+                    <div>
+                        <p class="inventory-kicker">PETLOVERY / ITEM SHOP</p>
+                        <h1 id="shop-title">Little Paws Market</h1>
+                        <p class="inventory-subtitle">A few lovely things for your pet and its room.</p>
+                    </div>
+                    <button class="inventory-close" id="close-shop" type="button" aria-label="Close shop">×</button>
+                </header>
+
+                <div class="shop-toolbar">
+                    <div class="shop-tabs" role="group" aria-label="Filter shop items">
+                        <button class="shop-tab is-active" type="button" data-shop-filter="all" aria-pressed="true">All</button>
+                        <button class="shop-tab" type="button" data-shop-filter="food" aria-pressed="false">Food</button>
+                        <button class="shop-tab" type="button" data-shop-filter="headwear" aria-pressed="false">Headwear</button>
+                        <button class="shop-tab" type="button" data-shop-filter="background" aria-pressed="false">Backgrounds</button>
+                        <button class="shop-tab" type="button" data-shop-filter="floor" aria-pressed="false">Floors</button>
+                    </div>
+                    <p class="shop-coins">Your coins: <strong id="shop-coin-balance">100</strong></p>
+                </div>
+
+                <p class="shop-message" id="shop-message" role="status" aria-live="polite"></p>
+                <div class="shop-grid" id="shop-grid"></div>
+                <p class="inventory-note">Preview mode: purchases are simulated in the browser and are not synced with the C++ backend.</p>
+            </div>
+        </section>
     </main>
+    <script src="js/app.js" defer></script>
 </body>
 
 </html>

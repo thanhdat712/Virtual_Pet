@@ -16,11 +16,10 @@
 #include "Shop.h"   // danh sach mon + buyItem (KAN-45)
 #include "User.h"   // nguoi choi: co xu + tui do (KAN-44)
 #include "Reward.h" // phan thuong: cong xu + item (KAN-45)
-
 // In toan bo cac o dang co trong tui.
 static void inTui(const Inventory& tui) {
     if (tui.isEmpty()) {
-        std::cout << "  (Tui dang rong)\n";
+        cout << "  (Tui dang rong)\n";
         return;
     }
     std::cout << "  Tui dang co:\n";
