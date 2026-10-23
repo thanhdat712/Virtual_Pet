@@ -13,6 +13,7 @@
 #include <random>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -241,9 +242,16 @@ void AuthService::initializeSchema() {
 }
 
 RegisterResult AuthService::registerUser(std::string username, std::string password) {
+    return registerUser(std::move(username), {}, std::move(password));
+}
+
+RegisterResult AuthService::registerUser(std::string username, std::string email, std::string password) {
     PasswordWiper passwordWiper(password);
     if (!User::isValidUsername(username)) {
         return {RegisterStatus::INVALID_USERNAME, 0};
+    }
+    if (email.size() > 254) {
+        return {RegisterStatus::INVALID_EMAIL, 0};
     }
     if (!User::isValidPassword(password)) {
         return {RegisterStatus::INVALID_PASSWORD, 0};
@@ -261,6 +269,14 @@ RegisterResult AuthService::registerUser(std::string username, std::string passw
             }
             if (lookupStatus != SQLITE_DONE) {
                 return {RegisterStatus::DATABASE_ERROR, 0, sqlite3_errmsg(database)};
+            }
+            if (!email.empty()) {
+                Statement existingEmail(database,
+                    "SELECT 1 FROM users WHERE email = ? COLLATE NOCASE AND deleted_at IS NULL LIMIT 1;");
+                sqlite3_bind_text(existingEmail.get(), 1, email.c_str(), -1, SQLITE_TRANSIENT);
+                const int emailStatus = sqlite3_step(existingEmail.get());
+                if (emailStatus == SQLITE_ROW) return {RegisterStatus::EMAIL_TAKEN, 0};
+                if (emailStatus != SQLITE_DONE) return {RegisterStatus::DATABASE_ERROR, 0, sqlite3_errmsg(database)};
             }
         } catch (const std::exception& error) {
             return {RegisterStatus::DATABASE_ERROR, 0, error.what()};
@@ -306,10 +322,12 @@ RegisterResult AuthService::registerUser(std::string username, std::string passw
 
     try {
         Statement insertUser(database,
-            "INSERT INTO users (username, password_salt, password_hash) VALUES (?, ?, ?);");
+            "INSERT INTO users (username, email, password_salt, password_hash) VALUES (?, ?, ?, ?);");
         sqlite3_bind_text(insertUser.get(), 1, username.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(insertUser.get(), 2, saltHex.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(insertUser.get(), 3, encodedHash.c_str(), -1, SQLITE_TRANSIENT);
+        if (email.empty()) sqlite3_bind_null(insertUser.get(), 2);
+        else sqlite3_bind_text(insertUser.get(), 2, email.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(insertUser.get(), 3, saltHex.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(insertUser.get(), 4, encodedHash.c_str(), -1, SQLITE_TRANSIENT);
         if (sqlite3_step(insertUser.get()) != SQLITE_DONE) {
             const int error = sqlite3_extended_errcode(database);
             const std::string detail = sqlite3_errmsg(database);
@@ -363,8 +381,16 @@ RegisterResult AuthService::registerUser(std::string username, std::string passw
 }
 
 LoginResult AuthService::login(std::string username, std::string password) {
+    return loginWithIdentity(std::move(username), std::move(password), false);
+}
+
+LoginResult AuthService::loginByEmail(std::string email, std::string password) {
+    return loginWithIdentity(std::move(email), std::move(password), true);
+}
+
+LoginResult AuthService::loginWithIdentity(std::string username, std::string password, bool useEmail) {
     PasswordWiper passwordWiper(password);
-    if (username.size() > 256 || password.size() > 512) {
+    if (username.empty() || username.size() > (useEmail ? 254u : 256u) || password.size() > 512) {
         return {LoginStatus::INVALID_CREDENTIALS};
     }
 
@@ -393,9 +419,10 @@ LoginResult AuthService::login(std::string username, std::string password) {
         std::string canonicalUsername;
         std::string storedHash;
         {
-            Statement user(database,
-                "SELECT id, username, password_hash FROM users "
-                "WHERE username = ? COLLATE NOCASE AND deleted_at IS NULL LIMIT 1;");
+            const std::string userQuery = std::string("SELECT id, username, password_hash FROM users WHERE ")
+                + (useEmail ? "email" : "username")
+                + " = ? COLLATE NOCASE AND deleted_at IS NULL LIMIT 1;";
+            Statement user(database, userQuery.c_str());
             sqlite3_bind_text(user.get(), 1, username.c_str(), -1, SQLITE_TRANSIENT);
             const int userStatus = sqlite3_step(user.get());
             if (userStatus != SQLITE_ROW && userStatus != SQLITE_DONE) {
@@ -450,7 +477,7 @@ LoginResult AuthService::login(std::string username, std::string password) {
         }
 
         if (!userExists || !passwordMatches) {
-            if (!User::isValidUsername(username)) {
+            if (!useEmail && !User::isValidUsername(username)) {
                 return {LoginStatus::INVALID_CREDENTIALS};
             }
             if (lockedUntil > 0) {

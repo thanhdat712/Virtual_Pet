@@ -10,7 +10,9 @@ struct sqlite3;
 enum class RegisterStatus {
     SUCCESS,
     USERNAME_TAKEN,
+    EMAIL_TAKEN,
     INVALID_USERNAME,
+    INVALID_EMAIL,
     INVALID_PASSWORD,
     DATABASE_ERROR,
     HASH_ERROR
@@ -57,6 +59,7 @@ private:
     std::mutex databaseMutex;
 
     void initializeSchema();
+    LoginResult loginWithIdentity(std::string identity, std::string password, bool useEmail);
 
 public:
     explicit AuthService(const std::string& databasePath);
@@ -66,7 +69,9 @@ public:
     AuthService& operator=(const AuthService&) = delete;
 
     RegisterResult registerUser(std::string username, std::string password);
+    RegisterResult registerUser(std::string username, std::string email, std::string password);
     LoginResult login(std::string username, std::string password);
+    LoginResult loginByEmail(std::string email, std::string password);
     SessionResult currentSession(const std::string& sessionToken);
     LogoutStatus logout(const std::string& sessionToken, std::string* detail = nullptr);
 };

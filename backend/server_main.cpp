@@ -67,22 +67,34 @@ std::string sessionCookie(const httplib::Request& request) {
     return {};
 }
 
-bool parseCredentials(const httplib::Request& request, std::string& username, std::string& password) {
-    if (!acceptsJson(request)) {
-        return false;
-    }
+bool parseRegistrationCredentials(const httplib::Request& request, std::string& username,
+                                  std::string& email, std::string& password) {
+    if (!acceptsJson(request)) return false;
     try {
         const nlohmann::json payload = nlohmann::json::parse(request.body);
         if (!payload.is_object()
-            || !payload.contains("username")
-            || !payload["username"].is_string()
-            || !payload.contains("password")
-            || !payload["password"].is_string()) {
-            return false;
-        }
+            || !payload.contains("username") || !payload["username"].is_string()
+            || !payload.contains("email") || !payload["email"].is_string()
+            || !payload.contains("password") || !payload["password"].is_string()) return false;
         username = payload["username"].get<std::string>();
+        email = payload["email"].get<std::string>();
         password = payload["password"].get<std::string>();
-        return true;
+        return !email.empty();
+    } catch (const nlohmann::json::exception&) {
+        return false;
+    }
+}
+
+bool parseEmailCredentials(const httplib::Request& request, std::string& email, std::string& password) {
+    if (!acceptsJson(request)) return false;
+    try {
+        const nlohmann::json payload = nlohmann::json::parse(request.body);
+        if (!payload.is_object()
+            || !payload.contains("email") || !payload["email"].is_string()
+            || !payload.contains("password") || !payload["password"].is_string()) return false;
+        email = payload["email"].get<std::string>();
+        password = payload["password"].get<std::string>();
+        return !email.empty();
     } catch (const nlohmann::json::exception&) {
         return false;
     }
@@ -123,15 +135,16 @@ int main(int argc, char* argv[]) {
 
             std::string username;
             std::string password;
-            if (!parseCredentials(request, username, password)) {
+            std::string email;
+            if (!parseRegistrationCredentials(request, username, email, password)) {
                 response.status = 400;
                 response.set_content(
-                    R"({"success":false,"code":"invalid_request","message":"Cần nhập tên người dùng và mật khẩu."})",
+                    R"({"success":false,"code":"invalid_request","message":"Enter username, email, and password."})",
                     "application/json; charset=utf-8");
                 return;
             }
 
-            const RegisterResult result = authService.registerUser(username, std::move(password));
+            const RegisterResult result = authService.registerUser(username, std::move(email), std::move(password));
 
             nlohmann::json body;
             switch (result.status) {
@@ -152,12 +165,28 @@ int main(int argc, char* argv[]) {
                         {"message", "Tên người dùng này đã được sử dụng."}
                     };
                     break;
+                case RegisterStatus::EMAIL_TAKEN:
+                    response.status = 409;
+                    body = {
+                        {"success", false},
+                        {"code", "email_taken"},
+                        {"message", "This email is already registered."}
+                    };
+                    break;
                 case RegisterStatus::INVALID_USERNAME:
                     response.status = 400;
                     body = {
                         {"success", false},
                         {"code", "invalid_username"},
                         {"message", "Tên người dùng cần có 3–20 ký tự: chữ cái không dấu, số hoặc dấu gạch dưới."}
+                    };
+                    break;
+                case RegisterStatus::INVALID_EMAIL:
+                    response.status = 400;
+                    body = {
+                        {"success", false},
+                        {"code", "invalid_email"},
+                        {"message", "Enter an email address no longer than 254 characters."}
                     };
                     break;
                 case RegisterStatus::INVALID_PASSWORD:
@@ -192,7 +221,7 @@ int main(int argc, char* argv[]) {
         });
 
         server.Post("/api/auth/login", [&authService](const httplib::Request& request, httplib::Response& response) {
-            std::string username;
+            std::string email;
             std::string password;
             if (!acceptsJson(request)) {
                 setJson(response, 415, {
@@ -202,16 +231,16 @@ int main(int argc, char* argv[]) {
                 });
                 return;
             }
-            if (!parseCredentials(request, username, password)) {
+            if (!parseEmailCredentials(request, email, password)) {
                 setJson(response, 400, {
                     {"success", false},
                     {"code", "invalid_request"},
-                    {"message", "Cần nhập tên người dùng và mật khẩu."}
+                    {"message", "Enter your email and password."}
                 });
                 return;
             }
 
-            const LoginResult result = authService.login(std::move(username), std::move(password));
+            const LoginResult result = authService.loginByEmail(std::move(email), std::move(password));
             if (result.status == LoginStatus::SUCCESS) {
                 response.set_header(
                     "Set-Cookie",

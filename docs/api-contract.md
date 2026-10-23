@@ -107,11 +107,12 @@ Max-Age=604800`. Production additionally requires `Secure` over HTTPS.
 Creates an account and its initial game data. Body:
 
 ```json
-{ "username": "player_01", "password": "at-least-8-characters" }
+{ "username": "player_01", "email": "player@example.com", "password": "at-least-8-characters" }
 ```
 
 `username` is 3–20 ASCII letters, digits, or underscores and is unique
-case-insensitively. `password` has at least 8 Unicode characters.
+case-insensitively. `email` is required and unique case-insensitively.
+`password` has at least 8 Unicode characters.
 
 Success: `201`
 
@@ -124,12 +125,13 @@ Success: `201`
 }
 ```
 
-Errors: `400 INVALID_USERNAME`, `400 INVALID_PASSWORD`, `409 USERNAME_TAKEN`,
-or `500 REGISTRATION_FAILED`.
+Errors: `400 INVALID_USERNAME`, `400 INVALID_EMAIL`, `400 INVALID_PASSWORD`,
+`409 USERNAME_TAKEN`, `409 EMAIL_TAKEN`, or `500 REGISTRATION_FAILED`.
 
 ### `POST /auth/login`
 
-Body is identical to registration. On success (`200`), sets `vp_session` and
+Body: `{ "email": "player@example.com", "password": "at-least-8-characters" }`.
+On success (`200`), sets `vp_session` and
 returns:
 
 ```json
@@ -137,7 +139,7 @@ returns:
 ```
 
 Errors: `400 INVALID_ARGUMENT`, `401 INVALID_CREDENTIALS`, `429 RATE_LIMITED`,
-or `500 LOGIN_FAILED`. Never reveal whether the username exists.
+or `500 LOGIN_FAILED`. Never reveal whether the email exists.
 
 ### `GET /auth/session`
 
