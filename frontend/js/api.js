@@ -45,7 +45,7 @@ async function request(method, path, body) {
 	return data;
 }
 
-const api = {
+const authApi = {
 	auth,
 
 	async register(email, password) {
@@ -69,6 +69,9 @@ const api = {
 	savePet(petState) {
 		return request('PUT', '/api/pet', petState);
 	},
+	choosePet(species) {
+		return request('PUT', '/api/pet/species', { species });
+	},
 
 	listShop() {
 		return request('GET', '/api/shop');
@@ -84,4 +87,4 @@ const api = {
 	}
 };
 
-window.api = api;
+window.authApi = authApi;

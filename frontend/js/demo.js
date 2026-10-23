@@ -1,5 +1,5 @@
 (() => {
-	const storageKey = 'virtual-pet-demo-v1';
+	const storageKey = 'virtual-pet-guest-v1';
 	const catalog = [
 		{ id: 1, name: 'Bread', description: 'A filling snack at a friendly price.', category: 'food', categoryLabel: 'Food', filter: 'food', price: 5, hungerRestore: 30, happinessRestore: 0, image: 'assets/items/banh_mi.png', icon: '\ud83e\udd56' },
 		{ id: 2, name: 'Apple', description: 'A crisp and refreshing fruit.', category: 'food', categoryLabel: 'Food', filter: 'food', price: 8, hungerRestore: 20, happinessRestore: 5, image: 'assets/items/tao_do.png', icon: '\ud83c\udf4e' },
@@ -18,7 +18,7 @@
 	const copy = (value) => JSON.parse(JSON.stringify(value));
 	const initialState = () => ({
 		user: { id: 1, coins: 100 },
-		pet: { name: 'UIA', level: 1, exp: 0, happiness: 85, hunger: 30, energy: 70 },
+		pet: { name: 'UIA', species: 'cat', level: 1, exp: 0, happiness: 85, hunger: 30, energy: 70 },
 		inventory: [{ id: 1, quantity: 3 }, { id: 2, quantity: 2 }],
 		decor: { background: null, floor: null }
 	});
@@ -48,6 +48,7 @@
 		state = initialState();
 	}
 	state.decor = { background: state.decor?.background ?? null, floor: state.decor?.floor ?? null };
+	state.pet.species = state.pet.species === 'dog' ? 'dog' : 'cat';
 	function persist(next) {
 		try {
 			localStorage.setItem(storageKey, JSON.stringify(next));
@@ -60,6 +61,19 @@
 	persist(state);
 	window.api = {
 		async me() { return copy(state); },
+		async savePet(petState) {
+			const name = typeof petState?.name === 'string' ? petState.name.trim() : '';
+			if (!name || new TextEncoder().encode(name).length > 80) throw new Error('Pet name must be 1 to 80 UTF-8 bytes.');
+			const next = copy(state);
+			next.pet.name = name;
+			return persist(next);
+		},
+		async choosePet(species) {
+			if (species !== 'cat' && species !== 'dog') throw new Error('Choose a valid pet.');
+			const next = copy(state);
+			next.pet.species = species;
+			return persist(next);
+		},
 		async listShop() { return copy(catalog); },
 		async buyItem(itemId, quantity) {
 			const item = catalog.find((entry) => entry.id === itemId);

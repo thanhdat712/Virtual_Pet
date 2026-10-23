@@ -47,7 +47,7 @@ Value userJson(const UserRow& user) {
 }
 
 Value petJson(const PetRow& pet) {
-    return {{"name",pet.name},{"level",pet.level},{"experience",pet.experience},
+    return {{"name",pet.name},{"species",pet.species},{"level",pet.level},{"experience",pet.experience},
         {"happiness",pet.happiness},{"hunger",pet.hunger},{"energy",pet.energy}};
 }
 
@@ -180,6 +180,15 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
         if (fields.size() != 1 || !fields.count("name")) return error(400,"Only name may be updated");
         auto name = stringField(fields,"name",80);
         if (!db.renamePet(userId,name)) return error(404,"Pet not found");
+        UserRow user; PetRow pet; db.getUserById(userId,user); db.getPet(userId,pet);
+        return response(200,{{"user",userJson(user)},{"pet",petJson(pet)}});
+    }
+    if (request.method == "PUT" && request.path == "/api/pet/species") {
+        auto fields = json::object(request.body);
+        if (fields.size() != 1 || !fields.count("species")) return error(400,"Only species may be updated");
+        auto species = stringField(fields,"species",8);
+        if (species != "cat" && species != "dog") return error(400,"Species must be cat or dog");
+        if (!db.setPetSpecies(userId,species)) return error(404,"Pet not found");
         UserRow user; PetRow pet; db.getUserById(userId,user); db.getPet(userId,pet);
         return response(200,{{"user",userJson(user)},{"pet",petJson(pet)}});
     }

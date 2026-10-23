@@ -70,6 +70,7 @@ Invalid itemId or nonfood -> 400, unknown item -> 404, unowned/depleted food
 Only the authenticated user's inventory and pet change; coins are unchanged.
 
 PUT /api/pet {name} -> 200 {user,pet}. Only name is accepted (1..80 UTF-8 bytes).
+PUT /api/pet/species {species} -> 200 {user,pet}. species is "cat" or "dog".
 Any coins, level, experience, happiness, hunger or energy field causes 400
 and no update; mixed name/stat requests are also rejected.
 

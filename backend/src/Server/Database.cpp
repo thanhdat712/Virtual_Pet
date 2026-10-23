@@ -104,7 +104,7 @@ bool Database::runSchema() {
             "created_at TEXT NOT NULL DEFAULT (datetime('now')),last_login_at TEXT);"
             "CREATE TABLE IF NOT EXISTS pets (user_id INTEGER PRIMARY KEY REFERENCES users(id),name TEXT NOT NULL DEFAULT 'UIA',"
             "level INTEGER NOT NULL DEFAULT 1,experience INTEGER NOT NULL DEFAULT 0,happiness INTEGER NOT NULL DEFAULT 85,"
-            "hunger INTEGER NOT NULL DEFAULT 30,energy INTEGER NOT NULL DEFAULT 70);"
+            "hunger INTEGER NOT NULL DEFAULT 30,energy INTEGER NOT NULL DEFAULT 70,species TEXT NOT NULL DEFAULT 'cat');"
             "CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id),"
             "created_at TEXT NOT NULL DEFAULT (datetime('now')),expires_at INTEGER NOT NULL);"
             "CREATE TABLE IF NOT EXISTS exercises (id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,"
@@ -127,6 +127,8 @@ bool Database::runSchema() {
             execute(db_, "ALTER TABLE sessions ADD COLUMN expires_at INTEGER NOT NULL DEFAULT 0;");
         if (!hasColumn(db_, "submissions", "answer"))
             execute(db_, "ALTER TABLE submissions ADD COLUMN answer TEXT NOT NULL DEFAULT '';");
+        if (!hasColumn(db_, "pets", "species"))
+            execute(db_, "ALTER TABLE pets ADD COLUMN species TEXT NOT NULL DEFAULT 'cat';");
         execute(db_, "DELETE FROM sessions WHERE expires_at<=CAST(strftime('%s','now') AS INTEGER);");
         transaction.commit();
         return true;
@@ -219,16 +221,23 @@ bool Database::getUserById(long long userId, UserRow& user) {
 }
 
 bool Database::getPet(long long userId, PetRow& pet) {
-    Statement statement(db_, "SELECT user_id,name,level,experience,happiness,hunger,energy FROM pets WHERE user_id=?;");
+    Statement statement(db_, "SELECT user_id,name,level,experience,happiness,hunger,energy,species FROM pets WHERE user_id=?;");
     statement.bind(1,userId); if (!statement.row()) return false;
     pet.userId = statement.number(0); pet.name = statement.text(1); pet.level = static_cast<int>(statement.number(2));
     pet.experience = static_cast<int>(statement.number(3)); pet.happiness = static_cast<int>(statement.number(4));
-    pet.hunger = static_cast<int>(statement.number(5)); pet.energy = static_cast<int>(statement.number(6)); return true;
+    pet.hunger = static_cast<int>(statement.number(5)); pet.energy = static_cast<int>(statement.number(6));
+    pet.species = statement.text(7); return true;
 }
 
 bool Database::renamePet(long long userId, const std::string& name) {
     Statement statement(db_, "UPDATE pets SET name=? WHERE user_id=?;");
     statement.bind(1,name); statement.bind(2,userId); statement.done(); return sqlite3_changes(db_) == 1;
+}
+
+bool Database::setPetSpecies(long long userId, const std::string& species) {
+    if (species != "cat" && species != "dog") return false;
+    Statement statement(db_, "UPDATE pets SET species=? WHERE user_id=?;");
+    statement.bind(1,species); statement.bind(2,userId); statement.done(); return sqlite3_changes(db_) == 1;
 }
 
 std::vector<InventoryRow> Database::listInventory(long long userId) {

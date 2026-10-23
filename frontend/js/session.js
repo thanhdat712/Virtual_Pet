@@ -9,6 +9,12 @@ function applyAccountState(state) {
 	}
 	if (state.pet) {
 		document.querySelector('#pet-name').textContent = state.pet.name;
+		document.querySelector('.pet-stage .pet-name').textContent = state.pet.name;
+		const species = state.pet.species === 'dog' ? 'dog' : 'cat';
+		const petImage = species === 'dog' ? 'assets/pets/gaugau.png' : 'assets/pets/meomeo.png';
+		document.querySelector('.pet-stage .pet-image').src = petImage;
+		document.querySelector('.pet-stage .pet-image').alt = `${species === 'dog' ? 'Dog' : 'Cat'}, ${state.pet.name}`;
+		document.querySelector('.hud-avatar img').src = petImage;
 		document.querySelector('#pet-level').textContent = state.pet.level;
 		petLevel = state.pet.level;
 		const exp = state.pet.exp ?? state.pet.experience ?? 0;
@@ -176,9 +182,145 @@ document.querySelector('#sleep-pet').addEventListener('click', async (event) => 
 	}
 });
 
+const renameGate = document.querySelector('#rename-gate');
+const renameForm = document.querySelector('#rename-form');
+const renameInput = document.querySelector('#pet-new-name');
+const renameError = document.querySelector('#rename-error');
+document.querySelector('#rename-pet').addEventListener('click', () => {
+	if (!accountReady) return;
+	renameInput.value = document.querySelector('#pet-name').textContent;
+	renameError.textContent = '';
+	renameGate.hidden = false;
+	renameInput.focus();
+	renameInput.select();
+});
+document.querySelector('#cancel-rename').addEventListener('click', () => { renameGate.hidden = true; });
+renameGate.addEventListener('click', (event) => {
+	if (event.target === renameGate) renameGate.hidden = true;
+});
+renameForm.addEventListener('submit', async (event) => {
+	event.preventDefault();
+	const name = renameInput.value.trim();
+	if (!name) { renameError.textContent = 'Enter a name for your pet.'; return; }
+	const saveButton = document.querySelector('#save-pet-name');
+	saveButton.disabled = true;
+	renameError.textContent = '';
+	try {
+		applyAccountState(await api.savePet({ name }));
+		renameGate.hidden = true;
+	} catch (failure) {
+		renameError.textContent = reportFailure(failure);
+	} finally {
+		saveButton.disabled = false;
+	}
+});
+
 async function initializeAccount() {
-	try { await loadAccount(); }
-	catch (failure) { feedingStatus.textContent = reportFailure(failure); }
+	const gate = document.querySelector('#entry-gate');
+	const form = document.querySelector('#entry-form');
+	const actions = document.querySelector('#entry-actions');
+	const error = document.querySelector('#entry-error');
+	const submit = document.querySelector('#submit-auth');
+	const petPicker = document.querySelector('#pet-picker');
+	const petPickerError = document.querySelector('#pet-picker-error');
+	let selectedSpecies = 'cat';
+	let authMode = 'login';
+
+	async function enterGame(selectedApi) {
+		window.api = selectedApi;
+		await loadAccount();
+		gate.hidden = true;
+		if (selectedApi === window.authApi) {
+			selectedSpecies = document.querySelector('.pet-stage .pet-image').src.includes('gaugau.png') ? 'dog' : 'cat';
+			document.querySelectorAll('[data-pet-species]').forEach((button) => {
+				button.setAttribute('aria-pressed', String(button.dataset.petSpecies === selectedSpecies));
+			});
+			petPickerError.textContent = '';
+			petPicker.hidden = false;
+			return;
+		}
+		petPicker.hidden = true;
+		document.body.classList.remove('entry-open');
+	}
+
+	function showAuth(mode) {
+		authMode = mode;
+		actions.hidden = true;
+		form.hidden = false;
+		error.textContent = '';
+		submit.textContent = mode === 'register' ? 'Create account' : 'Log in';
+		const passwordInput = document.querySelector('#entry-password');
+		passwordInput.autocomplete = mode === 'register' ? 'new-password' : 'current-password';
+		passwordInput.minLength = mode === 'register' ? 6 : 1;
+		passwordInput.maxLength = 1024;
+		document.querySelector('#entry-title').textContent = mode === 'register' ? 'Create account' : 'Log in';
+		document.querySelector('#entry-email').focus();
+	}
+
+	document.body.classList.add('entry-open');
+	document.querySelector('#show-login').addEventListener('click', () => showAuth('login'));
+	document.querySelector('#show-register').addEventListener('click', () => showAuth('register'));
+	document.querySelector('#toggle-password').addEventListener('click', (event) => {
+		const button = event.currentTarget;
+		const password = document.querySelector('#entry-password');
+		const visible = password.type === 'password';
+		password.type = visible ? 'text' : 'password';
+		button.setAttribute('aria-pressed', String(visible));
+		button.setAttribute('aria-label', visible ? 'Hide password' : 'Show password');
+	});
+	document.querySelector('#entry-back').addEventListener('click', () => {
+		form.hidden = true;
+		actions.hidden = false;
+		error.textContent = '';
+	});
+	document.querySelectorAll('[data-pet-species]').forEach((button) => {
+		button.addEventListener('click', () => {
+			selectedSpecies = button.dataset.petSpecies;
+			document.querySelectorAll('[data-pet-species]').forEach((choice) => {
+				choice.setAttribute('aria-pressed', String(choice === button));
+			});
+		});
+	});
+	document.querySelector('#confirm-pet-choice').addEventListener('click', async (event) => {
+		const button = event.currentTarget;
+		button.disabled = true;
+		petPickerError.textContent = '';
+		try {
+			applyAccountState(await api.choosePet(selectedSpecies));
+			petPicker.hidden = true;
+			document.body.classList.remove('entry-open');
+		} catch (failure) {
+			petPickerError.textContent = reportFailure(failure);
+		} finally {
+			button.disabled = false;
+		}
+	});
+	form.addEventListener('submit', async (event) => {
+		event.preventDefault();
+		error.textContent = '';
+		submit.disabled = true;
+		try {
+			const email = document.querySelector('#entry-email').value.trim();
+			const password = document.querySelector('#entry-password').value;
+			if (authMode === 'register') await window.authApi.register(email, password);
+			else await window.authApi.login(email, password);
+			await enterGame(window.authApi);
+		} catch (failure) {
+			error.textContent = reportFailure(failure);
+		} finally {
+			submit.disabled = false;
+		}
+	});
+
+	if (window.authApi.auth.isLoggedIn) {
+		try {
+			await enterGame(window.authApi);
+			return;
+		} catch {
+			window.authApi.auth.token = '';
+		}
+	}
+	gate.hidden = false;
 }
 
 initializeAccount();

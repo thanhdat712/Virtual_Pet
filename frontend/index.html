@@ -11,12 +11,35 @@
 
 <body>
     <main class="pet-game" aria-label="Màn hình chăm sóc thú cưng">
+        <section class="entry-gate" id="entry-gate" aria-labelledby="entry-title">
+            <div class="entry-card">
+                <p class="entry-kicker">PET HOME</p>
+                <h1 id="entry-title">Welcome!</h1>
+                <p class="entry-description">Log in or create an account to continue.</p>
+                <div class="entry-actions" id="entry-actions">
+                    <button class="entry-primary" id="show-login" type="button">Log in</button>
+                    <button class="entry-secondary" id="show-register" type="button">Sign up</button>
+                </div>
+                <form class="entry-form" id="entry-form" hidden>
+                    <label for="entry-email">Email</label>
+                    <input id="entry-email" name="email" type="email" autocomplete="email" required maxlength="254">
+                    <label for="entry-password">Password</label>
+                    <div class="password-field">
+                        <input id="entry-password" name="password" type="password" autocomplete="current-password" required minlength="6" maxlength="1024">
+                        <button class="password-toggle" id="toggle-password" type="button" aria-label="Show password" aria-pressed="false">👁</button>
+                    </div>
+                    <p class="entry-error" id="entry-error" role="alert" aria-live="polite"></p>
+                    <button class="entry-primary" id="submit-auth" type="submit">Log in</button>
+                    <button class="entry-back" id="entry-back" type="button">Back</button>
+                </form>
+            </div>
+        </section>
         <div class="lobby-scene" id="lobby-scene" aria-hidden="true"></div>
         <div class="lobby-floor" id="lobby-floor" aria-hidden="true"></div>
         <section class="px-box hud-player" aria-label="Thông tin thú cưng">
             <div class="hud-avatar"><img src="assets/pets/meomeo.png" alt="PetLovery"></div>
             <div class="hud-player-info">
-                <p class="hud-level-row"><span class="px-icon" data-px="star"></span><span>Lv. <b id="pet-level">1</b></span><span class="hud-name" id="pet-name">UIA</span></p>
+                <p class="hud-level-row"><span class="px-icon" data-px="star"></span><span>Lv. <b id="pet-level">1</b></span><span class="hud-name" id="pet-name">UIA</span><button class="rename-pet-button" id="rename-pet" type="button" aria-label="Rename pet">✎</button></p>
                 <div class="px-bar exp"><i id="exp-fill" style="width:0%"></i></div>
                 <p class="hud-exp-text" id="exp-text">EXP 0 / 100</p>
             </div>
@@ -57,7 +80,7 @@
 
         <section class="pet-stage" aria-label="UIA">
             <div class="pet-name">UIA</div>
-            <img class="pet-image" src="assets/pets/meomeo_mulen.png" alt="UIA, thú cưng của bạn">
+            <img class="pet-image" src="assets/pets/meomeo_mulen.png" alt="UIA, your pet">
         </section>
 
         <section class="px-box hud-training" aria-label="Huấn luyện">
@@ -159,9 +182,37 @@
                 </div>
             </div>
         </section>
+        <section class="entry-gate rename-gate" id="rename-gate" aria-labelledby="rename-title" hidden>
+            <form class="entry-card rename-card" id="rename-form">
+                <h2 id="rename-title">Name your pet</h2>
+                <label for="pet-new-name">Pet name</label>
+                <input id="pet-new-name" name="name" type="text" required maxlength="80" autocomplete="off">
+                <p class="entry-error" id="rename-error" role="alert" aria-live="polite"></p>
+                <button class="entry-primary" id="save-pet-name" type="submit">Save name</button>
+                <button class="entry-back" id="cancel-rename" type="button">Cancel</button>
+            </form>
+        </section>
+        <section class="entry-gate pet-picker" id="pet-picker" aria-labelledby="pet-picker-title" hidden>
+            <div class="entry-card pet-picker-card">
+                <p class="entry-kicker">CHOOSE YOUR COMPANION</p>
+                <h1 id="pet-picker-title">Which pet would you like?</h1>
+                <div class="pet-choices" role="group" aria-label="Choose a pet">
+                    <button class="pet-choice" type="button" data-pet-species="cat" aria-pressed="false">
+                        <img src="assets/pets/meomeo.png" alt="Cat">
+                        <span>Cat</span>
+                    </button>
+                    <button class="pet-choice" type="button" data-pet-species="dog" aria-pressed="false">
+                        <img src="assets/pets/gaugau.png" alt="Dog">
+                        <span>Dog</span>
+                    </button>
+                </div>
+                <p class="entry-error" id="pet-picker-error" role="alert" aria-live="polite"></p>
+                <button class="entry-primary" id="confirm-pet-choice" type="button">Choose this pet</button>
+            </div>
+        </section>
     </main>
     <script src="js/pixel.js" defer></script>
-    <script src="js/demo.js" defer></script>
+    <script src="js/api.js" defer></script>
     <script src="js/app.js" defer></script>
     <script src="js/session.js" defer></script>
 </body>

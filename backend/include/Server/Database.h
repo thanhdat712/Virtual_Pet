@@ -16,6 +16,7 @@ struct UserRow {
 struct PetRow {
     long long userId = 0;
     std::string name = "UIA";
+    std::string species = "cat";
     int level = 1;
     int experience = 0;
     int happiness = 85;
@@ -78,6 +79,7 @@ public:
     // --- Pet ---
     bool getPet(long long userId, PetRow& outPet);
     bool renamePet(long long userId, const std::string& name);
+    bool setPetSpecies(long long userId, const std::string& species);
     int feed(long long userId, int itemId);
 
     // --- Bài tập & tiến độ ---
