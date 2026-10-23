@@ -152,3 +152,32 @@ add_test(NAME auth_registration COMMAND test_auth_service)
 add_executable(test_reward_shop tests/test_reward_shop.cpp)
 target_link_libraries(test_reward_shop PRIVATE pet_core)
 add_test(NAME reward_shop COMMAND test_reward_shop)
+
+add_executable(test_game_flow tests/test_game_flow.cpp)
+target_link_libraries(test_game_flow PRIVATE pet_core)
+add_test(NAME game_flow COMMAND test_game_flow)
+
+
+# Database Access Layer (INT-02)
+add_library(pet_db STATIC
+    backend/src/Database/DatabaseConnection.cpp
+    backend/src/Database/UserRepository.cpp
+    backend/src/Database/PetRepository.cpp
+    backend/src/Database/InventoryRepository.cpp
+    backend/src/Database/GameRepository.cpp
+)
+target_include_directories(pet_db PUBLIC
+    backend/include/Database
+    backend/include/Core
+    backend/include/User
+    backend/include/Item
+    backend/include/Inventory
+    backend/include/Pet
+    backend/include/Shop
+    backend/include/Reward
+)
+target_link_libraries(pet_db PUBLIC sqlite3 pet_core)
+
+add_executable(test_database tests/test_database.cpp)
+target_link_libraries(test_database PRIVATE pet_db)
+add_test(NAME database_access COMMAND test_database)

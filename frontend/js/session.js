@@ -57,6 +57,20 @@ let feeding = false;
 let selectedFood = null;
 const petStage = document.querySelector('.pet-stage');
 const feedingStatus = document.querySelector('#feeding-status');
+let feedingStatusTimeout;
+
+function setFeedingStatus(message, duration = 0) {
+	clearTimeout(feedingStatusTimeout);
+	feedingStatusTimeout = null;
+	feedingStatus.textContent = message;
+	if (duration > 0) {
+		feedingStatusTimeout = setTimeout(() => {
+			feedingStatus.textContent = '';
+			feedingStatusTimeout = null;
+		}, duration);
+	}
+}
+
 petStage.tabIndex = 0;
 petStage.setAttribute('role', 'button');
 petStage.setAttribute('aria-label', 'Feed selected food to UIA');
@@ -128,7 +142,7 @@ function renderFood() {
 async function feedFood(item) {
 	if (feeding || !accountReady || !item) return;
 	feeding = true;
-	feedingStatus.textContent = '';
+	setFeedingStatus('');
 	renderFood();
 	try {
 		const previousLevel = petLevel;
@@ -143,11 +157,11 @@ async function feedFood(item) {
 		bite.className = 'eating-food';
 		petStage.append(bite);
 		bite.addEventListener('animationend', () => bite.remove(), { once: true });
-		feedingStatus.textContent = fed.pet.level > previousLevel
+		setFeedingStatus(fed.pet.level > previousLevel
 			? `${item.name} eaten! Level up! UIA is now level ${fed.pet.level}`
-			: `${item.name} eaten!`;
+			: `${item.name} eaten!`);
 	} catch (failure) {
-		feedingStatus.textContent = reportFailure(failure);
+		setFeedingStatus(reportFailure(failure));
 	} finally {
 		feeding = false;
 		renderFood();
@@ -169,9 +183,10 @@ document.querySelector('#sleep-pet').addEventListener('click', async (event) => 
 	button.disabled = true;
 	try {
 		applyAccountState(await api.sleepPet());
-		feedingStatus.textContent = 'UIA took a nap and feels rested!';
+		setFeedingStatus('UIA took a nap and feels rested!');
 	} catch (failure) {
-		feedingStatus.textContent = reportFailure(failure);
+		const message = reportFailure(failure);
+		setFeedingStatus(message, message.startsWith('UIA is not sleepy right now') ? 5000 : 0);
 	} finally {
 		button.disabled = false;
 	}
@@ -179,7 +194,7 @@ document.querySelector('#sleep-pet').addEventListener('click', async (event) => 
 
 async function initializeAccount() {
 	try { await loadAccount(); }
-	catch (failure) { feedingStatus.textContent = reportFailure(failure); }
+	catch (failure) { setFeedingStatus(reportFailure(failure)); }
 }
 
 initializeAccount();
