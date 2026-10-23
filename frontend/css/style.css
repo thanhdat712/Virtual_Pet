@@ -2312,6 +2312,57 @@ main.pet-game {
     line-height: 1;
 }
 
+body.auth-pending .pet-game { visibility: hidden; }
+.auth-password-field { position: relative; display: flex; align-items: center; }
+.auth-password-field input { padding-right: 68px; }
+.auth-password-toggle {
+    position: absolute;
+    right: 8px;
+    min-width: 52px;
+    padding: 5px;
+    color: #35594e;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+}
+.pet-choice-dialog {
+    width: min(480px, calc(100% - 24px));
+    padding: 26px;
+    text-align: center;
+}
+.pet-choice-dialog::backdrop { background: rgba(18, 48, 51, .68); backdrop-filter: blur(6px); }
+.pet-choice-dialog h2 { margin: 0 0 8px; }
+.pet-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 20px 0; }
+.pet-choice {
+    display: grid;
+    justify-items: center;
+    gap: 8px;
+    padding: 12px;
+    color: #174c3e;
+    background: #f4fff8;
+    border: 3px solid #8bcaaa;
+    cursor: pointer;
+}
+.pet-choice[aria-pressed="true"] { background: #b9ebca; border-color: #236c57; }
+.pet-choice img { width: 100px; height: 100px; object-fit: contain; image-rendering: pixelated; }
+.pet-choice span { font-size: 20px; }
+.pet-choice-error { min-height: 1.3em; color: #a32e38; }
+.pet-dialog-cancel {
+    display: block;
+    margin: 12px auto 0;
+    padding: 8px 14px;
+    background: transparent;
+    border: 1px solid #70877e;
+}
+.rename-pet-button {
+    flex: 0 0 auto;
+    padding: 1px 5px;
+    color: #174c3e;
+    background: #dff6e9;
+    border: 1px solid #236c57;
+    cursor: pointer;
+}
+
 .register-dialog label {
     margin: 13px 0 6px;
     color: #435b55;

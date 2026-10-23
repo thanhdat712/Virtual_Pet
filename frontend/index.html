@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="css/pixel.css">
 </head>
 
-<body>
+<body class="auth-pending">
     <aside class="landscape-notice" role="alert" aria-live="polite">
         <span class="landscape-phone" aria-hidden="true"><i></i></span>
         <p class="landscape-kicker">PETLOVERY</p>
@@ -23,7 +23,7 @@
         <section class="px-box hud-player" aria-label="Thông tin thú cưng">
             <div class="hud-avatar"><img src="assets/pets/meomeo.png" alt="PetLovery"></div>
             <div class="hud-player-info">
-                <p class="hud-level-row"><span class="px-icon" data-px="star"></span><span>Lv. <b id="pet-level">1</b></span><span class="hud-name" id="pet-name">UIA</span></p>
+                <p class="hud-level-row"><span class="px-icon" data-px="star"></span><span>Lv. <b id="pet-level">1</b></span><span class="hud-name" id="pet-name">UIA</span><button class="rename-pet-button" id="rename-pet" type="button" aria-label="Rename pet">✎</button></p>
                 <div class="px-bar exp"><i id="exp-fill" style="width:0%"></i></div>
                 <p class="hud-exp-text" id="exp-text">EXP 0 / 100</p>
                 <div class="account-row">
@@ -172,6 +172,30 @@
             </div>
         </section>
     </main>
+    <dialog class="account-dialog pet-choice-dialog" id="pet-picker" aria-labelledby="pet-picker-title">
+        <h2 id="pet-picker-title">Choose your pet</h2>
+        <p>Choose the new companion you want to care for.</p>
+        <div class="pet-choices" role="group" aria-label="Choose a pet">
+            <button class="pet-choice" type="button" data-pet-species="cat" aria-pressed="false">
+                <img src="assets/pets/meomeo.png" alt=""><span>Cat</span>
+            </button>
+            <button class="pet-choice" type="button" data-pet-species="dog" aria-pressed="false">
+                <img src="assets/pets/gaugau.png" alt=""><span>Dog</span>
+            </button>
+        </div>
+        <p class="pet-choice-error" id="pet-choice-error" role="alert" aria-live="polite"></p>
+        <button class="register-submit" id="confirm-pet-choice" type="button">Choose this pet</button>
+    </dialog>
+    <dialog class="account-dialog pet-choice-dialog" id="rename-dialog" aria-labelledby="rename-title">
+        <h2 id="rename-title">Name your pet</h2>
+        <form id="rename-form">
+            <label for="pet-new-name">Pet name</label>
+            <input id="pet-new-name" name="name" type="text" maxlength="80" required autocomplete="off">
+            <p class="pet-choice-error" id="rename-message" role="alert" aria-live="polite"></p>
+            <button class="register-submit" type="submit">Save name</button>
+            <button class="pet-dialog-cancel" id="cancel-rename" type="button">Cancel</button>
+        </form>
+    </dialog>
     <dialog class="account-dialog register-dialog auth-dialog" id="login-dialog" aria-labelledby="login-title">
         <button class="register-close" id="close-login" type="button" aria-label="Close sign in">×</button>
         <section class="auth-art" aria-label="UIA's home">
@@ -197,8 +221,9 @@
                     pattern="[A-Za-z0-9_]{3,20}" autocomplete="username" placeholder="Your username" required>
 
                 <label for="login-password">Password</label>
-                <input id="login-password" name="password" type="password" maxlength="128"
+                <div class="auth-password-field"><input id="login-password" name="password" type="password" maxlength="128"
                     autocomplete="current-password" placeholder="Enter your password" required>
+                    <button class="auth-password-toggle" type="button" data-password-target="login-password" aria-label="Show password" aria-pressed="false">Show</button></div>
 
                 <p class="register-message" id="login-message" role="status" aria-live="polite"></p>
                 <button class="register-submit" id="login-submit" type="submit">
@@ -236,12 +261,14 @@
                 <small class="register-hint" id="username-hint">3-20 characters · letters, numbers, or underscores</small>
 
                 <label for="register-password">Password</label>
-                <input id="register-password" name="password" type="password" minlength="8" maxlength="128"
+                <div class="auth-password-field"><input id="register-password" name="password" type="password" minlength="8" maxlength="128"
                     autocomplete="new-password" placeholder="At least 8 characters" required>
+                    <button class="auth-password-toggle" type="button" data-password-target="register-password" aria-label="Show password" aria-pressed="false">Show</button></div>
 
                 <label for="register-confirm-password">Confirm password</label>
-                <input id="register-confirm-password" name="confirmPassword" type="password" minlength="8"
+                <div class="auth-password-field"><input id="register-confirm-password" name="confirmPassword" type="password" minlength="8"
                     maxlength="128" autocomplete="new-password" placeholder="Enter it again to confirm" required>
+                    <button class="auth-password-toggle" type="button" data-password-target="register-confirm-password" aria-label="Show password" aria-pressed="false">Show</button></div>
 
                 <p class="register-message" id="register-message" role="status" aria-live="polite"></p>
                 <button class="register-submit" id="register-submit" type="submit">

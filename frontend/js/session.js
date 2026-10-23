@@ -8,7 +8,14 @@ function applyAccountState(state) {
 		})));
 	}
 	if (state.pet) {
-		document.querySelector('#pet-name').textContent = state.pet.name;
+		const petName = window.currentPetProfile?.name || state.pet.name;
+		const species = window.currentPetProfile?.species === 'dog' ? 'dog' : 'cat';
+		document.querySelector('#pet-name').textContent = petName;
+		document.querySelector('.pet-stage .pet-name').textContent = petName;
+		const petImage = species === 'dog' ? 'assets/pets/gaugau.png' : 'assets/pets/meomeo.png';
+		document.querySelector('.pet-stage .pet-image').src = petImage;
+		document.querySelector('.pet-stage .pet-image').alt = `${species === 'dog' ? 'Dog' : 'Cat'}, ${petName}`;
+		document.querySelector('.hud-avatar img').src = petImage;
 		document.querySelector('#pet-level').textContent = state.pet.level;
 		petLevel = state.pet.level;
 		const exp = state.pet.exp ?? state.pet.experience ?? 0;
