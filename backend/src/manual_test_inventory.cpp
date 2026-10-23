@@ -43,7 +43,7 @@ int main() {
 
     Shop shop;                       // Shop tu bay san 13 mon (do an + do trang tri)
     PlayerData nguoiChoi(1, "Ban", 100);
-    std::vector<std::shared_ptr<Item>> catalog = shop.getItemsForSale();
+    std::vector<std::shared_ptr<Item>> catalog = shop.getItems();
 
     std::cout << "=== TEST TAY: USER + INVENTORY + SHOP + REWARD (KAN 41-45) ===\n";
 

@@ -35,7 +35,7 @@ int main() {
           game.getPet().getHappiness() >= 0 && game.getPet().getHappiness() <= 100 &&
           game.getPet().getHunger() >= 0 && game.getPet().getHunger() <= 100 &&
           game.getPet().getEnergy() >= 0 && game.getPet().getEnergy() <= 100);
-    check("Shop co san mon de ban", !game.getShop().getItemsForSale().empty());
+    check("Shop co san mon de ban", !game.getShop().getItems().empty());
     check("Shop co Banh mi (id 1)", game.getShop().getItemById(1) != nullptr);
 
     // ----- Pet: kep chi so -----

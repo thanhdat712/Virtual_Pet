@@ -9,7 +9,7 @@ constexpr const char* DEFAULT_PLAYER_NAME = "Player";
 constexpr int STARTING_COINS = 100;
 
 constexpr int DEFAULT_PET_ID = 1;
-constexpr const char* DEFAULT_PET_NAME = "Mimi";
+constexpr const char* DEFAULT_PET_NAME = "UIA"; // khớp bảng pets và frontend
 }
 
 GameState::GameState()
@@ -28,6 +28,12 @@ void GameState::initialize() {
     player = std::move(newPlayer);
     pet = std::move(newPet);
     shop = std::move(newShop);
+    status = GameStatus::NOT_STARTED;
+}
+
+void GameState::restore(std::unique_ptr<PlayerData> newPlayer, std::unique_ptr<Pet> newPet) {
+    player = std::move(newPlayer);
+    pet = std::move(newPet);
     status = GameStatus::NOT_STARTED;
 }
 
