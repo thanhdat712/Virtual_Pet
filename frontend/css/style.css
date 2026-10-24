@@ -2353,15 +2353,6 @@ main.pet-game {
     background: transparent;
     border: 1px solid #70877e;
 }
-.rename-pet-button {
-    flex: 0 0 auto;
-    padding: 1px 5px;
-    color: #174c3e;
-    background: #dff6e9;
-    border: 1px solid #236c57;
-    cursor: pointer;
-}
-
 /* Restored entry gate from the earlier game screen. */
 .entry-gate[hidden], .entry-actions[hidden], .entry-form[hidden], #username-field[hidden], #confirm-password-field[hidden] { display: none; }
 .entry-gate {
