@@ -66,6 +66,7 @@ public:
 
     // Đồ trang trí đang gắn
     void equip(DecorationSlot slot, int itemId);
+    void unequip(DecorationSlot slot);
     int getEquipped(DecorationSlot slot) const; // 0 nếu chưa gắn gì
     const std::map<DecorationSlot, int>& getEquipment() const;
 };

@@ -101,6 +101,7 @@ add_library(pet_core STATIC
 
 # Mỗi module có thư mục include riêng (code hiện tại include theo kiểu "Game.h", "../User/User.h")
 target_include_directories(pet_core PUBLIC
+    backend
     backend/include/Core
     backend/include/Item
     backend/include/Inventory
@@ -127,7 +128,7 @@ add_executable(Pet_Raising backend/main.cpp)
 target_link_libraries(Pet_Raising PRIVATE pet_core)
 
 add_executable(Pet_Raising_Server backend/server_main.cpp)
-target_link_libraries(Pet_Raising_Server PRIVATE auth_service)
+target_link_libraries(Pet_Raising_Server PRIVATE auth_service pet_db)
 target_compile_definitions(
     Pet_Raising_Server
     PRIVATE PET_FRONTEND_DIR="${CMAKE_CURRENT_SOURCE_DIR}/frontend"

@@ -1,6 +1,7 @@
 # INT-03 — API contract
 
-**Status:** target design for frontend and backend implementation; gameplay routes are not implemented yet.  
+**Status:** authentication and pet/shop routes are implemented; offline decay
+and reward claiming remain planned.
 **Version:** `v1` · **Base URL:** `/api` · **Format:** UTF-8 JSON.
 
 This document is the single contract for the web client and the HTTP server. The
@@ -42,14 +43,13 @@ so two concurrent actions cannot overwrite one another. Do not keep a separate
 mutable in-memory `Game` cache in v1; load from SQLite and persist per request.
 This makes server restarts safe and avoids cache invalidation between workers.
 
-SQLite persistence maps `GameSnapshot` fields to the canonical account/game
-tables. Load creates a default game only when the authenticated account has no
-game rows. Save updates profile, pet, inventory, equipment, and `last_updated`
-atomically. Store a UTC timestamp so `GET /game/state` can compute offline time;
-call `Game::start()`, apply elapsed time via `updateOverTime(seconds)`, and save
-the resulting snapshot before returning. The API contract's `experience` field
-is reserved for the game model; until the core snapshot supports experience,
-return `0` and do not accept it from clients.
+SQLite persistence maps `GameSnapshot` fields to the account/game tables. Load
+creates a default game only when the authenticated account has no game rows.
+Save updates profile, pet, inventory, and equipment atomically. Offline decay
+is not yet supported because the current persistence schema does not track a
+last-updated timestamp. The API contract's `experience` field is reserved for
+the game model; until the core snapshot supports experience, return `0` and do
+not accept it from clients.
 
 Register routes before mounting `/` as the static frontend. Set a small JSON
 payload limit, reject malformed/non-object JSON, set `Cache-Control: no-store`
@@ -222,7 +222,7 @@ validates/parses the request, calls the indicated `Game` method, maps its
 
 | HTTP endpoint | `Game` call | Request fields | Notes |
 |---|---|---|---|
-| `GET /game/state` | load snapshot → `importSnapshot()` → `start()` → `updateOverTime(elapsedSeconds)` → `exportSnapshot()` | none | Persist offline decay and return state. |
+| `GET /game/state` | load snapshot → `importSnapshot()` → `start()` → `exportSnapshot()` | none | Returns the current persisted game state. |
 | `GET /shop` | read catalog from the loaded/default `Game` shop | none | This is a read-only catalog operation; may be public. |
 | `POST /shop/purchases` | `buy(itemId, quantity)` | `itemId`, `quantity` | Returns `ActionResult`. |
 | `POST /pet/feed` | `feed(foodId)` | `itemId` | Exactly one food is consumed by `Game`. |
@@ -230,6 +230,7 @@ validates/parses the request, calls the indicated `Game` method, maps its
 | `POST /pet/sleep` | `sleep()` | none | Game applies energy recovery. |
 | `POST /pet/bath` | `bath()` | none | Game applies bath behavior. |
 | `POST /pet/decorate` | `decorate(itemId)` | `itemId` | Equips owned decoration into its defined slot. |
+| `POST /pet/unequip` | `unequipDecoration(slot)` | `slot` | Removes decoration from the selected slot. |
 | `POST /rewards/claim` | `claimReward(reward)` | `rewardId` | Reward contents come from server-side reward definition, never client JSON. |
 | internal timer/load only | `updateOverTime(elapsedSeconds)` | server-calculated | Never accept elapsed time from the browser. |
 
@@ -241,8 +242,8 @@ client request because it resets the game.
 
 ### `GET /game/state`
 
-Returns `200` and a `GameState`. The server applies elapsed-time decay before
-building the response, then persists the resulting state atomically.
+Returns `200` and a `GameState`. Offline decay is planned but not currently
+applied.
 
 ### `GET /shop`
 
@@ -297,9 +298,16 @@ that slot. Returns `200 ActionResponse`.
 Errors: `400 INVALID_ARGUMENT`, `400 NOT_DECORATION`, `404 ITEM_NOT_FOUND`,
 `409 NOT_OWNED`, `409 INVALID_STATE`, or `401 UNAUTHENTICATED`.
 
-`Game` currently has no rename or unequip method. Those are outside this
-contract until implemented through an explicit validated `Game` API; HTTP
-handlers must not mutate `Pet` directly to emulate them.
+### `POST /pet/unequip`
+
+Body: `{ "slot": "headwear" }`. The slot must be `headwear`, `background`, or
+`floor`. The endpoint calls `Game::unequipDecoration(slot)` and returns the
+updated state. Removing an already-empty slot is an idempotent success.
+
+Errors: `400 INVALID_ARGUMENT`, `409 INVALID_STATE`, or `401 UNAUTHENTICATED`.
+
+Pet renaming remains a local visual preference and is not persisted by this
+version of the game API.
 
 ### `POST /rewards/claim`
 
@@ -339,10 +347,9 @@ Errors: `400 INVALID_ARGUMENT`, `404 REWARD_NOT_FOUND`, `409 ALREADY_CLAIMED`,
 
 ## 7. Acceptance checklist
 
-- Frontend mock data implements every endpoint and response type above.
-- Backend tests cover every success path and every listed error code.
-- An integration test verifies the client can register, log in, fetch state,
-  purchase, feed, equip, log out, and restore the same persisted state after a
-  server restart.
+- The frontend uses the same-origin API client and session cookie.
+- Manual integration verification covered registration, login, state/catalog reads,
+  purchase, feeding, decoration equip/unequip, sleep, and logout.
+- Reward claiming and offline-decay persistence remain planned.
 - Any contract change is made in this document first and is versioned or
   backward-compatible.

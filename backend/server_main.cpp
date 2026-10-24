@@ -1,4 +1,9 @@
 #include "AuthService.h"
+#include "Game.h"
+#include "GameRepository.h"
+#include "Decoration.h"
+#include "Food.h"
+#include "Shop.h"
 
 #include <httplib.h>
 #include <nlohmann/json.hpp>
@@ -8,7 +13,10 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <functional>
+#include <limits>
 #include <string>
+#include <mutex>
 #include <utility>
 
 #ifndef PET_FRONTEND_DIR
@@ -99,6 +107,127 @@ bool parseEmailCredentials(const httplib::Request& request, std::string& email, 
         return false;
     }
 }
+
+bool positiveInteger(const nlohmann::json& payload, const char* field, int maximum, int& value) {
+    if (!payload.is_object() || !payload.contains(field) || !payload[field].is_number_integer()) return false;
+    try {
+        const auto candidate = payload[field].get<std::int64_t>();
+        if (candidate < 1 || candidate > maximum) return false;
+        value = static_cast<int>(candidate);
+        return true;
+    } catch (const nlohmann::json::exception&) {
+        return false;
+    }
+}
+
+int statusForAction(ActionCode code) {
+    switch (code) {
+        case ActionCode::ITEM_NOT_FOUND: return 404;
+        case ActionCode::INVALID_ARGUMENT:
+        case ActionCode::NOT_FOOD:
+        case ActionCode::NOT_DECORATION: return 400;
+        case ActionCode::OK: return 200;
+        case ActionCode::INVALID_SNAPSHOT: return 500;
+        default: return 409;
+    }
+}
+
+const char* slotName(DecorationSlot slot) {
+    switch (slot) {
+        case DecorationSlot::HAT: return "headwear";
+        case DecorationSlot::BACKGROUND: return "background";
+        case DecorationSlot::FLOOR: return "floor";
+    }
+    return "unknown";
+}
+
+nlohmann::json catalogJson(const Game& game) {
+    nlohmann::json result = nlohmann::json::array();
+    for (const auto& item : game.getShop().getItems()) {
+        nlohmann::json entry = {{"id", item->getId()}, {"name", item->getName()},
+            {"description", item->getDescription()}, {"price", item->getPrice()}, {"image", item->getImagePath()}};
+        if (item->getType() == ItemType::FOOD) {
+            const auto food = std::dynamic_pointer_cast<Food>(item);
+            entry["category"] = "food";
+            entry["filter"] = "food";
+            entry["hungerRestore"] = food->getHungerRestore();
+            entry["happinessRestore"] = food->getHappinessRestore();
+        } else {
+            entry["category"] = "decoration";
+            entry["filter"] = slotName(std::dynamic_pointer_cast<Decoration>(item)->getSlot());
+        }
+        result.push_back(std::move(entry));
+    }
+    return result;
+}
+
+nlohmann::json stateJson(const Game& game, int userId, const std::string& username) {
+    const auto snapshot = game.exportSnapshot();
+    nlohmann::json inventory = nlohmann::json::array();
+    for (const auto& item : snapshot.inventory) inventory.push_back({{"itemId", item.itemId}, {"quantity", item.quantity}});
+    nlohmann::json equipment = {{"headwear", nullptr}, {"background", nullptr}, {"floor", nullptr}};
+    for (const auto& item : snapshot.equipment) equipment[slotName(item.slot)] = item.itemId;
+    return {{"user", {{"id", userId}, {"username", username}, {"coins", snapshot.coins}}},
+        {"pet", {{"id", snapshot.pet.id}, {"name", snapshot.pet.name}, {"level", snapshot.pet.level},
+            {"health", snapshot.pet.health}, {"experience", 0}, {"happiness", snapshot.pet.happiness},
+            {"hunger", snapshot.pet.hunger}, {"energy", snapshot.pet.energy}}},
+        {"inventory", inventory}, {"equipment", equipment}};
+}
+
+bool parseJsonObject(const httplib::Request& request, nlohmann::json& payload) {
+    if (!acceptsJson(request)) return false;
+    try {
+        payload = nlohmann::json::parse(request.body);
+        return payload.is_object();
+    } catch (const nlohmann::json::exception&) {
+        return false;
+    }
+}
+
+bool parseDecorationSlot(const nlohmann::json& payload, DecorationSlot& slot) {
+    if (!payload.is_object() || !payload.contains("slot") || !payload["slot"].is_string()) return false;
+    const std::string value = payload["slot"].get<std::string>();
+    if (value == "headwear") slot = DecorationSlot::HAT;
+    else if (value == "background") slot = DecorationSlot::BACKGROUND;
+    else if (value == "floor") slot = DecorationSlot::FLOOR;
+    else return false;
+    return true;
+}
+
+class GameApi {
+public:
+    explicit GameApi(const std::string& databasePath) : repository_(database_) {
+        if (!database_.open(databasePath) || !database_.initializeSchema())
+            throw std::runtime_error("Could not initialize game data: " + database_.getLastError());
+    }
+
+    nlohmann::json catalog() { Game game; return catalogJson(game); }
+
+    template <typename Action>
+    nlohmann::json run(int userId, const std::string& username, Action action, ActionResult& result) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto snapshot = repository_.loadGame(userId);
+        if (!snapshot) {
+            if (!repository_.createInitialGame(userId, username)) throw std::runtime_error("Could not create game data.");
+            snapshot = repository_.loadGame(userId);
+        }
+        if (!snapshot) throw std::runtime_error("Could not load game data.");
+        Game game;
+        result = game.importSnapshot(*snapshot);
+        if (!result.ok()) return {};
+        result = game.start();
+        if (!result.ok()) return {};
+        result = action(game);
+        if (!result.ok()) return {};
+        if (!repository_.saveGame(game.exportSnapshot())) throw std::runtime_error("Could not save game data.");
+        return stateJson(game, userId, username);
+    }
+
+private:
+    DatabaseConnection database_;
+    GameRepository repository_;
+    std::mutex mutex_;
+};
 }
 
 int main(int argc, char* argv[]) {
@@ -121,15 +250,17 @@ int main(int argc, char* argv[]) {
 
     try {
         AuthService authService(databasePath);
+        GameApi gameApi(databasePath);
         httplib::Server server;
         server.set_payload_max_length(4096);
 
         server.Post("/api/auth/register", [&authService](const httplib::Request& request, httplib::Response& response) {
             if (!acceptsJson(request)) {
-                response.status = 415;
-                response.set_content(
-                    R"({"success":false,"code":"unsupported_media_type","message":"Yêu cầu gửi JSON."})",
-                    "application/json; charset=utf-8");
+                setJson(response, 415, {
+                    {"success", false},
+                    {"code", "UNSUPPORTED_MEDIA_TYPE"},
+                    {"message", "Yêu cầu gửi JSON."}
+                });
                 return;
             }
 
@@ -137,10 +268,11 @@ int main(int argc, char* argv[]) {
             std::string password;
             std::string email;
             if (!parseRegistrationCredentials(request, username, email, password)) {
-                response.status = 400;
-                response.set_content(
-                    R"({"success":false,"code":"invalid_request","message":"Enter username, email, and password."})",
-                    "application/json; charset=utf-8");
+                setJson(response, 400, {
+                    {"success", false},
+                    {"code", "INVALID_ARGUMENT"},
+                    {"message", "Enter username, email, and password."}
+                });
                 return;
             }
 
@@ -152,7 +284,7 @@ int main(int argc, char* argv[]) {
                     response.status = 201;
                     body = {
                         {"success", true},
-                        {"code", "registered"},
+                        {"code", "REGISTERED"},
                         {"message", "Tạo tài khoản thành công."},
                         {"user", {{"id", result.userId}, {"username", username}}}
                     };
@@ -161,7 +293,7 @@ int main(int argc, char* argv[]) {
                     response.status = 409;
                     body = {
                         {"success", false},
-                        {"code", "username_taken"},
+                        {"code", "USERNAME_TAKEN"},
                         {"message", "Tên người dùng này đã được sử dụng."}
                     };
                     break;
@@ -169,7 +301,7 @@ int main(int argc, char* argv[]) {
                     response.status = 409;
                     body = {
                         {"success", false},
-                        {"code", "email_taken"},
+                        {"code", "EMAIL_TAKEN"},
                         {"message", "This email is already registered."}
                     };
                     break;
@@ -177,7 +309,7 @@ int main(int argc, char* argv[]) {
                     response.status = 400;
                     body = {
                         {"success", false},
-                        {"code", "invalid_username"},
+                        {"code", "INVALID_USERNAME"},
                         {"message", "Tên người dùng cần có 3–20 ký tự: chữ cái không dấu, số hoặc dấu gạch dưới."}
                     };
                     break;
@@ -185,7 +317,7 @@ int main(int argc, char* argv[]) {
                     response.status = 400;
                     body = {
                         {"success", false},
-                        {"code", "invalid_email"},
+                        {"code", "INVALID_EMAIL"},
                         {"message", "Enter an email address no longer than 254 characters."}
                     };
                     break;
@@ -193,7 +325,7 @@ int main(int argc, char* argv[]) {
                     response.status = 400;
                     body = {
                         {"success", false},
-                        {"code", "invalid_password"},
+                        {"code", "INVALID_PASSWORD"},
                         {"message", "Mật khẩu cần có ít nhất 8 ký tự hợp lệ."}
                     };
                     break;
@@ -202,7 +334,7 @@ int main(int argc, char* argv[]) {
                     response.status = 500;
                     body = {
                         {"success", false},
-                        {"code", "registration_failed"},
+                        {"code", "REGISTRATION_FAILED"},
                         {"message", "Không thể bảo vệ mật khẩu lúc này. Vui lòng thử lại."}
                     };
                     break;
@@ -211,12 +343,13 @@ int main(int argc, char* argv[]) {
                     response.status = 500;
                     body = {
                         {"success", false},
-                        {"code", "registration_failed"},
+                        {"code", "REGISTRATION_FAILED"},
                         {"message", "Chưa thể tạo tài khoản lúc này. Vui lòng thử lại."}
                     };
                     break;
             }
 
+            response.set_header("Cache-Control", "no-store");
             response.set_content(body.dump(), "application/json; charset=utf-8");
         });
 
@@ -226,7 +359,7 @@ int main(int argc, char* argv[]) {
             if (!acceptsJson(request)) {
                 setJson(response, 415, {
                     {"success", false},
-                    {"code", "unsupported_media_type"},
+                    {"code", "UNSUPPORTED_MEDIA_TYPE"},
                     {"message", "Yêu cầu gửi JSON."}
                 });
                 return;
@@ -234,7 +367,7 @@ int main(int argc, char* argv[]) {
             if (!parseEmailCredentials(request, email, password)) {
                 setJson(response, 400, {
                     {"success", false},
-                    {"code", "invalid_request"},
+                    {"code", "INVALID_ARGUMENT"},
                     {"message", "Enter your email and password."}
                 });
                 return;
@@ -249,16 +382,25 @@ int main(int argc, char* argv[]) {
                         + std::to_string(SESSION_LIFETIME_SECONDS));
                 setJson(response, 200, {
                     {"success", true},
-                    {"code", "authenticated"},
+                    {"code", "AUTHENTICATED"},
                     {"message", "Đăng nhập thành công."},
                     {"user", {{"id", result.userId}, {"username", result.username}}}
                 });
                 return;
             }
-            if (result.status == LoginStatus::INVALID_CREDENTIALS || result.status == LoginStatus::RATE_LIMITED) {
+            if (result.status == LoginStatus::RATE_LIMITED) {
+                response.set_header("Retry-After", "300");
+                setJson(response, 429, {
+                    {"success", false},
+                    {"code", "RATE_LIMITED"},
+                    {"message", "Bạn đã thử đăng nhập quá nhiều lần. Vui lòng thử lại sau."}
+                });
+                return;
+            }
+            if (result.status == LoginStatus::INVALID_CREDENTIALS) {
                 setJson(response, 401, {
                     {"success", false},
-                    {"code", "invalid_credentials"},
+                    {"code", "INVALID_CREDENTIALS"},
                     {"message", "Sai tên đăng nhập hoặc mật khẩu."}
                 });
                 return;
@@ -267,7 +409,7 @@ int main(int argc, char* argv[]) {
             std::cerr << "Login failed due to an internal error: " << result.detail << '\n';
             setJson(response, 500, {
                 {"success", false},
-                {"code", "login_failed"},
+                {"code", "LOGIN_FAILED"},
                 {"message", "Chưa thể đăng nhập lúc này. Vui lòng thử lại."}
             });
         });
@@ -278,7 +420,7 @@ int main(int argc, char* argv[]) {
                 std::cerr << "Could not check login session: " << session.detail << '\n';
                 setJson(response, 500, {
                     {"success", false},
-                    {"code", "session_check_failed"},
+                    {"code", "INTERNAL_ERROR"},
                     {"message", "Chưa thể kiểm tra phiên đăng nhập."}
                 });
                 return;
@@ -298,7 +440,7 @@ int main(int argc, char* argv[]) {
                 std::cerr << "Logout failed: " << detail << '\n';
                 setJson(response, 500, {
                     {"success", false},
-                    {"code", "logout_failed"},
+                    {"code", "INTERNAL_ERROR"},
                     {"message", "Chưa thể đăng xuất lúc này. Vui lòng thử lại."}
                 });
                 return;
@@ -308,17 +450,194 @@ int main(int argc, char* argv[]) {
                 std::string(SESSION_COOKIE) + "=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0");
             setJson(response, 200, {
                 {"success", true},
-                {"code", "logged_out"},
+                {"code", "LOGGED_OUT"},
                 {"message", "Đã đăng xuất."}
+            });
+        });
+
+        const auto requireSession = [&authService](
+            const httplib::Request& request, httplib::Response& response) {
+            const SessionResult session = authService.currentSession(sessionCookie(request));
+            if (!session.detail.empty()) {
+                std::cerr << "Could not check game session: " << session.detail << '\n';
+                setJson(response, 500, {
+                    {"success", false},
+                    {"code", "INTERNAL_ERROR"},
+                    {"message", "Chưa thể kiểm tra phiên đăng nhập."}
+                });
+                return SessionResult{};
+            }
+            if (!session.authenticated) {
+                setJson(response, 401, {
+                    {"success", false},
+                    {"code", "UNAUTHENTICATED"},
+                    {"message", "Vui lòng đăng nhập để tiếp tục."}
+                });
+                return SessionResult{};
+            }
+            return session;
+        };
+
+        const auto runAction = [&gameApi, &requireSession](
+            const httplib::Request& request,
+            httplib::Response& response,
+            const std::function<ActionResult(Game&)>& action) {
+            const SessionResult session = requireSession(request, response);
+            if (!session.authenticated) return;
+
+            ActionResult result;
+            const nlohmann::json state = gameApi.run(
+                session.userId, session.username, action, result);
+            if (!result.ok()) {
+                const bool internalError = result.code == ActionCode::INVALID_SNAPSHOT;
+                setJson(response, internalError ? 500 : statusForAction(result.code), {
+                    {"success", false},
+                    {"code", internalError ? "INTERNAL_ERROR" : toString(result.code)},
+                    {"message", internalError ? "Dữ liệu trò chơi không hợp lệ." : result.message}
+                });
+                return;
+            }
+            setJson(response, 200, {
+                {"success", true},
+                {"code", "OK"},
+                {"message", result.message},
+                {"levelsGained", result.levelsGained},
+                {"state", state}
+            });
+        };
+
+        server.Get("/api/shop", [&gameApi](const httplib::Request&, httplib::Response& response) {
+            setJson(response, 200, gameApi.catalog());
+        });
+
+        server.Get("/api/game/state", [&gameApi, &requireSession](
+            const httplib::Request& request, httplib::Response& response) {
+            const SessionResult session = requireSession(request, response);
+            if (!session.authenticated) return;
+
+            ActionResult result;
+            const nlohmann::json state = gameApi.run(
+                session.userId, session.username,
+                [](Game&) { return ActionResult::success("Game state loaded."); }, result);
+            if (!result.ok()) {
+                setJson(response, 500, {
+                    {"success", false},
+                    {"code", "INTERNAL_ERROR"},
+                    {"message", "Không thể tải dữ liệu trò chơi."}
+                });
+                return;
+            }
+            setJson(response, 200, state);
+        });
+
+        server.Post("/api/shop/purchases", [&runAction](
+            const httplib::Request& request, httplib::Response& response) {
+            nlohmann::json payload;
+            int itemId = 0;
+            int quantity = 0;
+            if (!parseJsonObject(request, payload)
+                || !positiveInteger(payload, "itemId", std::numeric_limits<int>::max(), itemId)
+                || !positiveInteger(payload, "quantity", 999, quantity)) {
+                setJson(response, 400, {
+                    {"success", false}, {"code", "INVALID_ARGUMENT"},
+                    {"message", "itemId and quantity must be valid positive integers."}
+                });
+                return;
+            }
+            runAction(request, response, [itemId, quantity](Game& game) {
+                return game.buy(itemId, quantity);
+            });
+        });
+
+        server.Post("/api/pet/feed", [&runAction](
+            const httplib::Request& request, httplib::Response& response) {
+            nlohmann::json payload;
+            int itemId = 0;
+            if (!parseJsonObject(request, payload)
+                || !positiveInteger(payload, "itemId", std::numeric_limits<int>::max(), itemId)) {
+                setJson(response, 400, {
+                    {"success", false}, {"code", "INVALID_ARGUMENT"},
+                    {"message", "itemId must be a valid positive integer."}
+                });
+                return;
+            }
+            runAction(request, response, [itemId](Game& game) { return game.feed(itemId); });
+        });
+
+        server.Post("/api/pet/play", [&runAction](
+            const httplib::Request& request, httplib::Response& response) {
+            if (!request.body.empty()) {
+                setJson(response, 400, {
+                    {"success", false}, {"code", "INVALID_ARGUMENT"},
+                    {"message", "This action does not accept a request body."}
+                });
+                return;
+            }
+            runAction(request, response, [](Game& game) { return game.play(); });
+        });
+
+        server.Post("/api/pet/sleep", [&runAction](
+            const httplib::Request& request, httplib::Response& response) {
+            if (!request.body.empty()) {
+                setJson(response, 400, {
+                    {"success", false}, {"code", "INVALID_ARGUMENT"},
+                    {"message", "This action does not accept a request body."}
+                });
+                return;
+            }
+            runAction(request, response, [](Game& game) { return game.sleep(); });
+        });
+
+        server.Post("/api/pet/bath", [&runAction](
+            const httplib::Request& request, httplib::Response& response) {
+            if (!request.body.empty()) {
+                setJson(response, 400, {
+                    {"success", false}, {"code", "INVALID_ARGUMENT"},
+                    {"message", "This action does not accept a request body."}
+                });
+                return;
+            }
+            runAction(request, response, [](Game& game) { return game.bath(); });
+        });
+
+        server.Post("/api/pet/decorate", [&runAction](
+            const httplib::Request& request, httplib::Response& response) {
+            nlohmann::json payload;
+            int itemId = 0;
+            if (!parseJsonObject(request, payload)
+                || !positiveInteger(payload, "itemId", std::numeric_limits<int>::max(), itemId)) {
+                setJson(response, 400, {
+                    {"success", false}, {"code", "INVALID_ARGUMENT"},
+                    {"message", "itemId must be a valid positive integer."}
+                });
+                return;
+            }
+            runAction(request, response, [itemId](Game& game) { return game.decorate(itemId); });
+        });
+
+        server.Post("/api/pet/unequip", [&runAction](
+            const httplib::Request& request, httplib::Response& response) {
+            nlohmann::json payload;
+            DecorationSlot slot;
+            if (!parseJsonObject(request, payload) || !parseDecorationSlot(payload, slot)) {
+                setJson(response, 400, {
+                    {"success", false}, {"code", "INVALID_ARGUMENT"},
+                    {"message", "slot must be headwear, background, or floor."}
+                });
+                return;
+            }
+            runAction(request, response, [slot](Game& game) {
+                return game.unequipDecoration(slot);
             });
         });
 
         server.set_error_handler([](const httplib::Request& request, httplib::Response& response) {
             if (request.path.rfind("/api/", 0) == 0 && response.body.empty()) {
-                response.status = 404;
-                response.set_content(
-                    R"({"success":false,"code":"not_found","message":"Không tìm thấy API."})",
-                    "application/json; charset=utf-8");
+                setJson(response, 404, {
+                    {"success", false},
+                    {"code", "NOT_FOUND"},
+                    {"message", "Không tìm thấy API."}
+                });
             }
         });
 
@@ -333,10 +652,11 @@ int main(int argc, char* argv[]) {
             } catch (const std::exception& failure) {
                 std::cerr << "HTTP request failed: " << failure.what() << '\n';
             }
-            response.status = 500;
-            response.set_content(
-                R"({"success":false,"code":"internal_error","message":"Đã xảy ra lỗi máy chủ."})",
-                "application/json; charset=utf-8");
+            setJson(response, 500, {
+                {"success", false},
+                {"code", "INTERNAL_ERROR"},
+                {"message", "Đã xảy ra lỗi máy chủ."}
+            });
         });
 
         if (!server.set_mount_point("/", PET_FRONTEND_DIR)) {
@@ -345,8 +665,9 @@ int main(int argc, char* argv[]) {
         }
 
         std::cout << "Virtual Pet is running at http://127.0.0.1:" << port << "/\n"
-                  << "Auth endpoints: POST /api/auth/register, POST /api/auth/login, "
-                     "POST /api/auth/logout, GET /api/auth/session\n"
+                  << "API: POST /api/auth/register, POST /api/auth/login, "
+                     "POST /api/auth/logout, GET /api/auth/session, GET /api/game/state, "
+                     "GET /api/shop, POST /api/shop/purchases, POST /api/pet/*\n"
                   << "Database: " << databasePath << "\n";
         if (!server.listen("127.0.0.1", port)) {
             std::cerr << "Could not start the HTTP server on port " << port << ".\n";
