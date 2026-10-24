@@ -40,10 +40,6 @@ Shop::Shop() {
         11, "Thảm hoa", "Thảm hoa mềm mại", 22, "assets/items/tham_hoa.png", DecorationSlot::FLOOR));
 }
 
-const std::vector<std::shared_ptr<Item>>& Shop::getItemsForSale() const {
-    return items;
-}
-
 std::vector<std::shared_ptr<Item>> Shop::getFoods() const {
     std::vector<std::shared_ptr<Item>> result;
     for (const auto& item : items) {

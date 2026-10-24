@@ -5,31 +5,56 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pet Home</title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=auth-labels-20261024">
     <link rel="stylesheet" href="css/pixel.css">
 </head>
 
-<body>
-    <aside class="landscape-notice" role="alert" aria-live="polite">
-        <span class="landscape-phone" aria-hidden="true"><i></i></span>
-        <p class="landscape-kicker">PETLOVERY</p>
-        <h1>Úi, màn hình hơi chật!</h1>
-        <p>Xoay ngang điện thoại để bước vào thế giới của UIA nhé.</p>
-        <span class="landscape-hint" aria-hidden="true">↻</span>
-    </aside>
+<body class="entry-open">
     <main class="pet-game" aria-label="Màn hình chăm sóc thú cưng">
+        <section class="entry-gate" id="entry-gate" aria-labelledby="entry-title">
+            <div class="entry-card">
+                <p class="entry-kicker">PET HOME</p>
+                <h1 id="entry-title">Welcome!</h1>
+                <p class="entry-description">Log in or create an account to continue.</p>
+                <div class="entry-actions" id="entry-actions">
+                    <button class="entry-primary" id="show-login" type="button">Log in</button>
+                    <button class="entry-secondary" id="show-register" type="button">Sign up</button>
+                </div>
+                <form class="entry-form" id="entry-form" hidden>
+                    <div id="email-field">
+                        <label for="entry-email">Email</label>
+                        <input id="entry-email" name="email" type="email" maxlength="254" autocomplete="email" placeholder="name@example.com" required>
+                    </div>
+                    <div id="username-field" hidden>
+                        <label for="entry-username">Username</label>
+                        <input id="entry-username" name="username" type="text" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]{3,20}" autocomplete="username" placeholder="Your username">
+                    </div>
+                    <label for="entry-password">Password</label>
+                    <div class="password-field">
+                        <input id="entry-password" name="password" type="password" minlength="8" maxlength="128" autocomplete="current-password" placeholder="Enter your password" required>
+                        <button class="password-toggle" id="toggle-password" type="button" aria-label="Show password" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="m3 3 18 18"/></svg></button>
+                    </div>
+                    <div id="confirm-password-field" hidden>
+                        <label for="entry-confirm-password">Confirm password</label>
+                        <div class="password-field">
+                            <input id="entry-confirm-password" name="confirmPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="Enter it again to confirm">
+                            <button class="password-toggle" type="button" data-password-target="entry-confirm-password" aria-label="Show password" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="m3 3 18 18"/></svg></button>
+                        </div>
+                    </div>
+                    <p class="entry-error" id="entry-error" role="alert" aria-live="polite"></p>
+                    <button class="entry-primary" id="submit-auth" type="submit">Log in</button>
+                    <button class="entry-back" id="entry-back" type="button">Back</button>
+                </form>
+            </div>
+        </section>
         <div class="lobby-scene" id="lobby-scene" aria-hidden="true"></div>
         <div class="lobby-floor" id="lobby-floor" aria-hidden="true"></div>
         <section class="px-box hud-player" aria-label="Thông tin thú cưng">
             <div class="hud-avatar"><img src="assets/pets/meomeo.png" alt="PetLovery"></div>
             <div class="hud-player-info">
-                <p class="hud-level-row"><span class="px-icon" data-px="star"></span><span>Lv. <b id="pet-level">1</b></span><span class="hud-name" id="pet-name">UIA</span></p>
+                <p class="hud-level-row"><span class="px-icon" data-px="star"></span><span>Lv. <b id="pet-level">1</b></span><span class="hud-name" id="pet-name">UIA</span><button class="rename-pet-button" id="rename-pet" type="button" aria-label="Rename pet">✎</button></p>
                 <div class="px-bar exp"><i id="exp-fill" style="width:0%"></i></div>
                 <p class="hud-exp-text" id="exp-text">EXP 0 / 100</p>
-                <div class="account-row">
-                    <span id="account-username">Guest</span>
-                    <button class="account-button" id="account-action" type="button">Log in</button>
-                </div>
             </div>
         </section>
 
@@ -160,7 +185,6 @@
                         <button class="win-close" id="close-decorate" type="button" aria-label="Close decorate">×</button>
                     </header>
                     <div class="win-tabs" role="group" aria-label="Choose decoration slot">
-                        <button class="win-tab" type="button" data-decor-slot="headwear" aria-pressed="false">Headwear</button>
                         <button class="win-tab is-active" type="button" data-decor-slot="background" aria-pressed="true">Background</button>
                         <button class="win-tab" type="button" data-decor-slot="floor" aria-pressed="false">Floor</button>
                     </div>
@@ -172,86 +196,28 @@
             </div>
         </section>
     </main>
-    <dialog class="account-dialog register-dialog auth-dialog" id="login-dialog" aria-labelledby="login-title">
-        <button class="register-close" id="close-login" type="button" aria-label="Close sign in">×</button>
-        <section class="auth-art" aria-label="UIA's home">
-            <span class="auth-brand"><span aria-hidden="true">✦</span> PETLOVERY</span>
-            <div class="auth-art-copy">
-                <p class="auth-eyebrow">YOUR LITTLE HOME MISSES YOU</p>
-                <h2>The fun is still<br>waiting for you!</h2>
-                <p>UIA is ready for a new day with you.</p>
+    <section class="entry-gate pet-picker" id="pet-picker" aria-labelledby="pet-picker-title" hidden>
+        <div class="entry-card pet-picker-card">
+            <p class="entry-kicker">CHOOSE YOUR COMPANION</p>
+            <h1 id="pet-picker-title">Which pet would you like?</h1>
+            <div class="pet-choices" role="group" aria-label="Choose a pet">
+                <button class="pet-choice" type="button" data-pet-species="cat" aria-pressed="false"><img src="assets/pets/meomeo.png" alt="Cat"><span>Cat</span></button>
+                <button class="pet-choice" type="button" data-pet-species="dog" aria-pressed="false"><img src="assets/pets/gaugau.png" alt="Dog"><span>Dog</span></button>
             </div>
-            <div class="auth-pet-frame">
-                <img class="auth-pet-art" src="assets/pets/meomeo_mulen_pixel.png" alt="">
-            </div>
-            <span class="auth-art-note">A hug from UIA is waiting for you ♡</span>
-        </section>
-        <section class="auth-content">
-            <p class="register-kicker">GREAT TO SEE YOU AGAIN</p>
-            <h2 id="login-title">Log in</h2>
-            <p class="register-subtitle">Continue caring for your little friend.</p>
-
-            <form id="login-form">
-                <label for="login-username">Username</label>
-                <input id="login-username" name="username" type="text" minlength="3" maxlength="20"
-                    pattern="[A-Za-z0-9_]{3,20}" autocomplete="username" placeholder="Your username" required>
-
-                <label for="login-password">Password</label>
-                <input id="login-password" name="password" type="password" maxlength="128"
-                    autocomplete="current-password" placeholder="Enter your password" required>
-
-                <p class="register-message" id="login-message" role="status" aria-live="polite"></p>
-                <button class="register-submit" id="login-submit" type="submit">
-                    <span>Log in</span><span aria-hidden="true">→</span>
-                </button>
-            </form>
-            <p class="auth-switch">New here? <button class="text-button" id="switch-to-register" type="button">Create an account</button></p>
-            <p class="register-footnote"><span aria-hidden="true">🔒</span> Your session is protected and expires after 7 days.</p>
-        </section>
-    </dialog>
-    <dialog class="account-dialog register-dialog auth-dialog" id="register-dialog" aria-labelledby="register-title">
-        <button class="register-close" id="close-register" type="button" aria-label="Close registration">×</button>
-        <section class="auth-art" aria-label="Your little world">
-            <span class="auth-brand"><span aria-hidden="true">✦</span> PETLOVERY</span>
-            <div class="auth-art-copy">
-                <p class="auth-eyebrow">A LITTLE FRIEND IS WAITING</p>
-                <h2>Add a little friend<br>to your home!</h2>
-                <p>Create your own little world and grow with UIA every day.</p>
-            </div>
-            <div class="auth-pet-frame">
-                <img class="auth-pet-art" src="assets/pets/meomeo_mulen_pixel.png" alt="">
-            </div>
-            <span class="auth-art-note">A little care goes a long way ♡</span>
-        </section>
-        <section class="auth-content">
-            <p class="register-kicker">GET STARTED IN A FEW STEPS</p>
-            <h2 id="register-title">Create an account</h2>
-            <p class="register-subtitle">Your new home and little friend are ready.</p>
-
-            <form id="register-form">
-                <label for="register-username">Username</label>
-                <input id="register-username" name="username" type="text" minlength="3" maxlength="20"
-                    pattern="[A-Za-z0-9_]{3,20}" autocomplete="username" placeholder="e.g. mimi_01"
-                    aria-describedby="username-hint" required>
-                <small class="register-hint" id="username-hint">3-20 characters · letters, numbers, or underscores</small>
-
-                <label for="register-password">Password</label>
-                <input id="register-password" name="password" type="password" minlength="8" maxlength="128"
-                    autocomplete="new-password" placeholder="At least 8 characters" required>
-
-                <label for="register-confirm-password">Confirm password</label>
-                <input id="register-confirm-password" name="confirmPassword" type="password" minlength="8"
-                    maxlength="128" autocomplete="new-password" placeholder="Enter it again to confirm" required>
-
-                <p class="register-message" id="register-message" role="status" aria-live="polite"></p>
-                <button class="register-submit" id="register-submit" type="submit">
-                    <span>Create account</span><span aria-hidden="true">→</span>
-                </button>
-            </form>
-            <p class="auth-switch">Already have an account? <button class="text-button" id="switch-to-login" type="button">Log in</button></p>
-            <p class="register-footnote"><span aria-hidden="true">🔒</span> Passwords are securely hashed and never stored in plain text.</p>
-        </section>
-    </dialog>
+            <p class="entry-error" id="pet-choice-error" role="alert" aria-live="polite"></p>
+            <button class="entry-primary" id="confirm-pet-choice" type="button">Choose this pet</button>
+        </div>
+    </section>
+    <section class="entry-gate rename-gate" id="rename-dialog" aria-labelledby="rename-title" hidden>
+        <form class="entry-card rename-card" id="rename-form">
+            <h2 id="rename-title">Name your pet</h2>
+            <label for="pet-new-name">Pet name</label>
+            <input id="pet-new-name" name="name" type="text" maxlength="80" required autocomplete="off">
+            <p class="entry-error" id="rename-message" role="alert" aria-live="polite"></p>
+            <button class="entry-primary" type="submit">Save name</button>
+            <button class="entry-back" id="cancel-rename" type="button">Cancel</button>
+        </form>
+    </section>
     <script src="js/pixel.js" defer></script>
     <script src="js/demo.js" defer></script>
     <script src="js/app.js" defer></script>

@@ -1,158 +1,188 @@
-const loginDialog = document.querySelector('#login-dialog');
-const registerDialog = document.querySelector('#register-dialog');
-const loginForm = document.querySelector('#login-form');
-const registerForm = document.querySelector('#register-form');
-const loginMessage = document.querySelector('#login-message');
-const registerMessage = document.querySelector('#register-message');
-const loginSubmit = document.querySelector('#login-submit');
-const registerSubmit = document.querySelector('#register-submit');
-const accountAction = document.querySelector('#account-action');
-const accountUsername = document.querySelector('#account-username');
-
+const entryGate = document.querySelector('#entry-gate');
+const entryActions = document.querySelector('#entry-actions');
+const entryForm = document.querySelector('#entry-form');
+const entryError = document.querySelector('#entry-error');
+const entrySubmit = document.querySelector('#submit-auth');
+const petPicker = document.querySelector('#pet-picker');
+const petChoiceError = document.querySelector('#pet-choice-error');
+const renameGate = document.querySelector('#rename-dialog');
+const renameForm = document.querySelector('#rename-form');
+const renameMessage = document.querySelector('#rename-message');
 let signedInUser = null;
+let authMode = 'login';
+let selectedSpecies = 'cat';
 
-function showMessage(element, text, success = false) {
-	element.classList.toggle('is-success', success);
-	element.textContent = text;
+function profileKey(user) {
+	return `virtual-pet-profile-v1-${encodeURIComponent(String(user.username).toLowerCase())}`;
 }
 
-function openDialog(dialog, input, message) {
-	showMessage(message, '');
-	if (loginDialog.open) loginDialog.close();
-	if (registerDialog.open) registerDialog.close();
-	dialog.showModal();
-	input.focus();
+function readPetProfile(user) {
+	try {
+		const saved = JSON.parse(localStorage.getItem(profileKey(user)) || '{}');
+		return {
+			species: saved.species === 'dog' ? 'dog' : 'cat',
+			name: typeof saved.name === 'string' && saved.name.trim() ? saved.name.trim() : 'UIA'
+		};
+	} catch {
+		return { species: 'cat', name: 'UIA' };
+	}
 }
 
-function setSignedInUser(user) {
-	signedInUser = user;
-	accountUsername.textContent = user.username;
-	accountAction.textContent = 'Log out';
-	accountAction.setAttribute('aria-label', `Log out of account ${user.username}`);
+function applyPetProfile(profile) {
+	window.currentPetProfile = profile;
+	const name = profile.name || 'UIA';
+	const species = profile.species === 'dog' ? 'dog' : 'cat';
+	const image = species === 'dog' ? 'assets/pets/gaugau.png' : 'assets/pets/meomeo.png';
+	document.querySelector('#pet-name').textContent = name;
+	document.querySelector('.pet-stage .pet-name').textContent = name;
+	document.querySelector('.pet-stage .pet-image').src = image;
+	document.querySelector('.pet-stage .pet-image').alt = `${species === 'dog' ? 'Dog' : 'Cat'}, ${name}`;
+	document.querySelector('.hud-avatar img').src = image;
 }
 
-function setSignedOut() {
-	signedInUser = null;
-	accountUsername.textContent = 'Guest';
-	accountAction.textContent = 'Log in';
-	accountAction.setAttribute('aria-label', 'Log in');
+function showPetPicker(user) {
+	const profile = readPetProfile(user);
+	entryGate.hidden = true;
+	selectedSpecies = profile.species;
+	document.querySelectorAll('[data-pet-species]').forEach((button) => {
+		button.setAttribute('aria-pressed', String(button.dataset.petSpecies === selectedSpecies));
+	});
+	petChoiceError.textContent = '';
+	petPicker.hidden = false;
 }
 
-document.querySelector('#close-login').addEventListener('click', () => loginDialog.close());
-document.querySelector('#close-register').addEventListener('click', () => registerDialog.close());
+function showAuth(mode) {
+	authMode = mode;
+	entryGate.hidden = false;
+	entryActions.hidden = true;
+	entryForm.hidden = false;
+	entryError.textContent = '';
+	entryError.classList.remove('is-success');
+	entrySubmit.textContent = mode === 'register' ? 'Create account' : 'Log in';
+	const title = document.querySelector('#entry-title');
+	title.textContent = mode === 'register' ? 'Create account' : 'Log in';
+	const usernameInput = document.querySelector('#entry-username');
+	document.querySelector('#username-field').hidden = mode !== 'register';
+	usernameInput.required = mode === 'register';
+	document.querySelector('#confirm-password-field').hidden = mode !== 'register';
+	const password = document.querySelector('#entry-password');
+	password.autocomplete = mode === 'register' ? 'new-password' : 'current-password';
+	password.placeholder = mode === 'register' ? 'At least 8 characters' : 'Enter your password';
+	document.querySelector('#entry-email').focus();
+}
 
-document.querySelector('#switch-to-register').addEventListener('click', () => {
-	openDialog(registerDialog, document.querySelector('#register-username'), registerMessage);
+document.querySelector('#show-login').addEventListener('click', () => showAuth('login'));
+document.querySelector('#show-register').addEventListener('click', () => showAuth('register'));
+document.querySelector('#entry-back').addEventListener('click', () => {
+	entryForm.reset();
+	entryForm.hidden = true;
+	entryActions.hidden = false;
+	entryError.textContent = '';
+	entrySubmit.disabled = false;
+	entryGate.querySelector('#entry-title').textContent = 'Welcome!';
 });
 
-document.querySelector('#switch-to-login').addEventListener('click', () => {
-	openDialog(loginDialog, document.querySelector('#login-username'), loginMessage);
+document.querySelectorAll('.password-toggle, [data-password-target]').forEach((button) => {
+	button.addEventListener('click', () => {
+		const targetId = button.dataset.passwordTarget || 'entry-password';
+		const input = document.getElementById(targetId);
+		const visible = input.type === 'password';
+		input.type = visible ? 'text' : 'password';
+		button.classList.toggle('is-visible', visible);
+		button.setAttribute('aria-label', visible ? 'Hide password' : 'Show password');
+		button.setAttribute('aria-pressed', String(visible));
+	});
 });
 
-accountAction.addEventListener('click', async () => {
-	if (!signedInUser) {
-		openDialog(loginDialog, document.querySelector('#login-username'), loginMessage);
+document.querySelectorAll('[data-pet-species]').forEach((button) => {
+	button.addEventListener('click', () => {
+		selectedSpecies = button.dataset.petSpecies;
+		document.querySelectorAll('[data-pet-species]').forEach((choice) => {
+			choice.setAttribute('aria-pressed', String(choice === button));
+		});
+	});
+});
+
+document.querySelector('#confirm-pet-choice').addEventListener('click', () => {
+	try {
+		const profile = { ...readPetProfile(signedInUser), species: selectedSpecies };
+		localStorage.setItem(profileKey(signedInUser), JSON.stringify(profile));
+		applyPetProfile(profile);
+		petPicker.hidden = true;
+		entryGate.hidden = true;
+		document.body.classList.remove('entry-open');
+	} catch {
+		petChoiceError.textContent = 'Could not save your pet choice in this browser.';
+	}
+});
+
+document.querySelector('#rename-pet').addEventListener('click', () => {
+	if (!signedInUser) return;
+	document.querySelector('#pet-new-name').value = window.currentPetProfile?.name || 'UIA';
+	renameMessage.textContent = '';
+	renameGate.hidden = false;
+	document.querySelector('#pet-new-name').focus();
+	document.querySelector('#pet-new-name').select();
+});
+document.querySelector('#cancel-rename').addEventListener('click', () => { renameGate.hidden = true; });
+renameForm.addEventListener('submit', (event) => {
+	event.preventDefault();
+	const name = document.querySelector('#pet-new-name').value.trim();
+	if (!name) { renameMessage.textContent = 'Enter a name for your pet.'; return; }
+	try {
+		const profile = { ...readPetProfile(signedInUser), name };
+		localStorage.setItem(profileKey(signedInUser), JSON.stringify(profile));
+		applyPetProfile(profile);
+		renameGate.hidden = true;
+	} catch {
+		renameMessage.textContent = 'Could not save the pet name in this browser.';
+	}
+});
+
+entryForm.addEventListener('submit', async (event) => {
+	event.preventDefault();
+	entryError.textContent = '';
+	entrySubmit.disabled = true;
+	const username = document.querySelector('#entry-username').value.trim();
+	const email = document.querySelector('#entry-email').value.trim();
+	const password = document.querySelector('#entry-password').value;
+	const confirmation = document.querySelector('#entry-confirm-password').value;
+	if (authMode === 'register' && password !== confirmation) {
+		entryError.textContent = 'The passwords do not match.';
+		entrySubmit.disabled = false;
 		return;
 	}
-
-	accountAction.disabled = true;
-	try {
-		const response = await fetch('/api/auth/logout', { method: 'POST' });
-		const result = await response.json();
-		if (!response.ok) {
-			openDialog(loginDialog, document.querySelector('#login-username'), loginMessage);
-			showMessage(loginMessage, result.message || 'Unable to log out right now. Please try again.');
-			return;
-		}
-		setSignedOut();
-	} catch (error) {
-		console.error('Could not contact the server to log out:', error);
-		openDialog(loginDialog, document.querySelector('#login-username'), loginMessage);
-		showMessage(loginMessage, 'Could not connect to the server to log out. Please try again.');
-	} finally {
-		accountAction.disabled = false;
+	if (authMode === 'register' && Array.from(password).length < 8) {
+		entryError.textContent = 'Password must be at least 8 characters long.';
+		entrySubmit.disabled = false;
+		return;
 	}
-});
-
-loginForm.addEventListener('submit', async (event) => {
-	event.preventDefault();
-	showMessage(loginMessage, '');
-	loginSubmit.disabled = true;
-	loginSubmit.querySelector('span').textContent = 'Signing in...';
-
-	const formData = new FormData(loginForm);
-	const username = String(formData.get('username') ?? '').trim();
-	const password = String(formData.get('password') ?? '');
-
 	try {
-		const response = await fetch('/api/auth/login', {
+		const response = await fetch(`/api/auth/${authMode}`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ username, password })
+			body: JSON.stringify(authMode === 'register' ? { username, email, password } : { email, password })
 		});
 		const result = await response.json();
-
 		if (!response.ok) {
-			showMessage(loginMessage, result.message || 'Unable to sign in. Please try again.');
+			entryError.textContent = result.message || `Unable to ${authMode === 'register' ? 'create account' : 'sign in'}. Please try again.`;
 			return;
 		}
-
-		setSignedInUser(result.user);
-		loginForm.reset();
-		loginDialog.close();
-	} catch {
-		showMessage(loginMessage, 'Could not connect to the server. Open Virtual Pet through its server and try again.');
-	} finally {
-		loginSubmit.disabled = false;
-		loginSubmit.querySelector('span').textContent = 'Log in';
-	}
-});
-
-registerForm.addEventListener('submit', async (event) => {
-	event.preventDefault();
-	showMessage(registerMessage, '');
-
-	const formData = new FormData(registerForm);
-	const username = String(formData.get('username') ?? '').trim();
-	const password = String(formData.get('password') ?? '');
-	const confirmation = String(formData.get('confirmPassword') ?? '');
-
-	if (password !== confirmation) {
-		showMessage(registerMessage, 'The passwords do not match.');
-		document.querySelector('#register-confirm-password').focus();
-		return;
-	}
-
-	if (Array.from(password).length < 8) {
-		showMessage(registerMessage, 'Password must be at least 8 characters long.');
-		document.querySelector('#register-password').focus();
-		return;
-	}
-
-	registerSubmit.disabled = true;
-	registerSubmit.querySelector('span').textContent = 'Creating account...';
-	showMessage(registerMessage, 'Preparing your new home...');
-
-	try {
-		const response = await fetch('/api/auth/register', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ username, password })
-		});
-		const result = await response.json();
-
-		if (!response.ok) {
-			showMessage(registerMessage, result.message || 'Unable to create your account. Please try again.');
+		if (authMode === 'register') {
+			entryError.textContent = `Account created. Please log in with ${email}.`;
+			entryError.classList.add('is-success');
+			entryForm.reset();
+			setTimeout(() => showAuth('login'), 1000);
 			return;
 		}
-
-		showMessage(registerMessage, `Welcome, ${result.user.username}! Sign in to get started.`, true);
-		registerForm.reset();
+		signedInUser = result.user;
+		entryForm.reset();
+		entryGate.hidden = true;
+		showPetPicker(signedInUser);
 	} catch {
-		showMessage(registerMessage, 'Could not connect to the server. Open Virtual Pet through its server and try again.');
+		entryError.textContent = 'Could not connect to the server. Open Virtual Pet through its server and try again.';
 	} finally {
-		registerSubmit.disabled = false;
-		registerSubmit.querySelector('span').textContent = 'Create account';
+		entrySubmit.disabled = false;
 	}
 });
 
@@ -162,6 +192,16 @@ fetch('/api/auth/session')
 		return response.json();
 	})
 	.then((result) => {
-		if (result.authenticated) setSignedInUser(result.user);
+		if (result.authenticated) {
+			signedInUser = result.user;
+			showPetPicker(signedInUser);
+		} else {
+			entryGate.hidden = false;
+			document.body.classList.add('entry-open');
+		}
 	})
-	.catch((error) => console.error('Could not restore the login session:', error));
+	.catch(() => {
+		entryGate.hidden = false;
+		document.body.classList.add('entry-open');
+		entryError.textContent = 'Could not check your session. Please log in.';
+	});
