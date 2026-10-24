@@ -93,19 +93,3 @@ The OOP design helps organize the codebase into manageable modules, supports cod
 - Build a modular application that can be extended in the future
 
 The account/game-data separation, account validation rules, ER diagram, and SQLite migration are documented in [docs/user-data-model.md](docs/user-data-model.md).
-
-## Run Locally
-
-Build and start the local API server from the repository root:
-
-```powershell
-.\backend\build.ps1 -Run -Port 8080
-```
-
-Open `http://127.0.0.1:8080/`. The same server hosts the frontend and API. The
-SQLite database defaults to `backend/build/virtual_pet.db`; its schema is
-`database/schema.sql`. API setup and test commands are in [backend/README.md](backend/README.md).
-
----
-
-*Developed as a collaborative academic project.*
