@@ -93,7 +93,7 @@
 			return persist(next);
 		},
 		async sleepPet() {
-			if (state.pet.energy >= 100) throw new Error('UIA is not sleepy right now.');
+			if (state.pet.energy >= 100) throw new Error(`${window.getCurrentPetName?.() || 'UIA'} is not sleepy right now.`);
 			const next = copy(state);
 			next.pet.energy = Math.min(100, next.pet.energy + 40);
 			return persist(next);

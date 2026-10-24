@@ -349,8 +349,9 @@ RegisterResult AuthService::registerUser(std::string username, std::string email
             return {RegisterStatus::DATABASE_ERROR, 0, detail};
         }
 
-        Statement insertPet(database, "INSERT INTO pets (user_id, name) VALUES (?, 'UIA');");
+        Statement insertPet(database, "INSERT INTO pets (user_id, name) VALUES (?, ?);");
         sqlite3_bind_int64(insertPet.get(), 1, userId);
+        sqlite3_bind_text(insertPet.get(), 2, username.c_str(), -1, SQLITE_TRANSIENT);
         if (sqlite3_step(insertPet.get()) != SQLITE_DONE) {
             const std::string detail = sqlite3_errmsg(database);
             execute(database, "ROLLBACK;");
@@ -522,6 +523,16 @@ LoginResult AuthService::loginWithIdentity(std::string username, std::string pas
         sqlite3_bind_int(insertSession.get(), 2, userId);
         sqlite3_bind_int64(insertSession.get(), 3, expiresAt);
         if (sqlite3_step(insertSession.get()) != SQLITE_DONE) {
+            const std::string detail = sqlite3_errmsg(database);
+            execute(database, "ROLLBACK;");
+            return {LoginStatus::DATABASE_ERROR, 0, {}, {}, 0, detail};
+        }
+
+        Statement nameDefaultPet(database,
+            "UPDATE pets SET name = ? WHERE user_id = ? AND name = 'UIA';");
+        sqlite3_bind_text(nameDefaultPet.get(), 1, canonicalUsername.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(nameDefaultPet.get(), 2, userId);
+        if (sqlite3_step(nameDefaultPet.get()) != SQLITE_DONE) {
             const std::string detail = sqlite3_errmsg(database);
             execute(database, "ROLLBACK;");
             return {LoginStatus::DATABASE_ERROR, 0, {}, {}, 0, detail};

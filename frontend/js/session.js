@@ -80,7 +80,7 @@ function setFeedingStatus(message, duration = 0) {
 
 petStage.tabIndex = 0;
 petStage.setAttribute('role', 'button');
-petStage.setAttribute('aria-label', 'Feed selected food to UIA');
+petStage.setAttribute('aria-label', `Feed selected food to ${window.getCurrentPetName()}`);
 
 document.querySelector('#close-food').addEventListener('click', () => {
 	document.querySelector('#food-drawer').hidden = true;
@@ -165,7 +165,7 @@ async function feedFood(item) {
 		petStage.append(bite);
 		bite.addEventListener('animationend', () => bite.remove(), { once: true });
 		setFeedingStatus(fed.pet.level > previousLevel
-			? `${item.name} eaten! Level up! UIA is now level ${fed.pet.level}`
+			? `${item.name} eaten! Level up! ${window.getCurrentPetName()} is now level ${fed.pet.level}`
 			: `${item.name} eaten!`);
 	} catch (failure) {
 		setFeedingStatus(reportFailure(failure));
@@ -190,10 +190,10 @@ document.querySelector('#sleep-pet').addEventListener('click', async (event) => 
 	button.disabled = true;
 	try {
 		applyAccountState(await api.sleepPet());
-		setFeedingStatus('UIA took a nap and feels rested!');
+		setFeedingStatus(`${window.getCurrentPetName()} took a nap and feels rested!`);
 	} catch (failure) {
 		const message = reportFailure(failure);
-		setFeedingStatus(message, message.startsWith('UIA is not sleepy right now') ? 5000 : 0);
+		setFeedingStatus(message, message.includes('not sleepy right now') ? 5000 : 0);
 	} finally {
 		button.disabled = false;
 	}

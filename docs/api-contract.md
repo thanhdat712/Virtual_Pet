@@ -112,7 +112,9 @@ Creates an account and its initial game data. Body:
 
 `username` is 3–20 ASCII letters, digits, or underscores and is unique
 case-insensitively. `email` is required and unique case-insensitively.
-`password` has at least 8 Unicode characters.
+`password` has at least 8 Unicode characters. The new pet is named after the
+account username; legacy pets still named `UIA` are updated to the username at
+the next successful login.
 
 Success: `201`
 
@@ -172,7 +174,7 @@ Returned by `/game/state` and after every state-changing game endpoint.
   "user": { "id": 42, "username": "player_01", "coins": 85 },
   "pet": {
     "id": 1,
-    "name": "UIA",
+    "name": "player_01",
     "level": 1,
     "health": 100,
     "experience": 0,
