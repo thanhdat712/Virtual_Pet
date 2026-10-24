@@ -28,8 +28,8 @@ async function request(path, { method = 'GET', body } = {}) {
 	return data;
 }
 
-async function action(path, body) {
-	const result = await request(path, { method: 'POST', body });
+async function action(path, body, method = 'POST') {
+	const result = await request(path, { method, body });
 	if (!result.success || !result.state) {
 		throw new Error(result.message || 'The server did not return an updated game state.');
 	}
@@ -61,6 +61,14 @@ const api = {
 
 	gameState() {
 		return request('/api/game/state');
+	},
+
+	savePetProfile(name, species) {
+		return action('/api/pet', { name, species }, 'PUT');
+	},
+
+	saveSoundEnabled(soundEnabled) {
+		return action('/api/settings', { soundEnabled }, 'PUT');
 	},
 
 	listShop() {

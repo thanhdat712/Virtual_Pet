@@ -56,32 +56,6 @@ target_include_directories(argon2 PRIVATE
 find_package(Threads REQUIRED)
 target_link_libraries(argon2 PUBLIC Threads::Threads)
 
-set(AUTH_HTTP_INCLUDE_DIR "${CMAKE_BINARY_DIR}/_deps/auth_http_include")
-file(MAKE_DIRECTORY "${AUTH_HTTP_INCLUDE_DIR}/nlohmann")
-file(DOWNLOAD
-    https://raw.githubusercontent.com/yhirose/cpp-httplib/v0.18.3/httplib.h
-    "${AUTH_HTTP_INCLUDE_DIR}/httplib.h"
-    EXPECTED_HASH SHA256=A0A0C13DC086663863DBE6730A19716F7D3744904B6205496E8301750814DBD5
-    TLS_VERIFY ON
-    STATUS HTTPLIB_DOWNLOAD_STATUS
-)
-list(GET HTTPLIB_DOWNLOAD_STATUS 0 HTTPLIB_DOWNLOAD_CODE)
-if(NOT HTTPLIB_DOWNLOAD_CODE EQUAL 0)
-    message(FATAL_ERROR "Could not download cpp-httplib: ${HTTPLIB_DOWNLOAD_STATUS}")
-endif()
-
-file(DOWNLOAD
-    https://raw.githubusercontent.com/nlohmann/json/v3.12.0/single_include/nlohmann/json.hpp
-    "${AUTH_HTTP_INCLUDE_DIR}/nlohmann/json.hpp"
-    EXPECTED_HASH SHA256=AAF127C04CB31C406E5B04A63F1AE89369FCCDE6D8FA7CDDA1ED4F32DFC5DE63
-    TLS_VERIFY ON
-    STATUS JSON_DOWNLOAD_STATUS
-)
-list(GET JSON_DOWNLOAD_STATUS 0 JSON_DOWNLOAD_CODE)
-if(NOT JSON_DOWNLOAD_CODE EQUAL 0)
-    message(FATAL_ERROR "Could not download nlohmann/json: ${JSON_DOWNLOAD_STATUS}")
-endif()
-
 enable_testing()
 
 # Thư viện chứa logic game; main và các test đều dùng chung
@@ -117,7 +91,6 @@ add_library(auth_service STATIC
 target_include_directories(auth_service PUBLIC
     backend/include/Auth
     backend/include/User
-    "${AUTH_HTTP_INCLUDE_DIR}"
 )
 target_link_libraries(auth_service PUBLIC sqlite3 argon2 pet_core)
 if(WIN32)
@@ -127,8 +100,20 @@ endif()
 add_executable(Pet_Raising backend/main.cpp)
 target_link_libraries(Pet_Raising PRIVATE pet_core)
 
-add_executable(Pet_Raising_Server backend/server_main.cpp)
-target_link_libraries(Pet_Raising_Server PRIVATE auth_service pet_db)
+add_executable(Pet_Raising_Server
+    backend/src/server_main.cpp
+    backend/src/Server/Database.cpp
+    backend/src/Server/HttpServer.cpp
+    backend/src/Server/Crypto.cpp
+    backend/src/Server/Catalog.cpp
+)
+target_include_directories(Pet_Raising_Server PRIVATE
+    backend/include/Server
+    backend/include/Pet
+    backend/third_party
+    backend/third_party/sqlite
+)
+target_link_libraries(Pet_Raising_Server PRIVATE sqlite3)
 target_compile_definitions(
     Pet_Raising_Server
     PRIVATE PET_FRONTEND_DIR="${CMAKE_CURRENT_SOURCE_DIR}/frontend"

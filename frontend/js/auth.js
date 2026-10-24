@@ -14,16 +14,14 @@ const settingsSoundToggle = document.querySelector('#settings-sound-toggle');
 let signedInUser = null;
 let authMode = 'login';
 let selectedSpecies = 'cat';
-const SOUND_SETTING_KEY = 'virtual-pet-sound-enabled';
 
-function setSoundEnabled(enabled, persist = true) {
+function setSoundEnabled(enabled) {
 	window.soundEnabled = enabled;
+	settingsSoundToggle.checked = enabled;
 	document.querySelectorAll('audio').forEach((audio) => { audio.muted = !enabled; });
-	if (persist) {
-		try { localStorage.setItem(SOUND_SETTING_KEY, String(enabled)); } catch { /* Keep the setting for this page only. */ }
-	}
 	window.dispatchEvent(new CustomEvent('soundsettingchange', { detail: { enabled } }));
 }
+window.applySoundPreference = setSoundEnabled;
 
 function openSettings() {
 	settingsMessage.textContent = '';
@@ -37,19 +35,25 @@ function closeSettings() {
 	document.querySelector('#open-settings').focus();
 }
 
-try {
-	settingsSoundToggle.checked = localStorage.getItem(SOUND_SETTING_KEY) !== 'false';
-} catch {
-	settingsSoundToggle.checked = true;
-}
-setSoundEnabled(settingsSoundToggle.checked, false);
+settingsSoundToggle.checked = true;
+setSoundEnabled(true);
 
 document.querySelector('#open-settings').addEventListener('click', openSettings);
 document.querySelector('#close-settings').addEventListener('click', closeSettings);
 settingsPanel.addEventListener('click', (event) => {
 	if (event.target === settingsPanel) closeSettings();
 });
-settingsSoundToggle.addEventListener('change', () => setSoundEnabled(settingsSoundToggle.checked));
+settingsSoundToggle.addEventListener('change', async () => {
+	const previous = !settingsSoundToggle.checked;
+	setSoundEnabled(settingsSoundToggle.checked);
+	try {
+		applyAccountState(await api.saveSoundEnabled(settingsSoundToggle.checked));
+	} catch (failure) {
+		settingsSoundToggle.checked = previous;
+		setSoundEnabled(previous);
+		settingsMessage.textContent = failure.message || 'Could not save this setting.';
+	}
+});
 document.addEventListener('keydown', (event) => {
 	if (event.key === 'Escape' && !settingsPanel.hidden) closeSettings();
 });
@@ -71,37 +75,33 @@ function profileKey(user) {
 	return `virtual-pet-profile-v1-${encodeURIComponent(String(user.username).toLowerCase())}`;
 }
 
-function readPetProfile(user) {
-	const accountName = typeof user?.username === 'string' && user.username.trim()
-		? user.username.trim()
-		: 'UIA';
+async function migrateBrowserPreferences(user) {
+	let changed = false;
 	try {
-		const saved = JSON.parse(localStorage.getItem(profileKey(user)) || '{}');
-		const savedName = typeof saved.name === 'string' ? saved.name.trim() : '';
-		return {
-			species: saved.species === 'dog' ? 'dog' : 'cat',
-			name: savedName && savedName !== 'UIA' ? savedName : accountName
-		};
+		const key = profileKey(user);
+		const saved = JSON.parse(localStorage.getItem(key) || 'null');
+		if (saved && typeof saved === 'object') {
+			const name = typeof saved.name === 'string' && saved.name.trim()
+				? saved.name.trim() : window.currentPetProfile?.name || 'UIA';
+			const species = saved.species === 'dog' ? 'dog' : 'cat';
+			applyAccountState(await api.savePetProfile(name, species));
+			localStorage.removeItem(key);
+			changed = true;
+		}
+		const oldSound = localStorage.getItem('virtual-pet-sound-enabled');
+		if (oldSound === 'true' || oldSound === 'false') {
+			applyAccountState(await api.saveSoundEnabled(oldSound === 'true'));
+			localStorage.removeItem('virtual-pet-sound-enabled');
+			changed = true;
+		}
 	} catch {
-		return { species: 'cat', name: accountName };
+		return;
 	}
-}
-
-function applyPetProfile(profile) {
-	window.currentPetProfile = profile;
-	const name = profile.name || 'UIA';
-	const species = profile.species === 'dog' ? 'dog' : 'cat';
-	const image = species === 'dog' ? 'assets/pets/gaugau.png' : 'assets/pets/meomeo.png';
-	document.querySelector('#pet-name').textContent = name;
-	document.querySelector('.pet-stage .pet-name').textContent = name;
-	document.querySelector('.pet-stage').setAttribute('aria-label', name);
-	document.querySelector('.pet-stage .pet-image').src = image;
-	document.querySelector('.pet-stage .pet-image').alt = `${species === 'dog' ? 'Dog' : 'Cat'}, ${name}`;
-	document.querySelector('.hud-avatar img').src = image;
+	if (changed) await window.initializeAccount();
 }
 
 function showPetPicker(user) {
-	const profile = readPetProfile(user);
+	const profile = window.currentPetProfile || { species: 'cat', name: user.username || 'UIA' };
 	entryGate.hidden = true;
 	selectedSpecies = profile.species;
 	document.querySelectorAll('[data-pet-species]').forEach((button) => {
@@ -163,17 +163,20 @@ document.querySelectorAll('[data-pet-species]').forEach((button) => {
 	});
 });
 
-document.querySelector('#confirm-pet-choice').addEventListener('click', () => {
+document.querySelector('#confirm-pet-choice').addEventListener('click', async (event) => {
+	const button = event.currentTarget;
+	button.disabled = true;
 	try {
-		const profile = { ...readPetProfile(signedInUser), species: selectedSpecies };
-		localStorage.setItem(profileKey(signedInUser), JSON.stringify(profile));
-		applyPetProfile(profile);
+		const petName = window.currentPetProfile?.name || signedInUser.username || 'UIA';
+		applyAccountState(await api.savePetProfile(petName, selectedSpecies));
 		applyLobbyDecor();
 		petPicker.hidden = true;
 		entryGate.hidden = true;
 		document.body.classList.remove('entry-open');
-	} catch {
-		petChoiceError.textContent = 'Could not save your pet choice in this browser.';
+	} catch (failure) {
+		petChoiceError.textContent = failure.message || 'Could not save your pet choice.';
+	} finally {
+		button.disabled = false;
 	}
 });
 
@@ -186,18 +189,17 @@ document.querySelector('#settings-rename').addEventListener('click', () => {
 	document.querySelector('#pet-new-name').select();
 });
 document.querySelector('#cancel-rename').addEventListener('click', () => { renameGate.hidden = true; });
-renameForm.addEventListener('submit', (event) => {
+renameForm.addEventListener('submit', async (event) => {
 	event.preventDefault();
 	const name = document.querySelector('#pet-new-name').value.trim();
 	if (!name) { renameMessage.textContent = 'Enter a name for your pet.'; return; }
 	try {
-		const profile = { ...readPetProfile(signedInUser), name };
-		localStorage.setItem(profileKey(signedInUser), JSON.stringify(profile));
-		applyPetProfile(profile);
+		const species = window.currentPetProfile?.species || 'cat';
+		applyAccountState(await api.savePetProfile(name, species));
 		document.querySelector('#settings-pet-name').textContent = name;
 		renameGate.hidden = true;
-	} catch {
-		renameMessage.textContent = 'Could not save the pet name in this browser.';
+	} catch (failure) {
+		renameMessage.textContent = failure.message || 'Could not save the pet name.';
 	}
 });
 
@@ -231,9 +233,10 @@ entryForm.addEventListener('submit', async (event) => {
 		const result = await api.login(email, password);
 		signedInUser = result.user;
 		entryForm.reset();
+		if (!await window.initializeAccount()) throw new Error('Could not load your saved game.');
+		await migrateBrowserPreferences(signedInUser);
 		entryGate.hidden = true;
 		showPetPicker(signedInUser);
-		window.initializeAccount();
 	} catch (failure) {
 		entryError.textContent = failure.message || 'Could not connect to the server. Open Virtual Pet through its server and try again.';
 	} finally {
@@ -242,11 +245,12 @@ entryForm.addEventListener('submit', async (event) => {
 });
 
 api.session()
-	.then((result) => {
+	.then(async (result) => {
 		if (result.authenticated) {
 			signedInUser = result.user;
+			if (!await window.initializeAccount()) throw new Error('Could not load your saved game.');
+			await migrateBrowserPreferences(signedInUser);
 			showPetPicker(signedInUser);
-			window.initializeAccount();
 		} else {
 			entryGate.hidden = false;
 			document.body.classList.add('entry-open');

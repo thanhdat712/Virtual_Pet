@@ -9,8 +9,9 @@ function applyAccountState(state) {
 		}));
 	}
 	if (state.pet) {
-		const petName = window.currentPetProfile?.name || state.pet.name;
-		const species = window.currentPetProfile?.species === 'dog' ? 'dog' : 'cat';
+		const petName = state.pet.name;
+		const species = state.pet.species === 'dog' ? 'dog' : 'cat';
+		window.currentPetProfile = { name: petName, species };
 		document.querySelector('#pet-name').textContent = petName;
 		document.querySelector('.pet-stage .pet-name').textContent = petName;
 		const petImage = species === 'dog' ? 'assets/pets/gaugau.png' : 'assets/pets/meomeo.png';
@@ -34,6 +35,9 @@ function applyAccountState(state) {
 		equippedDecor.background = equipment.background ?? null;
 		equippedDecor.floor = equipment.floor ?? null;
 		equippedDecor.headwear = equipment.headwear ?? null;
+	}
+	if (typeof state.settings?.soundEnabled === 'boolean') {
+		window.applySoundPreference?.(state.settings.soundEnabled);
 	}
 	accountReady = true;
 	updateCoinDisplays();
@@ -202,8 +206,13 @@ document.querySelector('#sleep-pet').addEventListener('click', async (event) => 
 });
 
 async function initializeAccount() {
-	try { await loadAccount(); }
-	catch (failure) { setFeedingStatus(reportFailure(failure)); }
+	try {
+		await loadAccount();
+		return true;
+	} catch (failure) {
+		setFeedingStatus(reportFailure(failure));
+		return false;
+	}
 }
 
 window.initializeAccount = initializeAccount;

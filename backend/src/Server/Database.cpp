@@ -1,8 +1,11 @@
 #include "Database.h"
 #include "Catalog.h"
 #include "Crypto.h"
+#include "Pet.h"
 #include "Sha256.h"
 #include "sqlite3.h"
+#include <fstream>
+#include <iterator>
 #include <sstream>
 #include <stdexcept>
 
@@ -97,32 +100,23 @@ bool Database::exec(const std::string& sql) {
 
 bool Database::runSchema() {
     try {
+        std::ifstream schemaFile("../../database/schema.sql",std::ios::binary);
+        if (!schemaFile) {
+            schemaFile.clear();
+            schemaFile.open("database/schema.sql",std::ios::binary);
+        }
+        if (!schemaFile) throw std::runtime_error("Cannot open database/schema.sql");
+        const std::string schema((std::istreambuf_iterator<char>(schemaFile)),std::istreambuf_iterator<char>());
         Transaction transaction(db_);
-        execute(db_,
-            "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT,email TEXT NOT NULL UNIQUE,"
-            "password_salt TEXT NOT NULL,password_hash TEXT NOT NULL,coins INTEGER NOT NULL DEFAULT 100,"
-            "created_at TEXT NOT NULL DEFAULT (datetime('now')),last_login_at TEXT);"
-            "CREATE TABLE IF NOT EXISTS pets (user_id INTEGER PRIMARY KEY REFERENCES users(id),name TEXT NOT NULL DEFAULT 'UIA',"
-            "level INTEGER NOT NULL DEFAULT 1,experience INTEGER NOT NULL DEFAULT 0,happiness INTEGER NOT NULL DEFAULT 85,"
-            "hunger INTEGER NOT NULL DEFAULT 30,energy INTEGER NOT NULL DEFAULT 70);"
-            "CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id),"
-            "created_at TEXT NOT NULL DEFAULT (datetime('now')),expires_at INTEGER NOT NULL);"
-            "CREATE TABLE IF NOT EXISTS exercises (id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,"
-            "description TEXT NOT NULL DEFAULT '',difficulty TEXT NOT NULL DEFAULT 'easy',max_score INTEGER NOT NULL DEFAULT 100);"
-            "CREATE TABLE IF NOT EXISTS submissions (id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL REFERENCES users(id),"
-            "exercise_id INTEGER NOT NULL REFERENCES exercises(id),score INTEGER NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT 'submitted',"
-            "submitted_at TEXT NOT NULL DEFAULT (datetime('now')),answer TEXT NOT NULL DEFAULT '');"
-            "CREATE TABLE IF NOT EXISTS user_exercise_progress (user_id INTEGER NOT NULL,exercise_id INTEGER NOT NULL,"
-            "status TEXT NOT NULL DEFAULT 'in_progress',best_score INTEGER NOT NULL DEFAULT 0,attempts INTEGER NOT NULL DEFAULT 0,"
-            "completed_at TEXT,PRIMARY KEY(user_id,exercise_id));"
-            "CREATE TABLE IF NOT EXISTS inventory (user_id INTEGER NOT NULL REFERENCES users(id),item_id INTEGER NOT NULL,"
-            "quantity INTEGER NOT NULL CHECK(quantity BETWEEN 1 AND 1000000),PRIMARY KEY(user_id,item_id),"
-            "CHECK(item_id BETWEEN 1 AND 13),CHECK(item_id BETWEEN 1 AND 5 OR quantity=1));"
-            "CREATE TABLE IF NOT EXISTS purchase_transactions (id INTEGER PRIMARY KEY AUTOINCREMENT,"
-            "user_id INTEGER NOT NULL REFERENCES users(id),item_id INTEGER NOT NULL,quantity INTEGER NOT NULL CHECK(quantity>0),"
-            "unit_price INTEGER NOT NULL CHECK(unit_price>0),total INTEGER NOT NULL CHECK(total=quantity*unit_price),"
-            "created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')));"
-        );
+        execute(db_,schema.c_str());
+        if (!hasColumn(db_, "users", "username"))
+            execute(db_, "ALTER TABLE users ADD COLUMN username TEXT;");
+        if (!hasColumn(db_, "users", "sound_enabled"))
+            execute(db_, "ALTER TABLE users ADD COLUMN sound_enabled INTEGER NOT NULL DEFAULT 1;");
+        if (!hasColumn(db_, "pets", "species"))
+            execute(db_, "ALTER TABLE pets ADD COLUMN species TEXT NOT NULL DEFAULT 'cat';");
+        execute(db_, "UPDATE users SET username='player_'||id WHERE username IS NULL OR username='';"
+            "CREATE UNIQUE INDEX IF NOT EXISTS users_username_unique ON users(username COLLATE NOCASE);");
         if (!hasColumn(db_, "sessions", "expires_at"))
             execute(db_, "ALTER TABLE sessions ADD COLUMN expires_at INTEGER NOT NULL DEFAULT 0;");
         if (!hasColumn(db_, "submissions", "answer"))
@@ -151,13 +145,28 @@ bool Database::emailExists(const std::string& email) {
     Statement statement(db_, "SELECT 1 FROM users WHERE email=?;"); statement.bind(1,email); return statement.row();
 }
 
+bool Database::usernameExists(const std::string& username) {
+    Statement statement(db_, "SELECT 1 FROM users WHERE username=? COLLATE NOCASE;");
+    statement.bind(1,username); return statement.row();
+}
+
 bool Database::createUser(const std::string& email, const std::string& password, UserRow& user) {
+    return createUser("",email,password,user);
+}
+
+bool Database::createUser(const std::string& username, const std::string& email,
+                          const std::string& password, UserRow& user) {
     std::string salt = crypto::randomHex(16);
     std::string hash = crypto::passwordHash(password, salt);
     Transaction transaction(db_);
-    Statement statement(db_, "INSERT INTO users(email,password_salt,password_hash) VALUES(?,?,?);");
-    statement.bind(1,email); statement.bind(2,salt); statement.bind(3,hash); statement.done();
-    user.id = sqlite3_last_insert_rowid(db_); user.email = email; user.coins = 100;
+    Statement statement(db_, "INSERT INTO users(username,email,password_salt,password_hash) VALUES(?,?,?,?);");
+    statement.bind(1,username.empty() ? "pending_"+crypto::randomHex(8) : username);
+    statement.bind(2,email); statement.bind(3,salt); statement.bind(4,hash); statement.done();
+    user.id = sqlite3_last_insert_rowid(db_);
+    user.username = username.empty() ? "player_"+std::to_string(user.id) : username;
+    user.email = email; user.coins = 100; user.soundEnabled = true;
+    Statement updateUser(db_, "UPDATE users SET username=? WHERE id=?;");
+    updateUser.bind(1,user.username); updateUser.bind(2,user.id); updateUser.done();
     Statement pet(db_, "INSERT INTO pets(user_id) VALUES(?);"); pet.bind(1,user.id); pet.done();
     transaction.commit();
     return true;
@@ -166,11 +175,12 @@ bool Database::createUser(const std::string& email, const std::string& password,
 bool Database::verifyLogin(const std::string& email, const std::string& password, UserRow& user) {
     std::string salt, hash;
     {
-        Statement statement(db_, "SELECT id,coins,password_salt,password_hash FROM users WHERE email=?;");
+        Statement statement(db_, "SELECT id,username,coins,sound_enabled,password_salt,password_hash FROM users WHERE email=?;");
         statement.bind(1,email);
         if (statement.row()) {
-            user.id = statement.number(0); user.coins = static_cast<int>(statement.number(1)); user.email = email;
-            salt = statement.text(2); hash = statement.text(3);
+            user.id = statement.number(0); user.username = statement.text(1);
+            user.coins = static_cast<int>(statement.number(2)); user.soundEnabled = statement.number(3) != 0;
+            user.email = email; salt = statement.text(4); hash = statement.text(5);
         }
     }
     if (hash.empty()) {
@@ -213,17 +223,25 @@ bool Database::revokeSession(const std::string& token) {
 }
 
 bool Database::getUserById(long long userId, UserRow& user) {
-    Statement statement(db_, "SELECT id,email,coins FROM users WHERE id=?;"); statement.bind(1,userId);
+    Statement statement(db_, "SELECT id,username,email,coins,sound_enabled FROM users WHERE id=?;"); statement.bind(1,userId);
     if (!statement.row()) return false;
-    user.id = statement.number(0); user.email = statement.text(1); user.coins = static_cast<int>(statement.number(2)); return true;
+    user.id = statement.number(0); user.username = statement.text(1); user.email = statement.text(2);
+    user.coins = static_cast<int>(statement.number(3)); user.soundEnabled = statement.number(4) != 0; return true;
+}
+
+bool Database::setSoundEnabled(long long userId, bool enabled) {
+    Statement statement(db_, "UPDATE users SET sound_enabled=? WHERE id=?;");
+    statement.bind(1,enabled ? 1 : 0); statement.bind(2,userId); statement.done();
+    return sqlite3_changes(db_) == 1;
 }
 
 bool Database::getPet(long long userId, PetRow& pet) {
-    Statement statement(db_, "SELECT user_id,name,level,experience,happiness,hunger,energy FROM pets WHERE user_id=?;");
+    Statement statement(db_, "SELECT user_id,name,species,level,experience,happiness,hunger,energy FROM pets WHERE user_id=?;");
     statement.bind(1,userId); if (!statement.row()) return false;
-    pet.userId = statement.number(0); pet.name = statement.text(1); pet.level = static_cast<int>(statement.number(2));
-    pet.experience = static_cast<int>(statement.number(3)); pet.happiness = static_cast<int>(statement.number(4));
-    pet.hunger = static_cast<int>(statement.number(5)); pet.energy = static_cast<int>(statement.number(6)); return true;
+    pet.userId = statement.number(0); pet.name = statement.text(1); pet.species = statement.text(2);
+    pet.level = static_cast<int>(statement.number(3)); pet.experience = static_cast<int>(statement.number(4));
+    pet.happiness = static_cast<int>(statement.number(5)); pet.hunger = static_cast<int>(statement.number(6));
+    pet.energy = static_cast<int>(statement.number(7)); return true;
 }
 
 bool Database::renamePet(long long userId, const std::string& name) {
@@ -231,10 +249,25 @@ bool Database::renamePet(long long userId, const std::string& name) {
     statement.bind(1,name); statement.bind(2,userId); statement.done(); return sqlite3_changes(db_) == 1;
 }
 
+bool Database::savePetProfile(long long userId, const std::string& name, const std::string& species) {
+    if (name.empty() || (species != "cat" && species != "dog")) return false;
+    Statement statement(db_, "UPDATE pets SET name=?,species=? WHERE user_id=?;");
+    statement.bind(1,name); statement.bind(2,species); statement.bind(3,userId); statement.done();
+    return sqlite3_changes(db_) == 1;
+}
+
 std::vector<InventoryRow> Database::listInventory(long long userId) {
     std::vector<InventoryRow> rows;
     Statement statement(db_, "SELECT item_id,quantity FROM inventory WHERE user_id=? ORDER BY item_id;"); statement.bind(1,userId);
     while (statement.row()) rows.push_back({static_cast<int>(statement.number(0)),static_cast<int>(statement.number(1))});
+    return rows;
+}
+
+std::vector<EquipmentRow> Database::listEquipment(long long userId) {
+    std::vector<EquipmentRow> rows;
+    Statement statement(db_, "SELECT slot,item_id FROM equipped_decorations WHERE user_id=? ORDER BY slot;");
+    statement.bind(1,userId);
+    while (statement.row()) rows.push_back({statement.text(0),static_cast<int>(statement.number(1))});
     return rows;
 }
 
@@ -281,12 +314,75 @@ int Database::feed(long long userId, int itemId) {
         : "UPDATE inventory SET quantity=quantity-1 WHERE user_id=? AND item_id=?;");
     consume.bind(1,userId); consume.bind(2,itemId); consume.done();
     Statement pet(db_, "UPDATE pets SET hunger=MAX(0,MIN(100,hunger+?)),"
-        "happiness=MAX(0,MIN(100,happiness+?)) WHERE user_id=?;");
+        "level=level+((happiness+?)/100),happiness=((happiness+?)%100) WHERE user_id=?;");
     pet.bind(1,(*item)["hungerRestore"].get<int>());
     pet.bind(2,(*item)["happinessRestore"].get<int>());
-    pet.bind(3,userId); pet.done();
+    pet.bind(3,(*item)["happinessRestore"].get<int>());
+    pet.bind(4,userId); pet.done();
     if (sqlite3_changes(db_) != 1) return 404;
     transaction.commit(); return 200;
+}
+
+int Database::performPetAction(long long userId, const std::string& action, int& levelsGained) {
+    Transaction transaction(db_);
+    int happiness = 0, hunger = 0, energy = 0;
+    {
+        Statement pet(db_, "SELECT level,happiness,hunger,energy FROM pets WHERE user_id=?;");
+        pet.bind(1,userId);
+        if (!pet.row()) return 404;
+        happiness = static_cast<int>(pet.number(1)); hunger = static_cast<int>(pet.number(2));
+        energy = static_cast<int>(pet.number(3));
+    }
+    int happinessGain = 0;
+    if (action == "play") {
+        if (energy < Pet::PLAY_ENERGY_COST) return 409;
+        energy -= Pet::PLAY_ENERGY_COST;
+        hunger = std::max(0,hunger-Pet::PLAY_HUNGER_COST);
+        happinessGain = Pet::PLAY_HAPPINESS_GAIN;
+    } else if (action == "sleep") {
+        if (energy >= Pet::MAX_STAT) return 409;
+        energy = std::min(Pet::MAX_STAT,energy+Pet::SLEEP_ENERGY_GAIN);
+        hunger = std::max(0,hunger-Pet::SLEEP_HUNGER_COST);
+    } else if (action == "bath") {
+        energy = std::max(0,energy-Pet::BATH_ENERGY_COST);
+        happinessGain = Pet::BATH_HAPPINESS_GAIN;
+    } else {
+        return 400;
+    }
+    const int happinessTotal = happiness+happinessGain;
+    levelsGained = happinessTotal/100;
+    happiness = happinessTotal%100;
+    Statement update(db_, "UPDATE pets SET level=level+?,happiness=?,hunger=?,energy=? WHERE user_id=?;");
+    update.bind(1,levelsGained); update.bind(2,happiness); update.bind(3,hunger);
+    update.bind(4,energy); update.bind(5,userId); update.done();
+    if (sqlite3_changes(db_) != 1) return 404;
+    transaction.commit();
+    return 200;
+}
+
+int Database::equipDecoration(long long userId, int itemId) {
+    const auto* item = shopItem(itemId);
+    if (!item) return 404;
+    if ((*item)["category"] != "decoration") return 400;
+    const std::string slot = (*item)["filter"].get<std::string>();
+    Transaction transaction(db_);
+    {
+        Statement owned(db_, "SELECT 1 FROM inventory WHERE user_id=? AND item_id=?;");
+        owned.bind(1,userId); owned.bind(2,itemId);
+        if (!owned.row()) return 409;
+    }
+    Statement equip(db_, "INSERT INTO equipped_decorations(user_id,slot,item_id) VALUES(?,?,?) "
+        "ON CONFLICT(user_id,slot) DO UPDATE SET item_id=excluded.item_id;");
+    equip.bind(1,userId); equip.bind(2,slot); equip.bind(3,itemId); equip.done();
+    transaction.commit();
+    return 200;
+}
+
+bool Database::unequipDecoration(long long userId, const std::string& slot) {
+    if (slot != "headwear" && slot != "background" && slot != "floor") return false;
+    Statement statement(db_, "DELETE FROM equipped_decorations WHERE user_id=? AND slot=?;");
+    statement.bind(1,userId); statement.bind(2,slot); statement.done();
+    return true;
 }
 
 std::vector<ExerciseRow> Database::listExercises() {
