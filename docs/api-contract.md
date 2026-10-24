@@ -1,357 +1,97 @@
-# INT-03 — API contract
+# API Contract
 
-**Status:** authentication and pet/shop routes are implemented; offline decay
-and reward claiming remain planned.
-**Version:** `v1` · **Base URL:** `/api` · **Format:** UTF-8 JSON.
-
-This document is the single contract for the web client and the HTTP server. The
-server is authoritative for coins, item prices, inventory, pet attributes, and
-game rules. The client must never calculate or submit an authoritative balance,
-stat, level, price, or user id.
-
-## 1. Common rules
-
-## 1A. HTTP server and request flow
-
-Use one `cpp-httplib` HTTP server process to serve both the static `frontend/`
-directory and `/api/*` routes from the same origin. This avoids browser CORS
-configuration and lets the session cookie work naturally. The server binds to
-`127.0.0.1` for local development; a public deployment must use HTTPS behind a
-TLS-terminating reverse proxy.
+Đây là hợp đồng của backend đang được build từ `backend/src/server_main.cpp`.
+Frontend gọi API trong `frontend/js/api.js`; server C++ phục vụ cả frontend lẫn
+API cùng origin và ghi dữ liệu vào SQLite.
 
 ```text
-Browser -> cpp-httplib router -> session middleware -> per-user Game -> SQLite
-                 |                    |                   |
-                 +-- static frontend  +-- user id         +-- GameSnapshot
+Browser -> frontend JavaScript -> HTTP API -> C++ Database layer -> SQLite
 ```
 
-The auth handlers call `AuthService`. A protected game handler validates the
-`vp_session` cookie with `AuthService::currentSession`, obtains the authenticated
-user id, loads that user's `GameSnapshot` from the persistence layer, imports it
-into a `Game`, and calls only public `Game` methods. HTTP handlers must not call
-`Pet`, `Shop`, `User`, or `Inventory` directly to mutate game state. They map
-`ActionResult` to the documented HTTP status/error code, export a snapshot,
-persist it, then serialize the updated state. If validation, the action, or the
-database transaction fails, the handler returns an error and leaves persisted
-state unchanged.
+## Quy tắc chung
 
-The session cookie identifies the account; it is never used as a game-state
-key. The server derives `userId` exclusively from the validated session and
-must ignore any user id sent by the browser. For each request, load and save the
-game under a per-user lock (or equivalent transaction/serialization mechanism)
-so two concurrent actions cannot overwrite one another. Do not keep a separate
-mutable in-memory `Game` cache in v1; load from SQLite and persist per request.
-This makes server restarts safe and avoids cache invalidation between workers.
+- Base path là `/api`; request/response dùng JSON UTF-8.
+- Các API yêu cầu đăng nhập dùng cookie `vp_session` (HttpOnly, SameSite=Strict).
+- Server lấy user ID từ session, không nhận user ID từ frontend.
+- Giá vật phẩm, coins, inventory và chỉ số pet do server quyết định.
+- Database chính: `backend/build/virtual_pet.db`. Schema runtime: `database/schema.sql`.
+- Chạy game actions bằng `POST`; tải dữ liệu bằng `GET`.
 
-SQLite persistence maps `GameSnapshot` fields to the account/game tables. Load
-creates a default game only when the authenticated account has no game rows.
-Save updates profile, pet, inventory, and equipment atomically. Offline decay
-is not yet supported because the current persistence schema does not track a
-last-updated timestamp. The API contract's `experience` field is reserved for
-the game model; until the core snapshot supports experience, return `0` and do
-not accept it from clients.
+## Đăng nhập
 
-Register routes before mounting `/` as the static frontend. Set a small JSON
-payload limit, reject malformed/non-object JSON, set `Cache-Control: no-store`
-for authenticated state and auth responses, and return JSON for all `/api/*`
-errors. Static assets may use normal caching. The frontend calls relative paths
-such as `/api/auth/session`, `/api/shop`, and `/api/game/state`.
+### `POST /api/auth/register`
 
-- All request bodies use `Content-Type: application/json` and all API responses
-  use `application/json; charset=utf-8`.
-- Names use `camelCase`; identifiers and quantities are JSON integers.
-- `GET` endpoints do not change game state. Game actions use `POST`.
-- An unauthenticated protected endpoint returns `401` and does not disclose
-  whether another user's resource exists.
-- API error `code` values are stable `UPPER_SNAKE_CASE`. `message` is for display
-  only; clients must use `code` for behavior.
-- Unknown fields are ignored. Missing, wrongly typed, out-of-range, or otherwise
-  invalid required fields return `400 INVALID_ARGUMENT`.
+Body: `{ "username": "player_01", "email": "player@example.com", "password": "at-least-8-characters" }`
 
-### Response envelopes
+Username dài 3–20 ký tự ASCII gồm chữ, số hoặc `_`; password tối thiểu 8 ký tự.
+Đăng ký thành công trả `201` và tạo tài khoản cùng pet mặc định trong SQLite.
 
-Successful reads return their documented object or array. Successful actions
-return an `ActionResponse`:
+### `POST /api/auth/login`
+
+Body: `{ "email": "player@example.com", "password": "..." }`.
+Thành công trả `200`, thông tin user và cookie `vp_session`.
+
+### `GET /api/auth/session`
+
+Trả `200` với `authenticated` và user hiện tại; khi chưa đăng nhập, `user` là `null`.
+
+### `POST /api/auth/logout`
+
+Thu hồi session trong SQLite và xóa cookie.
+
+## Game
+
+### `GET /api/shop`
+
+Trả danh sách catalog. Có thể gọi trước khi đăng nhập.
+
+### `GET /api/game/state`
+
+Yêu cầu đăng nhập. Trả trạng thái user, pet, inventory, equipment và settings.
 
 ```json
 {
-  "success": true,
-  "code": "OK",
-  "message": "Bread fed.",
-  "levelsGained": 0,
-  "state": { "...": "current authenticated game state" }
-}
-```
-
-Every error has this shape:
-
-```json
-{
-  "success": false,
-  "code": "NOT_ENOUGH_COINS",
-  "message": "Not enough coins for this quantity."
-}
-```
-
-## 2. Authentication and session
-
-Authentication uses one **HttpOnly session cookie**, `vp_session`. The browser
-must send requests with `credentials: "same-origin"`; clients must not store a
-session token in `localStorage` and must not use `Authorization: Bearer`.
-
-Cookie attributes in local development: `Path=/; HttpOnly; SameSite=Strict;
-Max-Age=604800`. Production additionally requires `Secure` over HTTPS.
-
-### `POST /auth/register`
-
-Creates an account and its initial game data. Body:
-
-```json
-{ "username": "player_01", "email": "player@example.com", "password": "at-least-8-characters" }
-```
-
-`username` is 3–20 ASCII letters, digits, or underscores and is unique
-case-insensitively. `email` is required and unique case-insensitively.
-`password` has at least 8 Unicode characters. The new pet is named after the
-account username; legacy pets still named `UIA` are updated to the username at
-the next successful login.
-
-Success: `201`
-
-```json
-{
-  "success": true,
-  "code": "REGISTERED",
-  "message": "Account created.",
-  "user": { "id": 42, "username": "player_01" }
-}
-```
-
-Errors: `400 INVALID_USERNAME`, `400 INVALID_EMAIL`, `400 INVALID_PASSWORD`,
-`409 USERNAME_TAKEN`, `409 EMAIL_TAKEN`, or `500 REGISTRATION_FAILED`.
-
-### `POST /auth/login`
-
-Body: `{ "email": "player@example.com", "password": "at-least-8-characters" }`.
-On success (`200`), sets `vp_session` and
-returns:
-
-```json
-{ "success": true, "code": "AUTHENTICATED", "user": { "id": 42, "username": "player_01" } }
-```
-
-Errors: `400 INVALID_ARGUMENT`, `401 INVALID_CREDENTIALS`, `429 RATE_LIMITED`,
-or `500 LOGIN_FAILED`. Never reveal whether the email exists.
-
-### `GET /auth/session`
-
-Returns `200` for both states:
-
-```json
-{ "success": true, "authenticated": true, "user": { "id": 42, "username": "player_01" } }
-```
-
-When logged out, `authenticated` is `false` and `user` is `null`.
-
-### `POST /auth/logout`
-
-Revokes the current session, expires the cookie, and returns `200`:
-
-```json
-{ "success": true, "code": "LOGGED_OUT", "message": "Signed out." }
-```
-
-It is idempotent: no cookie also returns success.
-
-## 3. Shared data types
-
-### `GameState`
-
-Returned by `/game/state` and after every state-changing game endpoint.
-
-```json
-{
-  "user": { "id": 42, "username": "player_01", "coins": 85 },
+  "user": { "id": 1, "username": "player_01", "coins": 100 },
   "pet": {
-    "id": 1,
-    "name": "player_01",
-    "level": 1,
-    "health": 100,
-    "experience": 0,
-    "happiness": 85,
-    "hunger": 30,
-    "energy": 70
+    "name": "Mochi", "species": "cat", "level": 1,
+    "experience": 0, "happiness": 85, "hunger": 30, "energy": 70
   },
-  "inventory": [{ "itemId": 1, "quantity": 3 }],
-  "equipment": { "headwear": null, "background": 8, "floor": null }
+  "inventory": [{ "itemId": 1, "quantity": 2 }],
+  "equipment": { "headwear": null, "background": null, "floor": null },
+  "settings": { "soundEnabled": true }
 }
 ```
 
-All pet stats are integers from 0 to 100; `hunger` means fullness (`100` is
-full). `level >= 1`, `coins >= 0`, and food quantities are positive. A
-decoration has quantity one and may occur at most once in inventory.
+### Các thao tác yêu cầu đăng nhập
 
-### `CatalogItem`
+| Method | Route | Body |
+|---|---|---|
+| `POST` | `/api/shop/purchases` | `{ "itemId": 1, "quantity": 2 }` |
+| `POST` | `/api/pet/feed` | `{ "itemId": 1 }` |
+| `POST` | `/api/pet/play` | Không có |
+| `POST` | `/api/pet/sleep` | Không có |
+| `POST` | `/api/pet/bath` | Không có |
+| `POST` | `/api/pet/decorate` | `{ "itemId": 8 }` |
+| `POST` | `/api/pet/unequip` | `{ "slot": "background" }` |
+| `PUT` | `/api/pet` | `{ "name": "Mochi", "species": "dog" }` |
+| `PUT` | `/api/settings` | `{ "soundEnabled": false }` |
+| `GET` | `/api/exercises` | Không có; trả danh sách bài công khai |
+| `POST` | `/api/exercises/{id}/submissions` | `{ "answer": "..." }` |
 
-```json
-{
-  "id": 1,
-  "name": "Bread",
-  "description": "A filling snack at a friendly price.",
-  "category": "food",
-  "filter": "food",
-  "price": 5,
-  "image": "assets/items/banh_mi.png",
-  "hungerRestore": 30,
-  "happinessRestore": 0
-}
-```
+Action thành công trả envelope có `success: true` và `state` mới. Action thất bại
+trả HTTP error cùng `success: false`, `code`, `message`. Từng thay đổi game được
+ghi vào SQLite; mua hàng và cho ăn chạy trong transaction.
 
-`category` is `food` or `decoration`. Decoration `filter` is one of
-`headwear`, `background`, or `floor`; it has no restore fields. Image paths are
-relative to the frontend root. `price` and restore values are informational;
-the server always uses its own catalog values.
+`species` chỉ nhận `cat` hoặc `dog`; `slot` chỉ nhận `headwear`, `background`
+hoặc `floor`. Happiness đủ 100 sẽ tăng level và giữ phần dư.
 
-## 4. Game endpoints
+Các endpoint bài tập được giữ riêng cho luồng học tập; chúng không thuộc màn hình
+pet này. Server chấm câu trả lời và lưu tiến độ bài tập trong SQLite.
 
-All endpoints in this section require an authenticated session.
+## API tương thích cũ
 
-### Endpoint-to-`Game` mapping
+Các route `/api/register`, `/api/login`, `/api/me` và `/api/logout` vẫn được giữ
+để không làm hỏng client/test cũ. Chúng gọi cùng backend và cùng file SQLite,
+nhưng frontend hiện tại chỉ dùng route `/api/auth/*` và `/api/game/*` ở trên.
 
-The HTTP layer is an adapter. It authenticates and loads the user's game,
-validates/parses the request, calls the indicated `Game` method, maps its
-`ActionResult`, and serializes `exportSnapshot()` as `state`.
-
-| HTTP endpoint | `Game` call | Request fields | Notes |
-|---|---|---|---|
-| `GET /game/state` | load snapshot → `importSnapshot()` → `start()` → `exportSnapshot()` | none | Returns the current persisted game state. |
-| `GET /shop` | read catalog from the loaded/default `Game` shop | none | This is a read-only catalog operation; may be public. |
-| `POST /shop/purchases` | `buy(itemId, quantity)` | `itemId`, `quantity` | Returns `ActionResult`. |
-| `POST /pet/feed` | `feed(foodId)` | `itemId` | Exactly one food is consumed by `Game`. |
-| `POST /pet/play` | `play()` | none | Game applies energy/hunger costs. |
-| `POST /pet/sleep` | `sleep()` | none | Game applies energy recovery. |
-| `POST /pet/bath` | `bath()` | none | Game applies bath behavior. |
-| `POST /pet/decorate` | `decorate(itemId)` | `itemId` | Equips owned decoration into its defined slot. |
-| `POST /pet/unequip` | `unequipDecoration(slot)` | `slot` | Removes decoration from the selected slot. |
-| `POST /rewards/claim` | `claimReward(reward)` | `rewardId` | Reward contents come from server-side reward definition, never client JSON. |
-| internal timer/load only | `updateOverTime(elapsedSeconds)` | server-calculated | Never accept elapsed time from the browser. |
-
-`start`, `pause`, `resume`, `end`, `initialize`, `importSnapshot`, and
-`exportSnapshot` are lifecycle/persistence operations, not browser actions in
-v1. The server starts a loaded game for each request and ends its request-local
-instance after saving. The server must never expose `initialize` to an ordinary
-client request because it resets the game.
-
-### `GET /game/state`
-
-Returns `200` and a `GameState`. Offline decay is planned but not currently
-applied.
-
-### `GET /shop`
-
-Returns `200` and an array of `CatalogItem`. It is public so the shop can be
-previewed before login; prices are not user-specific in v1.
-
-### `POST /shop/purchases`
-
-Body:
-
-```json
-{ "itemId": 1, "quantity": 3 }
-```
-
-`quantity` must be an integer from 1 to 999. For decorations it must be 1.
-Success: `200 ActionResponse` with the updated `state`.
-
-Errors: `400 INVALID_ARGUMENT`, `404 ITEM_NOT_FOUND`, `409 ALREADY_OWNED`,
-`409 NOT_ENOUGH_COINS`, or `401 UNAUTHENTICATED`.
-
-### `POST /pet/feed`
-
-Body: `{ "itemId": 1 }`. Consumes exactly one owned food item and returns
-`200 ActionResponse` with updated state. `levelsGained` is the number of levels
-earned from this action.
-
-Errors: `400 INVALID_ARGUMENT`, `400 NOT_FOOD`, `404 ITEM_NOT_FOUND`,
-`409 NOT_OWNED`, or `401 UNAUTHENTICATED`.
-
-### `POST /pet/play`, `POST /pet/sleep`, `POST /pet/bath`
-
-These endpoints take an empty body (or no body) and return `200
-ActionResponse` with updated state. `play` and `bath` can report
-`levelsGained`.
-
-Errors: `409 PET_TOO_TIRED` for play with no energy, `409 ENERGY_FULL` for
-sleep with full energy, `409 INVALID_STATE` when the game is unavailable, or
-`401 UNAUTHENTICATED`.
-
-### `POST /pet/decorate`
-
-Body:
-
-```json
-{ "itemId": 6 }
-```
-
-The endpoint calls `Game::decorate(itemId)`. The item's catalog definition
-determines its slot; the game replaces any currently equipped decoration in
-that slot. Returns `200 ActionResponse`.
-
-Errors: `400 INVALID_ARGUMENT`, `400 NOT_DECORATION`, `404 ITEM_NOT_FOUND`,
-`409 NOT_OWNED`, `409 INVALID_STATE`, or `401 UNAUTHENTICATED`.
-
-### `POST /pet/unequip`
-
-Body: `{ "slot": "headwear" }`. The slot must be `headwear`, `background`, or
-`floor`. The endpoint calls `Game::unequipDecoration(slot)` and returns the
-updated state. Removing an already-empty slot is an idempotent success.
-
-Errors: `400 INVALID_ARGUMENT`, `409 INVALID_STATE`, or `401 UNAUTHENTICATED`.
-
-Pet renaming remains a local visual preference and is not persisted by this
-version of the game API.
-
-### `POST /rewards/claim`
-
-Body: `{ "rewardId": "daily_login" }`. The server resolves this ID against
-its reward definition and calls `Game::claimReward(reward)`. The client cannot
-choose reward coins or items. Success is `200 ActionResponse`.
-
-Errors: `400 INVALID_ARGUMENT`, `404 REWARD_NOT_FOUND`, `409 ALREADY_CLAIMED`,
-`409 INVALID_STATE`, or `401 UNAUTHENTICATED`.
-
-## 5. Status and error mapping
-
-| HTTP | Code | Meaning |
-|---:|---|---|
-| 400 | `INVALID_ARGUMENT` | Invalid JSON or invalid input field. |
-| 400 | `NOT_FOOD`, `NOT_DECORATION` | Item exists but cannot be used for that action. |
-| 401 | `UNAUTHENTICATED` | Missing, expired, or revoked session. |
-| 404 | `ITEM_NOT_FOUND` | No catalog item with that ID. |
-| 409 | `NOT_OWNED`, `ALREADY_OWNED`, `NOT_ENOUGH_COINS`, `PET_TOO_TIRED`, `ENERGY_FULL`, `INVALID_STATE` | Valid request conflicts with current game state. |
-| 429 | `RATE_LIMITED` | Login attempts temporarily limited; include `Retry-After`. |
-| 500 | `INTERNAL_ERROR` | Unexpected server/database failure; no state is partially applied. |
-
-## 6. Atomicity and frontend implementation rules
-
-- Each mutating endpoint validates first, then commits all changes in one
-  database transaction. An error leaves coins, inventory, pet, and equipment
-  unchanged.
-- The client replaces its local state with `response.state`; it does not apply
-  optimistic balances or stat calculations.
-- The client obtains the catalog from `GET /api/shop`; it must not maintain a
-  second hard-coded catalog.
-- The authenticated UI initializes in this order: `GET /api/auth/session`,
-  then `GET /api/shop`, then `GET /api/game/state` when authenticated.
-- `/api/me`, `/api/pet`, `/api/logout`, Bearer tokens, and localStorage game
-  persistence are legacy interfaces and are not part of v1. They must not be
-  used by new frontend or backend work.
-
-## 7. Acceptance checklist
-
-- The frontend uses the same-origin API client and session cookie.
-- Manual integration verification covered registration, login, state/catalog reads,
-  purchase, feeding, decoration equip/unequip, sleep, and logout.
-- Reward claiming and offline-decay persistence remain planned.
-- Any contract change is made in this document first and is versioned or
-  backward-compatible.
+Reward claim và offline decay chưa được triển khai.
