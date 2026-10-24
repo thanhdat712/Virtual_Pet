@@ -17,14 +17,18 @@ function profileKey(user) {
 }
 
 function readPetProfile(user) {
+	const accountName = typeof user?.username === 'string' && user.username.trim()
+		? user.username.trim()
+		: 'UIA';
 	try {
 		const saved = JSON.parse(localStorage.getItem(profileKey(user)) || '{}');
+		const savedName = typeof saved.name === 'string' ? saved.name.trim() : '';
 		return {
 			species: saved.species === 'dog' ? 'dog' : 'cat',
-			name: typeof saved.name === 'string' && saved.name.trim() ? saved.name.trim() : 'UIA'
+			name: savedName && savedName !== 'UIA' ? savedName : accountName
 		};
 	} catch {
-		return { species: 'cat', name: 'UIA' };
+		return { species: 'cat', name: accountName };
 	}
 }
 
@@ -35,6 +39,7 @@ function applyPetProfile(profile) {
 	const image = species === 'dog' ? 'assets/pets/gaugau.png' : 'assets/pets/meomeo.png';
 	document.querySelector('#pet-name').textContent = name;
 	document.querySelector('.pet-stage .pet-name').textContent = name;
+	document.querySelector('.pet-stage').setAttribute('aria-label', name);
 	document.querySelector('.pet-stage .pet-image').src = image;
 	document.querySelector('.pet-stage .pet-image').alt = `${species === 'dog' ? 'Dog' : 'Cat'}, ${name}`;
 	document.querySelector('.hud-avatar img').src = image;
@@ -108,6 +113,7 @@ document.querySelector('#confirm-pet-choice').addEventListener('click', () => {
 		const profile = { ...readPetProfile(signedInUser), species: selectedSpecies };
 		localStorage.setItem(profileKey(signedInUser), JSON.stringify(profile));
 		applyPetProfile(profile);
+		applyLobbyDecor();
 		petPicker.hidden = true;
 		entryGate.hidden = true;
 		document.body.classList.remove('entry-open');

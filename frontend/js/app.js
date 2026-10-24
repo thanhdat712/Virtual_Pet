@@ -37,6 +37,14 @@ const lobbyFloor = document.querySelector('#lobby-floor');
 const petGame = document.querySelector('.pet-game');
 const petImage = document.querySelector('.pet-image');
 
+window.getCurrentPetName = function () {
+	const profileName = window.currentPetProfile?.name;
+	const displayedName = document.querySelector('#pet-name')?.textContent;
+	return (typeof profileName === 'string' && profileName.trim())
+		|| (typeof displayedName === 'string' && displayedName.trim())
+		|| 'UIA';
+};
+
 function updateCoinDisplays() {
 	coinBalance.textContent = coins;
 	shopCoinBalance.textContent = coins;
@@ -80,7 +88,11 @@ function renderInventory() {
 	if (visibleItems.length === 0) {
 		const emptyState = document.createElement('p');
 		emptyState.className = 'win-empty';
-		emptyState.innerHTML = '<strong>Nothing here yet</strong>Visit the shop to find something for UIA.';
+		const title = document.createElement('strong');
+		title.textContent = 'Nothing here yet';
+		const description = document.createElement('span');
+		description.textContent = `Visit the shop to find something for ${window.getCurrentPetName()}.`;
+		emptyState.append(title, description);
 		inventoryGrid.append(emptyState);
 		renderBagDetail();
 		return;
@@ -473,7 +485,15 @@ function applyLobbyDecor() {
 		lobbyFloor.classList.remove('is-active');
 	}
 	const headwear = shopItems.find((item) => item.id === equippedDecor.headwear);
-	petImage.src = headwear?.petImage ?? 'assets/pets/meomeo.png';
+	const isDog = window.currentPetProfile?.species === 'dog';
+	const defaultPetImage = isDog ? 'assets/pets/gaugau.png' : 'assets/pets/meomeo.png';
+	const dogHeadwearImages = {
+		6: 'assets/pets/gaugau_mulen.png',
+		7: 'assets/pets/gaugau_vuongmien.png'
+	};
+	petImage.src = headwear
+		? (isDog ? dogHeadwearImages[headwear.id] ?? defaultPetImage : headwear.petImage ?? defaultPetImage)
+		: defaultPetImage;
 }
 
 function buildDecorCard(item) {
@@ -491,8 +511,9 @@ function buildDecorCard(item) {
 		art = document.createElement('div');
 		art.className = 'win-art';
 		const image = document.createElement('img');
-		image.src = 'assets/pets/meomeo.png';
-		image.alt = 'UIA without headwear';
+		const isDog = window.currentPetProfile?.species === 'dog';
+		image.src = isDog ? 'assets/pets/gaugau.png' : 'assets/pets/meomeo.png';
+		image.alt = `${isDog ? 'Dog' : 'Cat'} without headwear`;
 		art.append(image);
 	} else {
 		art = document.createElement('div');

@@ -76,7 +76,7 @@ cmake --build build --config Release
 
 Open `http://127.0.0.1:8080/` and use **Tạo tài khoản**. The server serves the frontend and `POST /api/auth/register` from one origin, listens on loopback only, and stores accounts in `backend/database/virtual_pet.db` by default. To choose a port and database path, pass `[port] [database-path]` to the executable.
 
-The registration endpoint accepts JSON `{ "username": "...", "email": "...", "password": "..." }`. Email is required and unique. Login accepts `{ "email": "...", "password": "..." }`. Passwords are hashed using Argon2id (3 iterations, 64 MiB, one lane, per-account cryptographic 16-byte salt); the raw password is never written to SQLite. The insert, initial 100-coin profile, default `UIA` pet, and empty inventory are created atomically. SQLite's case-insensitive UNIQUE constraints are the final guard against duplicate registrations.
+The registration endpoint accepts JSON `{ "username": "...", "email": "...", "password": "..." }`. Email is required and unique. Login accepts `{ "email": "...", "password": "..." }`. Passwords are hashed using Argon2id (3 iterations, 64 MiB, one lane, per-account cryptographic 16-byte salt); the raw password is never written to SQLite. The insert, initial 100-coin profile, pet named after the account username, and empty inventory are created atomically. SQLite's case-insensitive UNIQUE constraints are the final guard against duplicate registrations.
 
 ## Login sessions
 
