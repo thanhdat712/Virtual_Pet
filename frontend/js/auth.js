@@ -8,9 +8,64 @@ const petChoiceError = document.querySelector('#pet-choice-error');
 const renameGate = document.querySelector('#rename-dialog');
 const renameForm = document.querySelector('#rename-form');
 const renameMessage = document.querySelector('#rename-message');
+const settingsPanel = document.querySelector('#settings-panel');
+const settingsMessage = document.querySelector('#settings-message');
+const settingsSoundToggle = document.querySelector('#settings-sound-toggle');
 let signedInUser = null;
 let authMode = 'login';
 let selectedSpecies = 'cat';
+const SOUND_SETTING_KEY = 'virtual-pet-sound-enabled';
+
+function setSoundEnabled(enabled, persist = true) {
+	window.soundEnabled = enabled;
+	document.querySelectorAll('audio').forEach((audio) => { audio.muted = !enabled; });
+	if (persist) {
+		try { localStorage.setItem(SOUND_SETTING_KEY, String(enabled)); } catch { /* Keep the setting for this page only. */ }
+	}
+	window.dispatchEvent(new CustomEvent('soundsettingchange', { detail: { enabled } }));
+}
+
+function openSettings() {
+	settingsMessage.textContent = '';
+	document.querySelector('#settings-pet-name').textContent = window.currentPetProfile?.name || signedInUser?.username || 'UIA';
+	settingsPanel.hidden = false;
+	document.querySelector('#close-settings').focus();
+}
+
+function closeSettings() {
+	settingsPanel.hidden = true;
+	document.querySelector('#open-settings').focus();
+}
+
+try {
+	settingsSoundToggle.checked = localStorage.getItem(SOUND_SETTING_KEY) !== 'false';
+} catch {
+	settingsSoundToggle.checked = true;
+}
+setSoundEnabled(settingsSoundToggle.checked, false);
+
+document.querySelector('#open-settings').addEventListener('click', openSettings);
+document.querySelector('#close-settings').addEventListener('click', closeSettings);
+settingsPanel.addEventListener('click', (event) => {
+	if (event.target === settingsPanel) closeSettings();
+});
+settingsSoundToggle.addEventListener('change', () => setSoundEnabled(settingsSoundToggle.checked));
+document.addEventListener('keydown', (event) => {
+	if (event.key === 'Escape' && !settingsPanel.hidden) closeSettings();
+});
+
+document.querySelector('#settings-logout').addEventListener('click', async (event) => {
+	const button = event.currentTarget;
+	button.disabled = true;
+	settingsMessage.textContent = '';
+	try {
+		await api.logout();
+		window.location.reload();
+	} catch (failure) {
+		settingsMessage.textContent = failure.message || 'Could not log out. Please try again.';
+		button.disabled = false;
+	}
+});
 
 function profileKey(user) {
 	return `virtual-pet-profile-v1-${encodeURIComponent(String(user.username).toLowerCase())}`;
@@ -122,7 +177,7 @@ document.querySelector('#confirm-pet-choice').addEventListener('click', () => {
 	}
 });
 
-document.querySelector('#rename-pet').addEventListener('click', () => {
+document.querySelector('#settings-rename').addEventListener('click', () => {
 	if (!signedInUser) return;
 	document.querySelector('#pet-new-name').value = window.currentPetProfile?.name || 'UIA';
 	renameMessage.textContent = '';
@@ -139,6 +194,7 @@ renameForm.addEventListener('submit', (event) => {
 		const profile = { ...readPetProfile(signedInUser), name };
 		localStorage.setItem(profileKey(signedInUser), JSON.stringify(profile));
 		applyPetProfile(profile);
+		document.querySelector('#settings-pet-name').textContent = name;
 		renameGate.hidden = true;
 	} catch {
 		renameMessage.textContent = 'Could not save the pet name in this browser.';

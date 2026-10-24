@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pet Home</title>
     <link rel="stylesheet" href="css/style.css?v=auth-labels-20261024">
-    <link rel="stylesheet" href="css/pixel.css">
+    <link rel="stylesheet" href="css/pixel.css?v=settings-20261024">
 </head>
 
 <body class="entry-open">
@@ -52,7 +52,7 @@
         <section class="px-box hud-player" aria-label="Thông tin thú cưng">
             <div class="hud-avatar"><img src="assets/pets/meomeo.png" alt="PetLovery"></div>
             <div class="hud-player-info">
-                <p class="hud-level-row"><span class="px-icon" data-px="star"></span><span>Lv. <b id="pet-level">1</b></span><span class="hud-name" id="pet-name">UIA</span><button class="rename-pet-button" id="rename-pet" type="button" aria-label="Rename pet">✎</button></p>
+                <p class="hud-level-row"><span class="px-icon" data-px="star"></span><span>Lv. <b id="pet-level">1</b></span><span class="hud-name" id="pet-name">UIA</span></p>
                 <div class="px-bar exp"><i id="exp-fill" style="width:0%"></i></div>
                 <p class="hud-exp-text" id="exp-text">EXP 0 / 100</p>
             </div>
@@ -129,6 +129,7 @@
             <button class="tool-btn" id="open-shop" type="button" title="Shop" aria-label="Shop" aria-haspopup="dialog" aria-controls="shop-panel"><span class="px-icon big" data-px="bag"></span></button>
             <button class="tool-btn" id="open-inventory" type="button" title="Inventory" aria-label="Inventory" aria-haspopup="dialog" aria-controls="inventory-panel"><span class="px-icon big" data-px="backpack"></span></button>
             <button class="tool-btn" id="open-decorate" type="button" title="Decorate" aria-label="Decorate" aria-haspopup="dialog" aria-controls="decorate-panel"><span class="px-icon big" data-px="brush"></span></button>
+            <button class="tool-btn settings-open" id="open-settings" type="button" title="Settings" aria-label="Settings" aria-haspopup="dialog" aria-controls="settings-panel"><span aria-hidden="true">⚙</span></button>
         </nav>
 
         <p class="px-box hud-hint"><span class="px-icon big" data-px="paw"></span><span>Take care of your pet!</span><span class="px-icon" data-px="heart"></span></p>
@@ -195,6 +196,38 @@
                 </div>
             </div>
         </section>
+
+        <section class="win-backdrop" id="settings-panel" lang="en" role="dialog" aria-modal="true" aria-labelledby="settings-title" aria-label="Settings" hidden>
+            <div class="win">
+                <div class="win-main settings-main">
+                    <header class="win-head">
+                        <span class="settings-heading-icon" aria-hidden="true">⚙</span>
+                        <h1 id="settings-title">Settings</h1>
+                        <button class="win-close" id="close-settings" type="button" aria-label="Close settings">×</button>
+                    </header>
+                    <div class="win-body settings-body">
+                        <section class="settings-section" aria-labelledby="settings-pet-title">
+                            <h2 id="settings-pet-title">Pet</h2>
+                            <div class="settings-row">
+                                <div><strong>Pet name</strong><span id="settings-pet-name">UIA</span></div>
+                                <button class="settings-action" id="settings-rename" type="button">Change name</button>
+                            </div>
+                        </section>
+                        <section class="settings-section" aria-labelledby="settings-sound-title">
+                            <h2 id="settings-sound-title">Sound</h2>
+                            <label class="settings-row settings-sound-row" for="settings-sound-toggle">
+                                <span><strong>Sound effects</strong><span>Turn game sounds on or off</span></span>
+                                <input id="settings-sound-toggle" type="checkbox" checked>
+                            </label>
+                        </section>
+                        <p class="settings-message" id="settings-message" role="status" aria-live="polite"></p>
+                    </div>
+                    <footer class="win-foot settings-footer">
+                        <button class="settings-logout" id="settings-logout" type="button">Log out</button>
+                    </footer>
+                </div>
+            </div>
+        </section>
     </main>
     <section class="entry-gate pet-picker" id="pet-picker" aria-labelledby="pet-picker-title" hidden>
         <div class="entry-card pet-picker-card">
@@ -220,9 +253,9 @@
     </section>
     <script src="js/pixel.js" defer></script>
     <script src="js/api.js?v=pet-name-20261024" defer></script>
-    <script src="js/app.js?v=pet-name-20261024" defer></script>
+    <script src="js/app.js?v=pet-scale-20261024-2" defer></script>
     <script src="js/session.js?v=pet-name-20261024" defer></script>
-    <script src="js/auth.js?v=pet-name-20261024" defer></script>
+    <script src="js/auth.js?v=settings-20261024" defer></script>
 </body>
 
 </html>

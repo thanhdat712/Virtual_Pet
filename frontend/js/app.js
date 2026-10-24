@@ -488,8 +488,8 @@ function applyLobbyDecor() {
 	const isDog = window.currentPetProfile?.species === 'dog';
 	const defaultPetImage = isDog ? 'assets/pets/gaugau.png' : 'assets/pets/meomeo.png';
 	const dogHeadwearImages = {
-		6: 'assets/pets/gaugau_mulen.png',
-		7: 'assets/pets/gaugau_vuongmien.png'
+		6: 'assets/pets/gaugau_mulen.png?v=pet-scale-20261024-2',
+		7: 'assets/pets/gaugau_vuongmieng.png?v=pet-scale-20261024-2'
 	};
 	petImage.src = headwear
 		? (isDog ? dogHeadwearImages[headwear.id] ?? defaultPetImage : headwear.petImage ?? defaultPetImage)
