@@ -13,7 +13,7 @@ const LEVEL_BONUS = { pts: 50, coins: 20 };       // thưởng khi qua nhóm Kh�
    (hoặc sửa tên/đuôi .gif/.jpg/.png trong danh sách). Ảnh nào chưa có thì ô đó tự ẩn. */
 const MEMES_DIR = 'assets/study/';
 const MEMES = {
-    corner: ['chopixel9.gif', 'meopixel9.gif', 'chopixel3.jpg', 'meopixel1.gif'], // 4 góc màn hình lúc mở trang Study
+    corner: ['chopixel9.gif', 'meopixel9.gif', 'chopixel2.jpg', 'meopixel1.gif'], // 4 góc màn hình lúc mở trang Study
     right: ['chopixel5.gif', 'chopixel3.jpg', 'meopixel3.gif', 'chopixel7.gif', 'meopixel2.gif', 'meopixel6.gif', 'chopixel6.gif'], // 5 meme khi trả lời ĐÚNG (mỗi lần rút 2)
     wrong: ['chopixel2.gif', 'meopixel9.gif', 'meopixel4.jpg', 'chopixel8.jpg', 'chopixel1.jpg', 'meopixel7.jpg']       // 5 meme khi trả lời SAI (mỗi lần rút 2)
 };
