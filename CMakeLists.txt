@@ -40,6 +40,6 @@ add_executable(test_game_state tests/test_game_state.cpp)
 target_link_libraries(test_game_state PRIVATE pet_core)
 add_test(NAME game_state COMMAND test_game_state)
 
-add_executable(test_reward_shop backend/src/test_reward_shop.cpp)
+add_executable(test_reward_shop tests/test_reward_shop.cpp)
 target_link_libraries(test_reward_shop PRIVATE pet_core)
 add_test(NAME reward_shop COMMAND test_reward_shop)
