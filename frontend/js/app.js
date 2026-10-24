@@ -8,6 +8,7 @@ const inventoryGrid = document.querySelector('#inventory-grid');
 const inventoryCount = document.querySelector('#inventory-count');
 const openInventoryButton = document.querySelector('#open-inventory');
 const closeInventoryButton = document.querySelector('#close-inventory');
+const studyButton = document.querySelector('#study-btn');
 const inventoryTabs = document.querySelectorAll('#inventory-panel [data-filter]');
 const inventoryDetail = document.querySelector('#inventory-detail');
 let activeFilter = 'all';
@@ -394,6 +395,9 @@ function closeShop() {
 
 openInventoryButton.addEventListener('click', openInventory);
 closeInventoryButton.addEventListener('click', closeInventory);
+studyButton.addEventListener('click', () => {
+	window.location.href = 'study.html';
+});
 openShopButton.addEventListener('click', openShop);
 closeShopButton.addEventListener('click', closeShop);
 
