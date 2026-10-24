@@ -25,19 +25,23 @@ Shop::Shop() {
 
     // --- Hình nền (BACKGROUND) ---
     items.push_back(std::make_shared<Decoration>(
-        8, "Nền bãi biển", "Khung cảnh biển xanh cát trắng", 20, "assets/items/nen_bai_bien.png", DecorationSlot::BACKGROUND));
+        8, "Nền bãi biển", "Khung cảnh biển xanh cát trắng", 20, "assets/backgrounds/baibien.png", DecorationSlot::BACKGROUND));
     items.push_back(std::make_shared<Decoration>(
-        9, "Nền bầu trời", "Bầu trời đầy sao lãng mạn", 30, "assets/items/nen_bau_troi.png", DecorationSlot::BACKGROUND));
+        9, "Nền bầu trời", "Bầu trời đầy sao lãng mạn", 30, "assets/backgrounds/bautroisao.png", DecorationSlot::BACKGROUND));
     items.push_back(std::make_shared<Decoration>(
-        12, "Nền khu rừng", "Rừng cây xanh mát yên bình", 25, "assets/items/nen_khu_rung.png", DecorationSlot::BACKGROUND));
+        12, "Nền khu rừng", "Rừng cây xanh mát yên bình", 25, "assets/backgrounds/rungcay.png", DecorationSlot::BACKGROUND));
     items.push_back(std::make_shared<Decoration>(
-        13, "Nền thành phố", "Phố xá về đêm rực rỡ ánh đèn", 35, "assets/items/nen_thanh_pho.png", DecorationSlot::BACKGROUND));
+        13, "Nền thành phố", "Phố xá về đêm rực rỡ ánh đèn", 35, "assets/backgrounds/thanhpho.png", DecorationSlot::BACKGROUND));
 
     // --- Sàn nhà (FLOOR) ---
     items.push_back(std::make_shared<Decoration>(
-        10, "Sàn gỗ", "Sàn gỗ ấm cúng", 18, "assets/items/san_go.png", DecorationSlot::FLOOR));
+        10, "Sàn gỗ", "Sàn gỗ ấm cúng", 18, "assets/floor/sango.png", DecorationSlot::FLOOR));
     items.push_back(std::make_shared<Decoration>(
-        11, "Thảm hoa", "Thảm hoa mềm mại", 22, "assets/items/tham_hoa.png", DecorationSlot::FLOOR));
+        11, "Thảm hoa", "Thảm hoa mềm mại", 22, "assets/floor/santhamhoa.png", DecorationSlot::FLOOR));
+}
+
+const std::vector<std::shared_ptr<Item>>& Shop::getItems() const {
+    return items;
 }
 
 std::vector<std::shared_ptr<Item>> Shop::getFoods() const {

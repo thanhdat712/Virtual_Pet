@@ -43,6 +43,7 @@ public:
     ActionResult bath();
     ActionResult buy(int itemId, int quantity = 1);
     ActionResult decorate(int itemId);          // gắn đồ trang trí đã có trong túi lên pet/phòng
+    ActionResult unequipDecoration(DecorationSlot slot);
     ActionResult claimReward(const Reward& reward); // nhận thưởng: cộng xu + item vào túi
 
     // --- Thời gian: giảm chỉ số pet theo thời gian đã trôi (chỉ khi RUNNING; PAUSED thì pet không đói) ---

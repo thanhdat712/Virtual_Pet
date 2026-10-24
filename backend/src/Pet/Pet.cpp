@@ -80,6 +80,10 @@ void Pet::equip(DecorationSlot slot, int itemId) {
     equipment[slot] = itemId;
 }
 
+void Pet::unequip(DecorationSlot slot) {
+    equipment.erase(slot);
+}
+
 int Pet::getEquipped(DecorationSlot slot) const {
     auto it = equipment.find(slot);
     return it == equipment.end() ? 0 : it->second;

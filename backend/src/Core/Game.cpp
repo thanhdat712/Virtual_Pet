@@ -136,6 +136,12 @@ ActionResult Game::decorate(int itemId) {
     return ActionResult::success(deco->getName() + " equipped.");
 }
 
+ActionResult Game::unequipDecoration(DecorationSlot slot) {
+    if (getStatus() != GameStatus::RUNNING) return wrongState("remove a decoration", getStatus());
+    gameState.getPet().unequip(slot);
+    return ActionResult::success("Decoration removed.");
+}
+
 ActionResult Game::claimReward(const Reward& reward) {
     if (getStatus() != GameStatus::RUNNING) return wrongState("claim a reward", getStatus());
     reward.grantTo(gameState.getPlayer());

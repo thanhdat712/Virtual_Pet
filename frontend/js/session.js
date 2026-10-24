@@ -3,9 +3,10 @@ let petLevel = 0;
 function applyAccountState(state) {
 	coins = state.user.coins;
 	if (state.inventory) {
-		inventory.splice(0, inventory.length, ...state.inventory.map((owned) => ({
-			...shopItems.find((item) => item.id === owned.id), quantity: owned.quantity
-		})));
+		inventory.splice(0, inventory.length, ...state.inventory.map((owned) => {
+			const itemId = owned.itemId ?? owned.id;
+			return { ...shopItems.find((item) => item.id === itemId), id: itemId, quantity: owned.quantity };
+		}));
 	}
 	if (state.pet) {
 		const petName = window.currentPetProfile?.name || state.pet.name;
@@ -28,10 +29,11 @@ function applyAccountState(state) {
 			stat.querySelector('.px-bar i').style.width = `${state.pet[name]}%`;
 		});
 	}
-	if (state.decor) {
-		equippedDecor.background = state.decor.background ?? null;
-		equippedDecor.floor = state.decor.floor ?? null;
-		equippedDecor.headwear = state.decor.headwear ?? null;
+	const equipment = state.equipment ?? state.decor;
+	if (equipment) {
+		equippedDecor.background = equipment.background ?? null;
+		equippedDecor.floor = equipment.floor ?? null;
+		equippedDecor.headwear = equipment.headwear ?? null;
 	}
 	accountReady = true;
 	updateCoinDisplays();
@@ -45,7 +47,7 @@ function applyAccountState(state) {
 async function loadAccount() {
 	const catalog = await api.listShop();
 	shopItems.splice(0, shopItems.length, ...catalog);
-	applyAccountState(await api.me());
+	applyAccountState(await api.gameState());
 }
 
 function reportFailure(failure) {
@@ -204,4 +206,4 @@ async function initializeAccount() {
 	catch (failure) { setFeedingStatus(reportFailure(failure)); }
 }
 
-initializeAccount();
+window.initializeAccount = initializeAccount;

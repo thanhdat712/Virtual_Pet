@@ -158,43 +158,33 @@ entryForm.addEventListener('submit', async (event) => {
 		return;
 	}
 	try {
-		const response = await fetch(`/api/auth/${authMode}`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(authMode === 'register' ? { username, email, password } : { email, password })
-		});
-		const result = await response.json();
-		if (!response.ok) {
-			entryError.textContent = result.message || `Unable to ${authMode === 'register' ? 'create account' : 'sign in'}. Please try again.`;
-			return;
-		}
 		if (authMode === 'register') {
+			await api.register(username, email, password);
 			entryError.textContent = `Account created. Please log in with ${email}.`;
 			entryError.classList.add('is-success');
 			entryForm.reset();
 			setTimeout(() => showAuth('login'), 1000);
 			return;
 		}
+		const result = await api.login(email, password);
 		signedInUser = result.user;
 		entryForm.reset();
 		entryGate.hidden = true;
 		showPetPicker(signedInUser);
-	} catch {
-		entryError.textContent = 'Could not connect to the server. Open Virtual Pet through its server and try again.';
+		window.initializeAccount();
+	} catch (failure) {
+		entryError.textContent = failure.message || 'Could not connect to the server. Open Virtual Pet through its server and try again.';
 	} finally {
 		entrySubmit.disabled = false;
 	}
 });
 
-fetch('/api/auth/session')
-	.then(async (response) => {
-		if (!response.ok) throw new Error(`Session check returned HTTP ${response.status}`);
-		return response.json();
-	})
+api.session()
 	.then((result) => {
 		if (result.authenticated) {
 			signedInUser = result.user;
 			showPetPicker(signedInUser);
+			window.initializeAccount();
 		} else {
 			entryGate.hidden = false;
 			document.body.classList.add('entry-open');
