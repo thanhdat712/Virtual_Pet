@@ -114,6 +114,8 @@ bool Database::runSchema() {
             execute(db_, "ALTER TABLE users ADD COLUMN username TEXT;");
         if (!hasColumn(db_, "users", "sound_enabled"))
             execute(db_, "ALTER TABLE users ADD COLUMN sound_enabled INTEGER NOT NULL DEFAULT 1;");
+        if (!hasColumn(db_, "users", "email_verified"))
+            execute(db_, "ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 1;");
         if (!hasColumn(db_, "pets", "species"))
             execute(db_, "ALTER TABLE pets ADD COLUMN species TEXT NOT NULL DEFAULT 'cat';");
         execute(db_, "UPDATE users SET username='player_'||id WHERE username IS NULL OR username='';"
@@ -137,6 +139,14 @@ bool Database::runSchema() {
             "coins_awarded INTEGER NOT NULL DEFAULT 10 CHECK(coins_awarded>=0),"
             "awarded_at TEXT NOT NULL, PRIMARY KEY(user_id,exercise_id));"
             "CREATE INDEX IF NOT EXISTS code_submissions_queue_idx ON code_submissions(status,id);");
+        execute(db_, "CREATE TABLE IF NOT EXISTS password_reset_tokens ("
+            "token_hash TEXT PRIMARY KEY,"
+            "user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,"
+            "expires_at INTEGER NOT NULL);");
+        execute(db_, "CREATE TABLE IF NOT EXISTS email_verification_tokens ("
+            "token_hash TEXT PRIMARY KEY,"
+            "user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,"
+            "expires_at INTEGER NOT NULL);");
         execute(db_, "DELETE FROM sessions WHERE expires_at<=CAST(strftime('%s','now') AS INTEGER);");
         transaction.commit();
         return true;
@@ -161,6 +171,35 @@ bool Database::emailExists(const std::string& email) {
     Statement statement(db_, "SELECT 1 FROM users WHERE email=?;"); statement.bind(1,email); return statement.row();
 }
 
+bool Database::issueEmailVerification(const std::string& email, const std::string& tokenHash, long long expiresAt) {
+    Transaction transaction(db_);
+    Statement user(db_, "SELECT id,email_verified FROM users WHERE email=? COLLATE NOCASE;");
+    user.bind(1,email);
+    if (!user.row() || user.number(1) != 0) { transaction.commit(); return false; }
+    const long long userId = user.number(0);
+    Statement removeOld(db_, "DELETE FROM email_verification_tokens WHERE user_id=?;");
+    removeOld.bind(1,userId); removeOld.done();
+    Statement insert(db_, "INSERT INTO email_verification_tokens(token_hash,user_id,expires_at) VALUES(?,?,?);");
+    insert.bind(1,tokenHash); insert.bind(2,userId); insert.bind(3,expiresAt); insert.done();
+    transaction.commit();
+    return true;
+}
+
+bool Database::verifyEmail(const std::string& email, const std::string& tokenHash) {
+    Transaction transaction(db_);
+    Statement token(db_, "SELECT user_id FROM email_verification_tokens WHERE token_hash=? AND expires_at>CAST(strftime('%s','now') AS INTEGER);");
+    token.bind(1,tokenHash);
+    if (!token.row()) { transaction.commit(); return false; }
+    const long long userId = token.number(0);
+    Statement user(db_, "UPDATE users SET email_verified=1 WHERE id=? AND email=? COLLATE NOCASE AND email_verified=0;");
+    user.bind(1,userId); user.bind(2,email); user.done();
+    if (sqlite3_changes(db_) != 1) return false;
+    Statement removeTokens(db_, "DELETE FROM email_verification_tokens WHERE user_id=?;");
+    removeTokens.bind(1,userId); removeTokens.done();
+    transaction.commit();
+    return true;
+}
+
 bool Database::usernameExists(const std::string& username) {
     Statement statement(db_, "SELECT 1 FROM users WHERE username=? COLLATE NOCASE;");
     statement.bind(1,username); return statement.row();
@@ -175,7 +214,7 @@ bool Database::createUser(const std::string& username, const std::string& email,
     std::string salt = crypto::randomHex(16);
     std::string hash = crypto::passwordHash(password, salt);
     Transaction transaction(db_);
-    Statement statement(db_, "INSERT INTO users(username,email,password_salt,password_hash) VALUES(?,?,?,?);");
+    Statement statement(db_, "INSERT INTO users(username,email,password_salt,password_hash,email_verified) VALUES(?,?,?,?,0);");
     statement.bind(1,username.empty() ? "pending_"+crypto::randomHex(8) : username);
     statement.bind(2,email); statement.bind(3,salt); statement.bind(4,hash); statement.done();
     user.id = sqlite3_last_insert_rowid(db_);
@@ -191,12 +230,13 @@ bool Database::createUser(const std::string& username, const std::string& email,
 bool Database::verifyLogin(const std::string& email, const std::string& password, UserRow& user) {
     std::string salt, hash;
     {
-        Statement statement(db_, "SELECT id,username,coins,sound_enabled,password_salt,password_hash FROM users WHERE email=?;");
+        Statement statement(db_, "SELECT id,username,coins,sound_enabled,password_salt,password_hash,email_verified FROM users WHERE email=?;");
         statement.bind(1,email);
         if (statement.row()) {
             user.id = statement.number(0); user.username = statement.text(1);
             user.coins = static_cast<int>(statement.number(2)); user.soundEnabled = statement.number(3) != 0;
             user.email = email; salt = statement.text(4); hash = statement.text(5);
+            user.emailVerified = statement.number(6) != 0;
         }
     }
     if (hash.empty()) {
@@ -210,6 +250,37 @@ bool Database::verifyLogin(const std::string& email, const std::string& password
     std::string newHash = crypto::passwordHash(password,newSalt);
     Statement migrate(db_, "UPDATE users SET password_salt=?,password_hash=? WHERE id=?;");
     migrate.bind(1,newSalt); migrate.bind(2,newHash); migrate.bind(3,user.id); migrate.done();
+    return true;
+}
+
+bool Database::createPasswordReset(const std::string& email, const std::string& tokenHash, long long expiresAt) {
+    Transaction transaction(db_);
+    Statement user(db_, "SELECT id FROM users WHERE email=? COLLATE NOCASE;");
+    user.bind(1,email);
+    if (!user.row()) { transaction.commit(); return false; }
+    const long long userId = user.number(0);
+    Statement removeOld(db_, "DELETE FROM password_reset_tokens WHERE user_id=?;");
+    removeOld.bind(1,userId); removeOld.done();
+    Statement insert(db_, "INSERT INTO password_reset_tokens(token_hash,user_id,expires_at) VALUES(?,?,?);");
+    insert.bind(1,tokenHash); insert.bind(2,userId); insert.bind(3,expiresAt); insert.done();
+    transaction.commit();
+    return true;
+}
+
+bool Database::resetPassword(const std::string& tokenHash, const std::string& salt, const std::string& passwordHash) {
+    Transaction transaction(db_);
+    Statement token(db_, "SELECT user_id FROM password_reset_tokens WHERE token_hash=? AND expires_at>CAST(strftime('%s','now') AS INTEGER);");
+    token.bind(1,tokenHash);
+    if (!token.row()) { transaction.commit(); return false; }
+    const long long userId = token.number(0);
+    Statement update(db_, "UPDATE users SET password_salt=?,password_hash=? WHERE id=?;");
+    update.bind(1,salt); update.bind(2,passwordHash); update.bind(3,userId); update.done();
+    if (sqlite3_changes(db_) != 1) return false;
+    Statement removeTokens(db_, "DELETE FROM password_reset_tokens WHERE user_id=?;");
+    removeTokens.bind(1,userId); removeTokens.done();
+    Statement revokeSessions(db_, "DELETE FROM sessions WHERE user_id=?;");
+    revokeSessions.bind(1,userId); revokeSessions.done();
+    transaction.commit();
     return true;
 }
 
@@ -239,10 +310,11 @@ bool Database::revokeSession(const std::string& token) {
 }
 
 bool Database::getUserById(long long userId, UserRow& user) {
-    Statement statement(db_, "SELECT id,username,email,coins,sound_enabled FROM users WHERE id=?;"); statement.bind(1,userId);
+    Statement statement(db_, "SELECT id,username,email,coins,sound_enabled,email_verified FROM users WHERE id=?;"); statement.bind(1,userId);
     if (!statement.row()) return false;
     user.id = statement.number(0); user.username = statement.text(1); user.email = statement.text(2);
-    user.coins = static_cast<int>(statement.number(3)); user.soundEnabled = statement.number(4) != 0; return true;
+    user.coins = static_cast<int>(statement.number(3)); user.soundEnabled = statement.number(4) != 0;
+    user.emailVerified = statement.number(5) != 0; return true;
 }
 
 bool Database::setSoundEnabled(long long userId, bool enabled) {
