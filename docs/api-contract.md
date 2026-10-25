@@ -95,3 +95,20 @@ Các route `/api/register`, `/api/login`, `/api/me` và `/api/logout` vẫn đư
 nhưng frontend hiện tại chỉ dùng route `/api/auth/*` và `/api/game/*` ở trên.
 
 Reward claim và offline decay chưa được triển khai.
+
+## Nộp mã nguồn (SUB-02/SUB-05)
+
+`POST /api/exercises/{id}/submissions` nhận JSON `{ "sourceCode": "...", "language": "cpp" }`.
+Yêu cầu session đăng nhập hợp lệ. Mã nguồn tối đa 32.768 byte; hiện chỉ nhận `cpp`; giới hạn 5 lần nộp/phút theo user và tiến trình server. Thành công trả `202 Accepted`, gồm `submissionId`, `status: "queued"`, `score`, `message`, `submittedAt`, `finishedAt`, `finished` và header `Location: /api/submissions/{id}`.
+
+`GET /api/submissions/{id}` trả trạng thái bài nộp do chính user tạo. Mã lỗi chuẩn gồm `INVALID_SUBMISSION`, `RATE_LIMITED`, `INVALID_SUBMISSION_ID`, `SUBMISSION_NOT_FOUND`, `FORBIDDEN` và `SUBMISSION_STORAGE_ERROR`.
+
+Worker chấm bài nằm tại `backend/evaluator/worker.py` và dùng cùng SQLite file với server. Khởi chạy worker riêng sau khi Docker Engine hoạt động:
+
+```powershell
+python backend/evaluator/worker.py --db backend/build/virtual_pet.db
+```
+
+Worker lấy bài `queued`, chuyển sang `evaluating`, chạy từng test trong container Docker riêng (network disabled, root filesystem read-only, capabilities dropped, unprivileged UID, PID/CPU/memory/resource limits, timeout và giới hạn output), rồi ghi trạng thái cuối. Kết quả cuối gồm `accepted`, `wrong_answer`, `compile_error`, `runtime_error`, `time_limit_exceeded`, `memory_limit_exceeded` hoặc `internal_error`. Khi đạt lần đầu một bài, worker cộng 10 xu; bảng `code_submission_rewards` có khóa chính `(user_id, exercise_id)` để tránh thưởng trùng. Xem `backend/evaluator/README.md` để cấu hình test cases và vận hành.
+
+Worker là tiến trình riêng nên phải được giám sát/khởi động cùng backend trong triển khai thực tế. Cần Docker Engine hoạt động và image judge đã tải. Các test worker tự động không thay thế kiểm thử end-to-end trên máy có Docker; không triển khai public trước khi hoàn tất đánh giá bảo mật của môi trường container.

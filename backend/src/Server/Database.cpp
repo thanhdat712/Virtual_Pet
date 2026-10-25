@@ -1,4 +1,5 @@
 #include "Database.h"
+#include "Submission.h"
 #include "Catalog.h"
 #include "Crypto.h"
 #include "Pet.h"
@@ -121,6 +122,21 @@ bool Database::runSchema() {
             execute(db_, "ALTER TABLE sessions ADD COLUMN expires_at INTEGER NOT NULL DEFAULT 0;");
         if (!hasColumn(db_, "submissions", "answer"))
             execute(db_, "ALTER TABLE submissions ADD COLUMN answer TEXT NOT NULL DEFAULT '';");
+        execute(db_, "CREATE TABLE IF NOT EXISTS code_submissions ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,"
+            "exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,"
+            "source_code TEXT NOT NULL, language TEXT NOT NULL DEFAULT 'cpp',"
+            "status TEXT NOT NULL DEFAULT 'queued', score INTEGER NOT NULL DEFAULT 0,"
+            "message TEXT NOT NULL DEFAULT '', submitted_at TEXT NOT NULL, finished_at TEXT NOT NULL DEFAULT '');"
+            "CREATE INDEX IF NOT EXISTS code_submissions_user_idx ON code_submissions(user_id, id DESC);"
+            "CREATE TABLE IF NOT EXISTS code_submission_rewards ("
+            "user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,"
+            "exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,"
+            "submission_id INTEGER NOT NULL REFERENCES code_submissions(id) ON DELETE CASCADE,"
+            "coins_awarded INTEGER NOT NULL DEFAULT 10 CHECK(coins_awarded>=0),"
+            "awarded_at TEXT NOT NULL, PRIMARY KEY(user_id,exercise_id));"
+            "CREATE INDEX IF NOT EXISTS code_submissions_queue_idx ON code_submissions(status,id);");
         execute(db_, "DELETE FROM sessions WHERE expires_at<=CAST(strftime('%s','now') AS INTEGER);");
         transaction.commit();
         return true;
@@ -426,4 +442,42 @@ bool Database::recordSubmission(long long userId, long long exerciseId, const st
     select.bind(1,userId); select.bind(2,exerciseId); if (!select.row()) return false;
     progress = progressRow(select);
     transaction.commit(); return true;
+}
+
+
+bool Database::createCodeSubmission(Submission& submission) {
+    try {
+        Statement statement(db_, "INSERT INTO code_submissions(user_id,exercise_id,source_code,language,status,score,message,submitted_at,finished_at) VALUES(?,?,?,?,?,?,?,?,?);");
+        statement.bind(1, submission.userId);
+        statement.bind(2, submission.exerciseId);
+        statement.bind(3, submission.sourceCode);
+        statement.bind(4, submission.language);
+        statement.bind(5, std::string(toString(submission.status)));
+        statement.bind(6, static_cast<long long>(submission.score));
+        statement.bind(7, submission.message);
+        statement.bind(8, submission.submittedAt);
+        statement.bind(9, submission.finishedAt);
+        statement.done();
+        submission.id = sqlite3_last_insert_rowid(db_);
+        return true;
+    } catch (const std::exception& error) { lastError_ = error.what(); return false; }
+}
+
+bool Database::getCodeSubmission(long long submissionId, Submission& outSubmission) {
+    try {
+        Statement statement(db_, "SELECT id,user_id,exercise_id,source_code,language,status,score,message,submitted_at,finished_at FROM code_submissions WHERE id=?;");
+        statement.bind(1, submissionId);
+        if (!statement.row()) return false;
+        outSubmission.id = statement.number(0);
+        outSubmission.userId = statement.number(1);
+        outSubmission.exerciseId = statement.number(2);
+        outSubmission.sourceCode = statement.text(3);
+        outSubmission.language = statement.text(4);
+        if (!submissionStatusFromString(statement.text(5), outSubmission.status)) outSubmission.status = SubmissionStatus::InternalError;
+        outSubmission.score = static_cast<int>(statement.number(6));
+        outSubmission.message = statement.text(7);
+        outSubmission.submittedAt = statement.text(8);
+        outSubmission.finishedAt = statement.text(9);
+        return true;
+    } catch (const std::exception& error) { lastError_ = error.what(); return false; }
 }

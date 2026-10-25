@@ -82,3 +82,30 @@ CREATE TABLE IF NOT EXISTS equipped_decorations (
     item_id INTEGER NOT NULL,
     PRIMARY KEY (user_id, slot)
 );
+
+-- Source-code submissions (separate from the existing short-answer quiz history).
+CREATE TABLE IF NOT EXISTS code_submissions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+    source_code TEXT NOT NULL,
+    language TEXT NOT NULL DEFAULT 'cpp',
+    status TEXT NOT NULL DEFAULT 'queued',
+    score INTEGER NOT NULL DEFAULT 0 CHECK (score BETWEEN 0 AND 100),
+    message TEXT NOT NULL DEFAULT '',
+    submitted_at TEXT NOT NULL,
+    finished_at TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS code_submissions_user_idx ON code_submissions(user_id, id DESC);
+
+
+-- Idempotent reward ledger: one first-accepted reward per user and exercise.
+CREATE TABLE IF NOT EXISTS code_submission_rewards (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+    submission_id INTEGER NOT NULL REFERENCES code_submissions(id) ON DELETE CASCADE,
+    coins_awarded INTEGER NOT NULL DEFAULT 10 CHECK (coins_awarded >= 0),
+    awarded_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, exercise_id)
+);
+CREATE INDEX IF NOT EXISTS code_submissions_queue_idx ON code_submissions(status, id);
