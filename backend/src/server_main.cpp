@@ -5,6 +5,10 @@
 #include <deque>
 #include <fstream>
 #include <iterator>
+#include <map>
+#include <vector>
+#include <ctime>
+#include <limits>
 #include <cctype>
 #include <string>
 
@@ -12,13 +16,45 @@
 #include "Database.h"
 #include "HttpServer.h"
 #include "Json.h"
+#include "Submission.h"
 
 #ifndef PET_FRONTEND_DIR
 #define PET_FRONTEND_DIR "../../frontend"
 #endif
 
+
 namespace {
 using json::Value;
+
+// SUB-02 API scaffold. Storage is in-memory until SUB-05 adds a database repository.
+// SUB-04 evaluator is not connected yet, so submissions remain queued.
+std::map<long long, Submission> codeSubmissions;
+std::map<long long, std::deque<std::chrono::steady_clock::time_point>> submitTimes;
+long long nextCodeSubmissionId = 1;
+constexpr std::size_t MAX_SOURCE_BYTES = 32768;
+constexpr std::size_t MAX_SUBMISSIONS_PER_MINUTE = 5;
+
+std::string utcTimestamp() {
+    const std::time_t now = std::time(nullptr);
+    std::tm tm{};
+#ifdef _WIN32
+    gmtime_s(&tm, &now);
+#else
+    gmtime_r(&now, &tm);
+#endif
+    char buffer[32]{};
+    std::strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%SZ", &tm);
+    return buffer;
+}
+
+Value submissionJson(const Submission& sub) {
+    return {{"success",true},{"id",sub.id},{"submissionId",sub.id},
+        {"userId",sub.userId},{"exerciseId",sub.exerciseId},
+        {"language",sub.language},{"status",toString(sub.status)},
+        {"score",sub.score},{"message",sub.message},
+        {"submittedAt",sub.submittedAt},{"finishedAt",sub.finishedAt},
+        {"finished",sub.isFinished()}};
+}
 
 HttpResponse response(int status, const Value& body) {
     HttpResponse result;
@@ -307,6 +343,68 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
     }
     const std::string prefix = "/api/exercises/", suffix = "/submissions";
     const auto& path = request.path;
+
+    // SUB-02: submit source code asynchronously; existing {answer: ...} quiz API remains unchanged.
+    if (request.method == "POST" && path.compare(0,prefix.size(),prefix) == 0 &&
+        path.size() > prefix.size()+suffix.size() && path.compare(path.size()-suffix.size(),suffix.size(),suffix) == 0) {
+        const std::string exerciseText = path.substr(prefix.size(),path.size()-prefix.size()-suffix.size());
+        if (exerciseText.empty() || exerciseText.find_first_not_of("0123456789") != std::string::npos)
+            return apiError(404,"EXERCISE_NOT_FOUND","Exercise not found.");
+        long long exerciseId = 0;
+        try { exerciseId = std::stoll(exerciseText); } catch (...) { return apiError(404,"EXERCISE_NOT_FOUND","Exercise not found."); }
+        bool exists = false;
+        for (const auto& exercise : db.listExercises()) if (exercise.id == exerciseId) { exists = true; break; }
+        if (!exists) return apiError(404,"EXERCISE_NOT_FOUND","Exercise not found.");
+
+        auto fields = json::object(request.body);
+        if (fields.count("sourceCode")) {
+            if (!fields["sourceCode"].is_string())
+                return apiError(400,"INVALID_SOURCE","sourceCode must be a string.");
+            Submission sub;
+            sub.userId = userId;
+            sub.exerciseId = exerciseId;
+            sub.sourceCode = fields["sourceCode"].get<std::string>();
+            sub.language = fields.count("language") && fields["language"].is_string()
+                ? fields["language"].get<std::string>() : "cpp";
+            std::string validationError;
+            if (!validateSubmission(sub, validationError, MAX_SOURCE_BYTES))
+                return apiError(400,"INVALID_SUBMISSION",validationError);
+
+            auto& times = submitTimes[userId];
+            const auto now = std::chrono::steady_clock::now();
+            while (!times.empty() && now - times.front() >= std::chrono::minutes(1)) times.pop_front();
+            if (times.size() >= MAX_SUBMISSIONS_PER_MINUTE) {
+                auto result = apiError(429,"RATE_LIMITED","Maximum 5 code submissions per minute.");
+                result.extraHeaders["Retry-After"] = "60";
+                return result;
+            }
+            times.push_back(now);
+            sub.id = nextCodeSubmissionId++;
+            sub.status = SubmissionStatus::Queued;
+            sub.score = 0;
+            sub.message = "Submission queued. Code evaluator is not connected yet.";
+            sub.submittedAt = utcTimestamp();
+            codeSubmissions[sub.id] = sub;
+            auto result = response(202,submissionJson(sub));
+            result.extraHeaders["Location"] = "/api/submissions/" + std::to_string(sub.id);
+            return result;
+        }
+    }
+
+    // SUB-02: poll status. Users can only read their own submissions.
+    const std::string submissionPrefix = "/api/submissions/";
+    if (request.method == "GET" && path.compare(0,submissionPrefix.size(),submissionPrefix) == 0) {
+        const std::string idText = path.substr(submissionPrefix.size());
+        if (idText.empty() || idText.find_first_not_of("0123456789") != std::string::npos)
+            return apiError(400,"INVALID_SUBMISSION_ID","Invalid submission ID.");
+        long long id = 0;
+        try { id = std::stoll(idText); } catch (...) { return apiError(400,"INVALID_SUBMISSION_ID","Invalid submission ID."); }
+        auto it = codeSubmissions.find(id);
+        if (it == codeSubmissions.end()) return apiError(404,"SUBMISSION_NOT_FOUND","Submission not found.");
+        if (it->second.userId != userId) return apiError(403,"FORBIDDEN","You cannot view this submission.");
+        return response(200,submissionJson(it->second));
+    }
+
     if (request.method == "POST" && path.compare(0,prefix.size(),prefix) == 0 &&
         path.size() > prefix.size()+suffix.size() && path.compare(path.size()-suffix.size(),suffix.size(),suffix) == 0) {
         auto id = path.substr(prefix.size(),path.size()-prefix.size()-suffix.size());

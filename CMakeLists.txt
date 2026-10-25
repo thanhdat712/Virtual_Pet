@@ -104,6 +104,7 @@ target_link_libraries(Pet_Raising PRIVATE pet_core)
 
 add_executable(Pet_Raising_Server
     backend/src/server_main.cpp
+    backend/src/Exercise/Submission.cpp
     backend/src/Server/Database.cpp
     backend/src/Server/HttpServer.cpp
     backend/src/Server/Crypto.cpp
@@ -111,6 +112,7 @@ add_executable(Pet_Raising_Server
 )
 target_include_directories(Pet_Raising_Server PRIVATE
     backend/include/Server
+    backend/include/Exercise
     backend/include/Pet
     backend/third_party
     backend/third_party/sqlite
