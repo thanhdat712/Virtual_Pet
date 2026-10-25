@@ -44,10 +44,38 @@ const api = {
 		});
 	},
 
+	requestEmailVerification(email) {
+		return request('/api/auth/email-verification/request', {
+			method: 'POST',
+			body: { email }
+		});
+	},
+
+	verifyEmail(email, verificationCode) {
+		return request('/api/auth/email-verification/confirm', {
+			method: 'POST',
+			body: { email, verificationCode }
+		});
+	},
+
 	async login(email, password) {
 		return request('/api/auth/login', {
 			method: 'POST',
 			body: { email, password }
+		});
+	},
+
+	requestPasswordReset(email) {
+		return request('/api/auth/password-reset/request', {
+			method: 'POST',
+			body: { email }
+		});
+	},
+
+	resetPassword(resetCode, password) {
+		return request('/api/auth/password-reset/confirm', {
+			method: 'POST',
+			body: { resetCode, password }
 		});
 	},
 

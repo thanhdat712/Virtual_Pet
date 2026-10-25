@@ -14,6 +14,7 @@ struct UserRow {
     std::string email;
     int coins = 0;
         bool soundEnabled = true;
+    bool emailVerified = true;
 };
 
 struct PetRow {
@@ -70,6 +71,8 @@ public:
 
     // --- Người dùng & phiên đăng nhập ---
     bool emailExists(const std::string& email);
+    bool issueEmailVerification(const std::string& email, const std::string& tokenHash, long long expiresAt);
+    bool verifyEmail(const std::string& email, const std::string& tokenHash);
         bool usernameExists(const std::string& username);
     // Tạo user + pet mặc định. Trả về true và điền outUser nếu thành công.
     bool createUser(const std::string& email, const std::string& password, UserRow& outUser);
@@ -77,6 +80,8 @@ public:
                         const std::string& password, UserRow& outUser);
     // Kiểm tra đăng nhập; true nếu đúng mật khẩu, điền outUser.
     bool verifyLogin(const std::string& email, const std::string& password, UserRow& outUser);
+    bool createPasswordReset(const std::string& email, const std::string& tokenHash, long long expiresAt);
+    bool resetPassword(const std::string& tokenHash, const std::string& salt, const std::string& passwordHash);
     bool touchLastLogin(long long userId);
 
     std::string createSession(long long userId);

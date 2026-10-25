@@ -13,9 +13,11 @@
 #include <string>
 
 #include "Catalog.h"
+#include "Crypto.h"
 #include "Database.h"
 #include "HttpServer.h"
 #include "Json.h"
+#include "Sha256.h"
 #include "Submission.h"
 
 #ifndef PET_FRONTEND_DIR
@@ -182,6 +184,7 @@ HttpResponse staticFile(const std::string& path) {
     HttpResponse result;
     result.contentType = type->second;
     result.body.assign(std::istreambuf_iterator<char>(input),std::istreambuf_iterator<char>());
+    result.extraHeaders["Cache-Control"] = "no-store";
     result.extraHeaders["X-Content-Type-Options"] = "nosniff";
     return result;
 }
@@ -198,6 +201,56 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
             {"title",exercise.title},{"description",exercise.description},
             {"difficulty",exercise.difficulty},{"maxScore",exercise.maxScore}});
         return response(200,result);
+    }
+    if (request.method == "POST" && request.path == "/api/auth/email-verification/request") {
+        const auto fields = json::object(request.body);
+        const std::string email = stringField(fields,"email",254);
+        if (email.find('@') == std::string::npos)
+            return apiError(400,"INVALID_ARGUMENT","Enter a valid email address.");
+        Value verificationCode = nullptr;
+        const std::string candidate = crypto::randomHex(32);
+        if (db.issueEmailVerification(email,sha256::hashHex(candidate),static_cast<long long>(std::time(nullptr))+1800))
+            verificationCode = candidate;
+        return response(200,{{"success",true},
+            {"message","If the account needs verification, a code has been generated."},
+            {"verificationCode",verificationCode},{"expiresInSeconds",1800}});
+    }
+    if (request.method == "POST" && request.path == "/api/auth/email-verification/confirm") {
+        const auto fields = json::object(request.body);
+        const std::string email = stringField(fields,"email",254);
+        const std::string verificationCode = stringField(fields,"verificationCode",64);
+        if (email.find('@') == std::string::npos || verificationCode.size() != 64 ||
+            verificationCode.find_first_not_of("0123456789abcdef") != std::string::npos)
+            return apiError(400,"INVALID_ARGUMENT","Enter a valid email address and verification code.");
+        if (!db.verifyEmail(email,sha256::hashHex(verificationCode)))
+            return apiError(400,"INVALID_VERIFICATION_CODE","That verification code is invalid or expired. Request a new one.");
+        return response(200,{{"success",true},{"message","Email verified. You can now log in."}});
+    }
+    if (request.method == "POST" && request.path == "/api/auth/password-reset/request") {
+        const auto fields = json::object(request.body);
+        const std::string email = stringField(fields,"email",254);
+        if (email.find('@') == std::string::npos)
+            return apiError(400,"INVALID_ARGUMENT","Enter a valid email address.");
+
+        Value resetCode = nullptr;
+        const std::string candidate = crypto::randomHex(32);
+        if (db.createPasswordReset(email,sha256::hashHex(candidate),static_cast<long long>(std::time(nullptr))+1800))
+            resetCode = candidate;
+        return response(200,{{"success",true},
+            {"message","If the account exists, a reset code has been generated."},
+            {"resetCode",resetCode},{"expiresInSeconds",1800}});
+    }
+    if (request.method == "POST" && request.path == "/api/auth/password-reset/confirm") {
+        const auto fields = json::object(request.body);
+        const std::string resetCode = stringField(fields,"resetCode",64);
+        const std::string password = stringField(fields,"password",128);
+        if (resetCode.size() != 64 || resetCode.find_first_not_of("0123456789abcdef") != std::string::npos ||
+            password.size() < 8)
+            return apiError(400,"INVALID_ARGUMENT","Enter a valid reset code and a password of at least 8 characters.");
+        const std::string salt = crypto::randomHex(16);
+        if (!db.resetPassword(sha256::hashHex(resetCode),salt,crypto::passwordHash(password,salt)))
+            return apiError(400,"INVALID_RESET_CODE","That reset code is invalid or expired. Request a new one.");
+        return response(200,{{"success",true},{"message","Password reset. Please log in with your new password."}});
     }
     const bool registerPath = request.path == "/api/register" || request.path == "/api/auth/register";
     const bool loginPath = request.path == "/api/login" || request.path == "/api/auth/login";
@@ -219,8 +272,15 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
                 : error(409,"Email already registered");
             if (modern && db.usernameExists(username)) return apiError(409,"USERNAME_TAKEN","This username is already taken.");
             db.createUser(username,email,password,user);
+            const std::string candidate = crypto::randomHex(32);
+            if (!db.issueEmailVerification(email,sha256::hashHex(candidate),static_cast<long long>(std::time(nullptr))+1800))
+                return apiError(500,"VERIFICATION_SETUP_FAILED","Could not create an email verification code.");
             if (modern) return response(201,{{"success",true},{"code","REGISTERED"},
-                {"message","Account created."},{"user",{{"id",user.id},{"username",user.username}}}});
+                {"message","Account created. Verify your email before logging in."},
+                {"verificationCode",candidate},{"expiresInSeconds",1800},
+                {"user",{{"id",user.id},{"username",user.username}}}});
+            return response(201,{{"success",true},{"message","Account created. Verify your email before logging in."},
+                {"verificationCode",candidate},{"expiresInSeconds",1800}});
         } else {
             int retry = authFailures.retryAfter();
             if (retry) {
@@ -234,6 +294,10 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
                 return request.path == "/api/auth/login"
                     ? apiError(401,"INVALID_CREDENTIALS","Invalid email or password.") : error(401,"Invalid credentials");
             }
+            if (!user.emailVerified)
+                return request.path == "/api/auth/login"
+                    ? apiError(403,"EMAIL_NOT_VERIFIED","Verify your email before logging in.")
+                    : error(403,"Email not verified");
             db.touchLastLogin(user.id);
         }
         const std::string token = db.createSession(user.id);
