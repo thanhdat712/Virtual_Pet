@@ -14,7 +14,6 @@ class Food;
 //   - hunger là mức NO: 100 = no căng, 0 = đói; Food::hungerRestore làm giá trị này TĂNG.
 //   - happiness vừa là độ vui vừa là thanh lên cấp: đầy 100 thì lên 1 cấp và thanh quay về phần dư.
 // Các hành động là hàm virtual để Cat/Dog (KAN-31/32) ghi đè hành vi riêng.
- main
 class Pet {
 private:
     int id;
@@ -22,13 +21,12 @@ private:
     int level;
     int health;
     int happiness;
-    int hunger;main
+    int hunger;
     int energy;
     std::map<DecorationSlot, int> equipment; // slot -> id đồ đang gắn (không có = chưa gắn)
 
-    int addHappiness(int amount); // cộng/trừ độ vui, trả về số cấp vừa lên
-
 protected:
+    int addHappiness(int amount); // cộng/trừ độ vui, trả về số cấp vừa lên
     static int clampStat(int value);
     void changeHealth(int amount);
     void changeHappiness(int amount);

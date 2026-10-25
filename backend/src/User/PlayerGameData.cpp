@@ -1,4 +1,7 @@
 #include "PlayerGameData.h"
+#include "Pet.h"
+#include "Food.h"
+#include <utility>
 
 PlayerData::PlayerData(int userId, const std::string& name, int coins)
     : userId(userId), name(name), coins(coins) {}
@@ -24,3 +27,42 @@ bool PlayerData::spendCoins(int amount) {
 
 Inventory& PlayerData::getInventory() { return inventory; }
 const Inventory& PlayerData::getInventory() const { return inventory; }
+
+void PlayerData::setPet(std::shared_ptr<Pet> ownedPet) {
+    pet = std::move(ownedPet);
+}
+
+std::shared_ptr<Pet> PlayerData::getPet() {
+    return pet;
+}
+
+std::shared_ptr<const Pet> PlayerData::getPet() const {
+    return pet;
+}
+
+bool PlayerData::feedPet(int foodItemId) {
+    if (!pet || inventory.getQuantity(foodItemId) <= 0) {
+        return false;
+    }
+
+    const auto& slots = inventory.getSlots();
+    for (const auto& slot : slots) {
+        if (!slot.item || slot.item->getId() != foodItemId) {
+            continue;
+        }
+
+        auto food = std::dynamic_pointer_cast<Food>(slot.item);
+        if (!food) {
+            return false;
+        }
+
+        ActionResult result = pet->feed(*food);
+        if (!result.ok()) {
+            return false;
+        }
+
+        return inventory.removeItem(foodItemId, 1);
+    }
+
+    return false;
+}

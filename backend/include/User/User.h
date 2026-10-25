@@ -2,10 +2,6 @@
 #define USER_H
 
 #include <string>
-#ifndef USER_H
-#define USER_H
-
-#include <string>
 #include <memory>
 #include "../Inventory/Inventory.h"
 
@@ -27,11 +23,6 @@ private:
     int coins;
     Inventory inventory;
     std::shared_ptr<Pet> pet;
-
-    // Giữ nguyên các phần còn lại của lớp User...
-};
-
-#endif
 
 public:
     User(int id, const std::string& username, const std::string& passwordSalt,

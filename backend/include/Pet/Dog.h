@@ -9,7 +9,7 @@ public:
         int health = 100, int happiness = 0, int hunger = 50, int energy = 50);
     std::string getType() const override;
     std::string getSound() const override;
-    void play() override;
+    ActionResult play() override;
 };
 
 #endif

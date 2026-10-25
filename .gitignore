@@ -1,4 +1,5 @@
 build/
+build-*/
 *.exe
 *.obj
 *.o
@@ -8,5 +9,11 @@ build/
 *.db
 *.db-wal
 *.db-shm
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3-wal
+*.sqlite3-shm
 backend/build/token.txt
 !backend/database/virtual_pet.template.db
