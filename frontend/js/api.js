@@ -59,6 +59,19 @@ const api = {
 		return request('/api/auth/logout', { method: 'POST' });
 	},
 
+	// SUB-02: enqueue source code for asynchronous evaluation.
+	submitCode(exerciseId, sourceCode, language = 'cpp') {
+		return request(`/api/exercises/${encodeURIComponent(exerciseId)}/submissions`, {
+			method: 'POST',
+			body: { sourceCode, language }
+		});
+	},
+
+	// SUB-02: retrieve the latest state of a code submission.
+	getSubmission(submissionId) {
+		return request(`/api/submissions/${encodeURIComponent(submissionId)}`);
+	},
+
 	gameState() {
 		return request('/api/game/state');
 	},
