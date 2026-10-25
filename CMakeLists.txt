@@ -71,6 +71,8 @@ add_library(pet_core STATIC
     backend/src/Shop/Shop.cpp
     backend/src/Reward/Reward.cpp
     backend/src/Pet/Pet.cpp
+    backend/src/Pet/Cat.cpp
+    backend/src/Pet/Dog.cpp
 )
 
 # Mỗi module có thư mục include riêng (code hiện tại include theo kiểu "Game.h", "../User/User.h")

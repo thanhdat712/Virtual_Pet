@@ -1,6 +1,7 @@
 #include "Game.h"
 #include "PlayerGameData.h"
 #include "Pet.h"
+#include "Cat.h"
 #include "Shop.h"
 #include "Reward.h"
 #include "Food.h"
@@ -159,7 +160,6 @@ ActionResult Game::updateOverTime(int elapsedSeconds) {
     long long ticks = total / TICK_SECONDS;
     timeCarrySeconds = static_cast<int>(total % TICK_SECONDS);
     if (ticks > 0) {
-        // Pet clamp chỉ số tại 0 nên số tick rất lớn (offline lâu) vẫn an toàn
         int safeTicks = ticks > 1000000 ? 1000000 : static_cast<int>(ticks);
         gameState.getPet().applyTimePassed(safeTicks);
     }
@@ -226,8 +226,8 @@ ActionResult Game::importSnapshot(const GameSnapshot& s) {
         user->getInventory().addItem(item, entry.quantity);
     }
 
-    auto pet = std::make_unique<Pet>(s.pet.id, s.pet.name, s.pet.health,
-                                     s.pet.happiness, s.pet.hunger, s.pet.energy, s.pet.level);
+    auto pet = std::make_shared<Cat>(s.pet.id, s.pet.name, s.pet.level,
+                                    s.pet.health, s.pet.happiness, s.pet.hunger, s.pet.energy);
     for (const auto& entry : s.equipment) {
         auto deco = std::dynamic_pointer_cast<Decoration>(gameState.getShop().getItemById(entry.itemId));
         if (!deco || deco->getSlot() != entry.slot) return bad("equipped item does not match its slot.");
@@ -235,7 +235,8 @@ ActionResult Game::importSnapshot(const GameSnapshot& s) {
         pet->equip(entry.slot, entry.itemId);
     }
 
-    gameState.restore(std::move(user), std::move(pet));
+    user->setPet(pet);
+    gameState.restore(std::move(user), pet);
     timeCarrySeconds = 0;
     return ActionResult::success("Game data loaded.");
 }
