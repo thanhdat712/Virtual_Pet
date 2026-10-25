@@ -8,6 +8,7 @@ const inventoryGrid = document.querySelector('#inventory-grid');
 const inventoryCount = document.querySelector('#inventory-count');
 const openInventoryButton = document.querySelector('#open-inventory');
 const closeInventoryButton = document.querySelector('#close-inventory');
+const studyButton = document.querySelector('#study-btn');
 const inventoryTabs = document.querySelectorAll('#inventory-panel [data-filter]');
 const inventoryDetail = document.querySelector('#inventory-detail');
 let activeFilter = 'all';
@@ -31,22 +32,31 @@ const openDecorateButton = document.querySelector('#open-decorate');
 const closeDecorateButton = document.querySelector('#close-decorate');
 const decorateTabs = document.querySelectorAll('#decorate-panel [data-decor-slot]');
 let activeDecorSlot = 'background';
-const equippedDecor = { background: null, floor: null };
+const equippedDecor = { background: null, floor: null, headwear: null };
 const lobbyScene = document.querySelector('#lobby-scene');
 const lobbyFloor = document.querySelector('#lobby-floor');
 const petGame = document.querySelector('.pet-game');
+const petImage = document.querySelector('.pet-image');
+
+window.getCurrentPetName = function () {
+	const profileName = window.currentPetProfile?.name;
+	const displayedName = document.querySelector('#pet-name')?.textContent;
+	return (typeof profileName === 'string' && profileName.trim())
+		|| (typeof displayedName === 'string' && displayedName.trim())
+		|| 'UIA';
+};
 
 function updateCoinDisplays() {
 	coinBalance.textContent = coins;
 	shopCoinBalance.textContent = coins;
 }
 
-// Ảnh món đồ; nền/sàn không có ảnh nên vẽ bằng gradient theo data-scene / data-floor.
 function buildItemArt(item) {
 	const art = document.createElement('div');
 	art.className = 'win-art';
 	if (item.filter === 'background' || item.filter === 'floor') {
 		art.dataset[item.filter === 'background' ? 'scene' : 'floor'] = String(item.id);
+		art.style.backgroundImage = `url("${item.image}")`;
 		return art;
 	}
 	const image = document.createElement('img');
@@ -79,7 +89,11 @@ function renderInventory() {
 	if (visibleItems.length === 0) {
 		const emptyState = document.createElement('p');
 		emptyState.className = 'win-empty';
-		emptyState.innerHTML = '<strong>Nothing here yet</strong>Visit the shop to find something for UIA.';
+		const title = document.createElement('strong');
+		title.textContent = 'Nothing here yet';
+		const description = document.createElement('span');
+		description.textContent = `Visit the shop to find something for ${window.getCurrentPetName()}.`;
+		emptyState.append(title, description);
 		inventoryGrid.append(emptyState);
 		renderBagDetail();
 		return;
@@ -144,12 +158,9 @@ function renderBagDetail() {
 	if (item.category === 'food') {
 		action.textContent = 'Use';
 		action.addEventListener('click', () => useBagFood(item));
-	} else if (item.filter === 'headwear') {
-		action.textContent = 'Wear';
-		action.disabled = true;
 	} else {
 		const worn = equippedDecor[item.filter] === item.id;
-		action.textContent = worn ? 'Remove' : 'Equip';
+		action.textContent = worn ? 'Remove' : (item.filter === 'headwear' ? 'Wear' : 'Equip');
 		action.addEventListener('click', () => equipBagDecoration(item, worn));
 	}
 	inventoryDetail.append(buildItemArt(item), info, action);
@@ -384,6 +395,9 @@ function closeShop() {
 
 openInventoryButton.addEventListener('click', openInventory);
 closeInventoryButton.addEventListener('click', closeInventory);
+studyButton.addEventListener('click', () => {
+	window.location.href = 'study.html';
+});
 openShopButton.addEventListener('click', openShop);
 closeShopButton.addEventListener('click', closeShop);
 
@@ -453,21 +467,37 @@ shopGrid.addEventListener('click', (event) => {
 // Áp nền & sàn đang trang bị lên sảnh chờ (khu vực .pet-game).
 function applyLobbyDecor() {
 	if (equippedDecor.background) {
+		const background = shopItems.find((item) => item.id === equippedDecor.background);
 		lobbyScene.dataset.scene = String(equippedDecor.background);
+		lobbyScene.style.backgroundImage = background ? `url("${background.image}")` : '';
 		lobbyScene.classList.add('is-active');
 		petGame.classList.add('has-scene');
 	} else {
 		lobbyScene.removeAttribute('data-scene');
+		lobbyScene.style.backgroundImage = '';
 		lobbyScene.classList.remove('is-active');
 		petGame.classList.remove('has-scene');
 	}
 	if (equippedDecor.floor) {
+		const floor = shopItems.find((item) => item.id === equippedDecor.floor);
 		lobbyFloor.dataset.floor = String(equippedDecor.floor);
+		lobbyFloor.style.backgroundImage = floor ? `url("${floor.image}")` : '';
 		lobbyFloor.classList.add('is-active');
 	} else {
 		lobbyFloor.removeAttribute('data-floor');
+		lobbyFloor.style.backgroundImage = '';
 		lobbyFloor.classList.remove('is-active');
 	}
+	const headwear = shopItems.find((item) => item.id === equippedDecor.headwear);
+	const isDog = window.currentPetProfile?.species === 'dog';
+	const defaultPetImage = isDog ? 'assets/pets/gaugau.png' : 'assets/pets/meomeo.png';
+	const dogHeadwearImages = {
+		6: 'assets/pets/gaugau_mulen.png?v=pet-scale-20261024-2',
+		7: 'assets/pets/gaugau_vuongmieng.png?v=pet-scale-20261024-2'
+	};
+	petImage.src = headwear
+		? (isDog ? dogHeadwearImages[headwear.id] ?? defaultPetImage : headwear.petImage ?? defaultPetImage)
+		: defaultPetImage;
 }
 
 function buildDecorCard(item) {
@@ -481,6 +511,14 @@ function buildDecorCard(item) {
 	let art;
 	if (item) {
 		art = buildItemArt(item);
+	} else if (activeDecorSlot === 'headwear') {
+		art = document.createElement('div');
+		art.className = 'win-art';
+		const image = document.createElement('img');
+		const isDog = window.currentPetProfile?.species === 'dog';
+		image.src = isDog ? 'assets/pets/gaugau.png' : 'assets/pets/meomeo.png';
+		image.alt = `${isDog ? 'Dog' : 'Cat'} without headwear`;
+		art.append(image);
 	} else {
 		art = document.createElement('div');
 		art.className = 'win-art art-default';
@@ -488,11 +526,13 @@ function buildDecorCard(item) {
 
 	const name = document.createElement('span');
 	name.className = 'bag-name';
-	name.textContent = item ? item.name : 'Default room';
+	name.textContent = item ? item.name : (activeDecorSlot === 'headwear' ? 'No headwear' : 'Default room');
 
 	const status = document.createElement('span');
 	status.className = 'bag-status';
-	status.textContent = selected ? 'In use' : 'Tap to use';
+	status.textContent = activeDecorSlot === 'headwear'
+		? (selected ? 'No headwear equipped' : 'Tap to remove headwear')
+		: (selected ? 'In use' : 'Tap to use');
 
 	card.append(art, name, status);
 	card.addEventListener('click', () => chooseDecor(id));
@@ -502,9 +542,10 @@ function buildDecorCard(item) {
 function renderDecorate() {
 	decorateGrid.replaceChildren();
 	const owned = inventory.filter((item) => item.category === 'decoration' && item.filter === activeDecorSlot);
+	const slotLabel = activeDecorSlot === 'headwear' ? 'headwear' : activeDecorSlot;
 	decorateHint.textContent = owned.length
-		? `${owned.length} ${activeDecorSlot} item${owned.length > 1 ? 's' : ''} owned`
-		: `No ${activeDecorSlot} items yet`;
+		? `${owned.length} ${slotLabel} item${owned.length > 1 ? 's' : ''} owned`
+		: `No ${slotLabel} items yet`;
 
 	decorateGrid.append(buildDecorCard(null));
 	owned.forEach((item) => decorateGrid.append(buildDecorCard(item)));
@@ -512,7 +553,7 @@ function renderDecorate() {
 	if (owned.length === 0) {
 		const empty = document.createElement('p');
 		empty.className = 'win-empty';
-		empty.innerHTML = `<strong>Nothing here yet</strong>Buy a ${activeDecorSlot} in the shop to decorate the lobby.`;
+		empty.innerHTML = `<strong>Nothing here yet</strong>Buy ${activeDecorSlot === 'headwear' ? 'headwear' : `a ${activeDecorSlot}`} in the shop to decorate the lobby.`;
 		decorateGrid.append(empty);
 	}
 }

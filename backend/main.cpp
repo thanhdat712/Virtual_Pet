@@ -1,6 +1,5 @@
 #include <iostream>
 #include "Game.h"
-#include "User.h"
 #include "Pet.h"
 #include "Shop.h"
 
@@ -16,7 +15,7 @@ int main() {
     std::cout << "Player: " << game.getPlayer().getName()
               << " (" << game.getPlayer().getCoins() << " coins)\n";
     std::cout << "Pet: " << game.getPet().getName() << "\n";
-    std::cout << "Shop items: " << game.getShop().getItemsForSale().size() << "\n";
+    std::cout << "Shop items: " << game.getShop().getItems().size() << "\n";
 
     return 0;
 }

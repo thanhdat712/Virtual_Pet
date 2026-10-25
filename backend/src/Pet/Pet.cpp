@@ -1,37 +1,22 @@
 #include "Pet.h"
+#include "Food.h"
 
 namespace {
-int clampStat(int value) {
+int clampStat(long long value) {
     if (value < Pet::MIN_STAT) return Pet::MIN_STAT;
     if (value > Pet::MAX_STAT) return Pet::MAX_STAT;
-    return value;
+    return static_cast<int>(value);
 }
 }
 
-Pet::Pet(int id, const std::string& name, int health, int happiness, int hunger, int energy)
+Pet::Pet(int id, const std::string& name, int health, int happiness, int hunger, int energy, int level)
     : id(id),
       name(name),
+      level(level < 1 ? 1 : level),
       health(clampStat(health)),
       happiness(clampStat(happiness)),
       hunger(clampStat(hunger)),
       energy(clampStat(energy)) {}
-
-int Pet::getId() const { return id; }
-const std::string& Pet::getName() const { return name; }
-int Pet::getHealth() const { return health; }
-int Pet::getHappiness() const { return happiness; }
-int Pet::getHunger() const { return hunger; }
-int Pet::getEnergy() const { return energy; }
-#include "Pet.h"
-#include <algorithm>
-
-int Pet::clampStat(int value) {
-    return std::max(MIN_STAT, std::min(MAX_STAT, value));
-}
-
-Pet::Pet(int id, const std::string& name, int level, int health, int happiness, int hunger, int energy)
-    : id(id), name(name), level(std::max(1, level)), health(clampStat(health)),
-      happiness(clampStat(happiness)), hunger(clampStat(hunger)), energy(clampStat(energy)) {}
 
 int Pet::getId() const { return id; }
 const std::string& Pet::getName() const { return name; }
@@ -41,50 +26,168 @@ int Pet::getHappiness() const { return happiness; }
 int Pet::getHunger() const { return hunger; }
 int Pet::getEnergy() const { return energy; }
 
-void Pet::setName(const std::string& newName) { if (!newName.empty()) name = newName; }
+#include "Pet.h"
+#include <algorithm>
+
+int Pet::clampStat(int value) {
+    return std::max(MIN_STAT, std::min(MAX_STAT, value));
+}
+
+Pet::Pet(int id, const std::string& name,
+         int level, int health, int happiness, int hunger, int energy)
+    : id(id),
+      name(name),
+      level(std::max(1, level)),
+      health(clampStat(health)),
+      happiness(clampStat(happiness)),
+      hunger(clampStat(hunger)),
+      energy(clampStat(energy)) {}
+
+int Pet::getId() const { return id; }
+const std::string& Pet::getName() const { return name; }
+int Pet::getLevel() const { return level; }
+int Pet::getHealth() const { return health; }
+int Pet::getHappiness() const { return happiness; }
+int Pet::getHunger() const { return hunger; }
+int Pet::getEnergy() const { return energy; }
+
+void Pet::setName(const std::string& newName) {
+    if (!newName.empty()) name = newName;
+}
+
 void Pet::setHealth(int value) { health = clampStat(value); }
 void Pet::setHappiness(int value) { happiness = clampStat(value); }
 void Pet::setHunger(int value) { hunger = clampStat(value); }
 void Pet::setEnergy(int value) { energy = clampStat(value); }
-void Pet::changeHealth(int amount) { setHealth(health + amount); }
-void Pet::changeHappiness(int amount) { setHappiness(happiness + amount); }
-void Pet::changeHunger(int amount) { setHunger(hunger + amount); }
-void Pet::changeEnergy(int amount) { setEnergy(energy + amount); }
 
-bool Pet::eat(const Food& food) {
-    if (health == 0) return false;
+void Pet::changeHealth(int amount) {
+    setHealth(health + amount);
+}
+
+void Pet::changeHappiness(int amount) {
+    setHappiness(happiness + amount);
+}
+
+void Pet::changeHunger(int amount) {
+    setHunger(hunger + amount);
+}
+
+void Pet::changeEnergy(int amount) {
+    setEnergy(energy + amount);
+}
+
+int Pet::addHappiness(int amount) {
+    long long value = static_cast<long long>(happiness) + amount;
+    int levelsGained = 0;
+
+    if (value < MIN_STAT) value = MIN_STAT;
+
+    while (value >= MAX_STAT) {
+        value -= MAX_STAT;
+        ++level;
+        ++levelsGained;
+    }
+
+    happiness = static_cast<int>(value);
+    return levelsGained;
+}
+
+ActionResult Pet::feed(const Food& food) {
+    if (health <= 0) {
+        return ActionResult::failure(
+            ActionCode::PET_TOO_TIRED,
+            "Pet cannot eat."
+        );
+    }
+
     changeHunger(-food.getHungerRestore());
-    changeHappiness(food.getHappinessRestore());
-    return true;
+    int gained = addHappiness(food.getHappinessRestore());
+
+    return ActionResult::success(
+        food.getName() + " eaten!",
+        gained
+    );
 }
 
-void Pet::play() {
-    if (energy < 10 || health == 0) return;
-    changeHappiness(15);
-    changeEnergy(-10);
-    changeHunger(10);
+ActionResult Pet::play() {
+    if (health <= 0 || energy < PLAY_ENERGY_COST) {
+        return ActionResult::failure(
+            ActionCode::PET_TOO_TIRED,
+            "Your pet is too tired to play."
+        );
+    }
+
+    changeEnergy(-PLAY_ENERGY_COST);
+    changeHunger(PLAY_HUNGER_COST);
+    int gained = addHappiness(PLAY_HAPPINESS_GAIN);
+
+    return ActionResult::success("Your pet had fun!", gained);
 }
 
-void Pet::sleep() {
-    if (health == 0) return;
-    changeEnergy(30);
-    changeHealth(5);
-    changeHunger(5);
+ActionResult Pet::sleep() {
+    if (health <= 0 || energy >= MAX_STAT) {
+        return ActionResult::failure(
+            ActionCode::ENERGY_FULL,
+            "Your pet cannot sleep now."
+        );
+    }
+
+    changeEnergy(SLEEP_ENERGY_GAIN);
+    changeHunger(SLEEP_HUNGER_COST);
+
+    return ActionResult::success("Your pet slept well.");
 }
 
-void Pet::bath() {
-    if (health == 0) return;
-    changeHealth(5);
-    changeHappiness(5);
-    changeEnergy(-5);
+ActionResult Pet::bath() {
+    if (health <= 0) {
+        return ActionResult::failure(
+            ActionCode::PET_TOO_TIRED,
+            "Your pet cannot take a bath."
+        );
+    }
+
+    changeEnergy(-BATH_ENERGY_COST);
+    int gained = addHappiness(BATH_HAPPINESS_GAIN);
+
+    return ActionResult::success("Squeaky clean!", gained);
 }
 
 void Pet::updateOverTime(int minutes) {
     if (minutes <= 0) return;
-    // Moi 10 phut: doi tang 1, nang luong giam 1, vui giam 1.
-    const int ticks = minutes / 10;
+
+    int ticks = minutes / 10;
     changeHunger(ticks);
     changeEnergy(-ticks);
     changeHappiness(-ticks);
-    if (hunger >= 100) changeHealth(-(ticks / 2));
+
+    if (hunger >= MAX_STAT) {
+        changeHealth(-(ticks / 2));
+    }
 }
+
+void Pet::applyTimePassed(int ticks) {
+    if (ticks <= 0) return;
+
+    changeHunger(HUNGER_DECAY_PER_TICK * ticks);
+    changeEnergy(-ENERGY_DECAY_PER_TICK * ticks);
+}
+
+void Pet::equip(DecorationSlot slot, int itemId) {
+    if (itemId > 0) {
+        equipment[slot] = itemId;
+    }
+}
+
+void Pet::unequip(DecorationSlot slot) {
+    equipment.erase(slot);
+}
+
+int Pet::getEquipped(DecorationSlot slot) const {
+    auto it = equipment.find(slot);
+    return it == equipment.end() ? 0 : it->second;
+}
+
+const std::map<DecorationSlot, int>& Pet::getEquipment() const {
+    return equipment;
+}
+

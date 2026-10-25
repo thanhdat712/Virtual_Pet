@@ -1,86 +1,104 @@
-// Lớp gọi API cho frontend. Backend C++ chạy tại http://127.0.0.1:8080.
-// Token đăng nhập được lưu trong localStorage để giữ phiên giữa các lần mở trang.
-const API_BASE = location.protocol === 'http:' ? location.origin : 'http://127.0.0.1:8080';
+// API client for the same-origin C++ server. Authentication uses its HttpOnly session cookie.
+async function request(path, { method = 'GET', body } = {}) {
+	const headers = {};
+	if (body !== undefined) headers['Content-Type'] = 'application/json';
 
-const auth = {
-	get token() {
-		return localStorage.getItem('vp_token') || '';
-	},
-	set token(value) {
-		if (value) {
-			localStorage.setItem('vp_token', value);
-		} else {
-			localStorage.removeItem('vp_token');
-		}
-	},
-	get isLoggedIn() {
-		return Boolean(this.token);
-	},
-	async logout() {
-		await request('POST', '/api/logout');
-		this.token = '';
-	}
-};
-
-// Gửi request JSON và trả về object đã parse; ném lỗi kèm message từ server.
-async function request(method, path, body) {
-	const headers = { 'Content-Type': 'application/json' };
-	if (auth.token) {
-		headers.Authorization = `Bearer ${auth.token}`;
-	}
-	const response = await fetch(`${API_BASE}${path}`, {
+	const response = await fetch(path, {
 		method,
 		headers,
-		body: body ? JSON.stringify(body) : undefined,
+		credentials: 'same-origin',
+		body: body === undefined ? undefined : JSON.stringify(body),
 		signal: AbortSignal.timeout(15000)
 	});
 	const text = await response.text();
-	const data = text ? JSON.parse(text) : {};
+	let data = {};
+	if (text) {
+		try {
+			data = JSON.parse(text);
+		} catch {
+			throw new Error(`The server returned an invalid response (HTTP ${response.status}).`);
+		}
+	}
 	if (!response.ok) {
-		const error = new Error(data.error || `Loi ${response.status}`);
+		const error = new Error(data.message || `Request failed (HTTP ${response.status}).`);
 		error.status = response.status;
-		if (response.status === 401) auth.token = '';
+		error.code = data.code;
 		throw error;
 	}
 	return data;
 }
 
-const api = {
-	auth,
+async function action(path, body, method = 'POST') {
+	const result = await request(path, { method, body });
+	if (!result.success || !result.state) {
+		throw new Error(result.message || 'The server did not return an updated game state.');
+	}
+	return result.state;
+}
 
-	async register(email, password) {
-		const data = await request('POST', '/api/register', { email, password });
-		auth.token = data.token;
-		return data;
+const api = {
+	async register(username, email, password) {
+		return request('/api/auth/register', {
+			method: 'POST',
+			body: { username, email, password }
+		});
 	},
 
 	async login(email, password) {
-		const data = await request('POST', '/api/login', { email, password });
-		auth.token = data.token;
-		return data;
+		return request('/api/auth/login', {
+			method: 'POST',
+			body: { email, password }
+		});
 	},
 
-	// Lấy tài khoản + pet của người đang đăng nhập.
-	me() {
-		return request('GET', '/api/me');
+	session() {
+		return request('/api/auth/session');
 	},
 
-	// Backend chi cho phep doi ten pet; economy do server quan ly.
-	savePet(petState) {
-		return request('PUT', '/api/pet', petState);
+	logout() {
+		return request('/api/auth/logout', { method: 'POST' });
+	},
+
+	gameState() {
+		return request('/api/game/state');
+	},
+
+	savePetProfile(name, species) {
+		return action('/api/pet', { name, species }, 'PUT');
+	},
+
+	saveSoundEnabled(soundEnabled) {
+		return action('/api/settings', { soundEnabled }, 'PUT');
 	},
 
 	listShop() {
-		return request('GET', '/api/shop');
+		return request('/api/shop');
 	},
+
 	buyItem(itemId, quantity) {
-		return request('POST', '/api/shop/purchases', { itemId, quantity });
+		return action('/api/shop/purchases', { itemId, quantity });
 	},
+
 	feedPet(itemId) {
-		return request('POST', '/api/pet/feed', { itemId });
+		return action('/api/pet/feed', { itemId });
 	},
+
+	playPet() {
+		return action('/api/pet/play');
+	},
+
 	sleepPet() {
-		return request('POST', '/api/pet/sleep');
+		return action('/api/pet/sleep');
+	},
+
+	bathPet() {
+		return action('/api/pet/bath');
+	},
+
+	equipDecoration(slot, itemId) {
+		return itemId === null
+			? action('/api/pet/unequip', { slot })
+			: action('/api/pet/decorate', { itemId });
 	}
 };
 

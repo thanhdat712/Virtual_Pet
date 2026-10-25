@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pet Home - Study</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=VT323&family=Be+Vietnam+Pro:wght@400;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/study.css">
+</head>
+
+<body>
+    <!-- Nền pixel: cảnh rừng, tia nắng, cỏ + hoa dưới đáy, hạt bay (JS vẽ) -->
+    <div id="jungle" aria-hidden="true">
+        <canvas id="px" width="320" height="180"></canvas>
+        <canvas id="gr"></canvas>
+        <div id="fx"></div>
+    </div>
+
+    <header class="topbar">
+        <a class="back" href="index.html">← Về nhà</a>
+        <h1>Lớp Học Thú Cưng 😺🐶</h1>
+        <div class="wallet"><span id="pts">✦ 0</span><span id="coins">◎ 0</span></div>
+    </header>
+
+    <!-- MÀN 1: DÂY LEO LỘ TRÌNH -->
+    <main id="tree" class="screen">
+        <p class="start-tip">Kéo hoặc vuốt ngang để lướt theo dây leo, chạm vào nút để chọn cấp</p>
+        <div class="path" id="path">
+            <div class="path-in" id="pathIn"><canvas id="vc" class="vc" width="950" height="85"></canvas></div>
+        </div>
+        <section id="panel" class="tier-panel hidden"></section>
+    </main>
+
+    <!-- MÀN 2: LÀM BÀI -->
+    <main id="quiz" class="screen hidden">
+        <div class="quiz-head">
+            <button id="quit" class="btn ghost">✕ Thoát</button>
+            <div class="bar"><i id="barFill"></i></div>
+            <b id="qTitle"></b>
+        </div>
+        <section class="card" id="qBox"></section>
+        <!-- MEME: 2 ảnh nằm NGOÀI bảng, bên trái và bên phải (rút ngẫu nhiên từ MEMES.right / MEMES.wrong trong study.js) -->
+        <div id="fbWrap" class="fb-wrap hidden">
+            <div id="fbL" class="meme-box fbm l"></div>
+            <div id="fb" class="feedback">
+                <h3 id="fbVerdict" class="verdict"></h3>
+                <p id="fbText"></p>
+                <p id="fbExp" class="exp"></p>
+            </div>
+            <div id="fbR" class="meme-box fbm r"></div>
+        </div>
+        <button id="next" class="btn hidden">Tiếp tục →</button>
+    </main>
+
+    <!-- MÀN 3: KẾT QUẢ -->
+    <main id="result" class="screen hidden">
+        <section class="card center">
+            <div id="resMeme" class="meme-box big"></div>
+            <h2 id="resTitle"></h2>
+            <p id="resText"></p>
+            <button id="retry" class="btn ghost">Làm lại</button>
+            <button id="toTree" class="btn">Về dây leo</button>
+        </section>
+    </main>
+
+    <!-- MEME: 4 góc màn hình (MEMES.corner trong study.js), 2 ảnh dưới nằm TRÊN cỏ hoa -->
+    <div id="stickers" aria-hidden="true">
+        <div class="meme-box stk a"></div>
+        <div class="meme-box stk b"></div>
+        <div class="meme-box stk c"></div>
+        <div class="meme-box stk d"></div>
+    </div>
+
+    <script src="js/study-data.js"></script>
+    <script src="js/study.js"></script>
+</body>
+
+</html>

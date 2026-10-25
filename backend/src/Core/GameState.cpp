@@ -1,5 +1,5 @@
 #include "GameState.h"
-#include "User.h"
+#include "PlayerGameData.h"
 #include "Pet.h"
 #include "Cat.h"
 #include "Shop.h"
@@ -10,7 +10,7 @@ constexpr const char* DEFAULT_PLAYER_NAME = "Player";
 constexpr int STARTING_COINS = 100;
 
 constexpr int DEFAULT_PET_ID = 1;
-constexpr const char* DEFAULT_PET_NAME = "Mimi";
+constexpr const char* DEFAULT_PET_NAME = "UIA"; // khớp bảng pets và frontend
 }
 
 GameState::GameState()
@@ -22,14 +22,29 @@ GameState::~GameState() = default;
 
 void GameState::initialize() {
     // Dựng đủ ba đối tượng vào biến tạm trước, nếu có lỗi giữa chừng thì trạng thái cũ không bị hỏng
-    auto newPlayer = std::make_unique<User>(DEFAULT_PLAYER_ID, DEFAULT_PLAYER_NAME, STARTING_COINS);
-    auto newPet = std::make_shared<Cat>(DEFAULT_PET_ID, DEFAULT_PET_NAME);
-    newPlayer->setPet(newPet);
+auto newPlayer = std::make_unique<User>(
+    DEFAULT_PLAYER_ID,
+    DEFAULT_PLAYER_NAME,
+    STARTING_COINS
+);
+
+auto newPet = std::make_shared<Cat>(
+    DEFAULT_PET_ID,
+    DEFAULT_PET_NAME
+);
+
+newPlayer->setPet(newPet);
     auto newShop = std::make_unique<Shop>();
 
     player = std::move(newPlayer);
     pet = std::move(newPet);
     shop = std::move(newShop);
+    status = GameStatus::NOT_STARTED;
+}
+
+void GameState::restore(std::unique_ptr<PlayerData> newPlayer, std::unique_ptr<Pet> newPet) {
+    player = std::move(newPlayer);
+    pet = std::move(newPet);
     status = GameStatus::NOT_STARTED;
 }
 
@@ -41,8 +56,8 @@ void GameState::setStatus(GameStatus newStatus) {
     status = newStatus;
 }
 
-User& GameState::getPlayer() { return *player; }
-const User& GameState::getPlayer() const { return *player; }
+PlayerData& GameState::getPlayer() { return *player; }
+const PlayerData& GameState::getPlayer() const { return *player; }
 Pet& GameState::getPet() { return *pet; }
 const Pet& GameState::getPet() const { return *pet; }
 Shop& GameState::getShop() { return *shop; }

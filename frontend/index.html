@@ -5,12 +5,48 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pet Home</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/pixel.css">
+    <link rel="stylesheet" href="css/style.css?v=auth-labels-20261024">
+    <link rel="stylesheet" href="css/pixel.css?v=settings-20261024">
 </head>
 
-<body>
+<body class="entry-open">
     <main class="pet-game" aria-label="Màn hình chăm sóc thú cưng">
+        <section class="entry-gate" id="entry-gate" aria-labelledby="entry-title">
+            <div class="entry-card">
+                <p class="entry-kicker">PET HOME</p>
+                <h1 id="entry-title">Welcome!</h1>
+                <p class="entry-description">Log in or create an account to continue.</p>
+                <div class="entry-actions" id="entry-actions">
+                    <button class="entry-primary" id="show-login" type="button">Log in</button>
+                    <button class="entry-secondary" id="show-register" type="button">Sign up</button>
+                </div>
+                <form class="entry-form" id="entry-form" hidden>
+                    <div id="email-field">
+                        <label for="entry-email">Email</label>
+                        <input id="entry-email" name="email" type="email" maxlength="254" autocomplete="email" placeholder="name@example.com" required>
+                    </div>
+                    <div id="username-field" hidden>
+                        <label for="entry-username">Username</label>
+                        <input id="entry-username" name="username" type="text" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]{3,20}" autocomplete="username" placeholder="Your username">
+                    </div>
+                    <label for="entry-password">Password</label>
+                    <div class="password-field">
+                        <input id="entry-password" name="password" type="password" minlength="8" maxlength="128" autocomplete="current-password" placeholder="Enter your password" required>
+                        <button class="password-toggle" id="toggle-password" type="button" aria-label="Show password" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="m3 3 18 18"/></svg></button>
+                    </div>
+                    <div id="confirm-password-field" hidden>
+                        <label for="entry-confirm-password">Confirm password</label>
+                        <div class="password-field">
+                            <input id="entry-confirm-password" name="confirmPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="Enter it again to confirm">
+                            <button class="password-toggle" type="button" data-password-target="entry-confirm-password" aria-label="Show password" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="m3 3 18 18"/></svg></button>
+                        </div>
+                    </div>
+                    <p class="entry-error" id="entry-error" role="alert" aria-live="polite"></p>
+                    <button class="entry-primary" id="submit-auth" type="submit">Log in</button>
+                    <button class="entry-back" id="entry-back" type="button">Back</button>
+                </form>
+            </div>
+        </section>
         <div class="lobby-scene" id="lobby-scene" aria-hidden="true"></div>
         <div class="lobby-floor" id="lobby-floor" aria-hidden="true"></div>
         <section class="px-box hud-player" aria-label="Thông tin thú cưng">
@@ -24,7 +60,7 @@
 
         <section class="px-box hud-weather" aria-label="Thời tiết và giờ">
             <span class="px-icon big" id="hud-weather-icon" data-px="sun"></span>
-            <div><b id="hud-weather-label">Sunny</b><span id="hud-clock">00:00</span></div>
+            <div><b id="hud-weather-label">Sunny</b><span id="hud-clock" aria-label="Current local time">00:00</span></div>
         </section>
 
         <section class="px-box hud-coins" aria-label="Tiền tệ">
@@ -60,7 +96,7 @@
             <img class="pet-image" src="assets/pets/meomeo_mulen.png" alt="UIA, thú cưng của bạn">
         </section>
 
-        <section class="px-box hud-training" aria-label="Huấn luyện">
+        <section class="px-box hud-training" aria-label="Training">
             <header class="px-head"><span class="px-icon" data-px="dumbbell"></span>Training</header>
             <button class="train-row" id="study-btn" type="button">
                 <span class="px-icon big" data-px="book"></span>
@@ -93,6 +129,7 @@
             <button class="tool-btn" id="open-shop" type="button" title="Shop" aria-label="Shop" aria-haspopup="dialog" aria-controls="shop-panel"><span class="px-icon big" data-px="bag"></span></button>
             <button class="tool-btn" id="open-inventory" type="button" title="Inventory" aria-label="Inventory" aria-haspopup="dialog" aria-controls="inventory-panel"><span class="px-icon big" data-px="backpack"></span></button>
             <button class="tool-btn" id="open-decorate" type="button" title="Decorate" aria-label="Decorate" aria-haspopup="dialog" aria-controls="decorate-panel"><span class="px-icon big" data-px="brush"></span></button>
+            <button class="tool-btn settings-open" id="open-settings" type="button" title="Settings" aria-label="Settings" aria-haspopup="dialog" aria-controls="settings-panel"><span aria-hidden="true">⚙</span></button>
         </nav>
 
         <p class="px-box hud-hint"><span class="px-icon big" data-px="paw"></span><span>Take care of your pet!</span><span class="px-icon" data-px="heart"></span></p>
@@ -159,11 +196,66 @@
                 </div>
             </div>
         </section>
+
+        <section class="win-backdrop" id="settings-panel" lang="en" role="dialog" aria-modal="true" aria-labelledby="settings-title" aria-label="Settings" hidden>
+            <div class="win">
+                <div class="win-main settings-main">
+                    <header class="win-head">
+                        <span class="settings-heading-icon" aria-hidden="true">⚙</span>
+                        <h1 id="settings-title">Settings</h1>
+                        <button class="win-close" id="close-settings" type="button" aria-label="Close settings">×</button>
+                    </header>
+                    <div class="win-body settings-body">
+                        <section class="settings-section" aria-labelledby="settings-pet-title">
+                            <h2 id="settings-pet-title">Pet</h2>
+                            <div class="settings-row">
+                                <div><strong>Pet name</strong><span id="settings-pet-name">UIA</span></div>
+                                <button class="settings-action" id="settings-rename" type="button">Change name</button>
+                            </div>
+                        </section>
+                        <section class="settings-section" aria-labelledby="settings-sound-title">
+                            <h2 id="settings-sound-title">Sound</h2>
+                            <label class="settings-row settings-sound-row" for="settings-sound-toggle">
+                                <span><strong>Sound effects</strong><span>Turn game sounds on or off</span></span>
+                                <input id="settings-sound-toggle" type="checkbox" checked>
+                            </label>
+                        </section>
+                        <p class="settings-message" id="settings-message" role="status" aria-live="polite"></p>
+                    </div>
+                    <footer class="win-foot settings-footer">
+                        <button class="settings-logout" id="settings-logout" type="button">Log out</button>
+                    </footer>
+                </div>
+            </div>
+        </section>
     </main>
+    <section class="entry-gate pet-picker" id="pet-picker" aria-labelledby="pet-picker-title" hidden>
+        <div class="entry-card pet-picker-card">
+            <p class="entry-kicker">CHOOSE YOUR COMPANION</p>
+            <h1 id="pet-picker-title">Which pet would you like?</h1>
+            <div class="pet-choices" role="group" aria-label="Choose a pet">
+                <button class="pet-choice" type="button" data-pet-species="cat" aria-pressed="false"><img src="assets/pets/meomeo.png" alt="Cat"><span>Cat</span></button>
+                <button class="pet-choice" type="button" data-pet-species="dog" aria-pressed="false"><img src="assets/pets/gaugau.png" alt="Dog"><span>Dog</span></button>
+            </div>
+            <p class="entry-error" id="pet-choice-error" role="alert" aria-live="polite"></p>
+            <button class="entry-primary" id="confirm-pet-choice" type="button">Choose this pet</button>
+        </div>
+    </section>
+    <section class="entry-gate rename-gate" id="rename-dialog" aria-labelledby="rename-title" hidden>
+        <form class="entry-card rename-card" id="rename-form">
+            <h2 id="rename-title">Name your pet</h2>
+            <label for="pet-new-name">Pet name</label>
+            <input id="pet-new-name" name="name" type="text" maxlength="80" required autocomplete="off">
+            <p class="entry-error" id="rename-message" role="alert" aria-live="polite"></p>
+            <button class="entry-primary" type="submit">Save name</button>
+            <button class="entry-back" id="cancel-rename" type="button">Cancel</button>
+        </form>
+    </section>
     <script src="js/pixel.js" defer></script>
-    <script src="js/demo.js" defer></script>
-    <script src="js/app.js" defer></script>
-    <script src="js/session.js" defer></script>
+    <script src="js/api.js?v=pet-name-20261024" defer></script>
+    <script src="js/app.js?v=study-navigation-20261025" defer></script>
+    <script src="js/session.js?v=pet-name-20261024" defer></script>
+    <script src="js/auth.js?v=settings-20261024" defer></script>
 </body>
 
 </html>

@@ -1,0 +1,97 @@
+# API Contract
+
+Đây là hợp đồng của backend đang được build từ `backend/src/server_main.cpp`.
+Frontend gọi API trong `frontend/js/api.js`; server C++ phục vụ cả frontend lẫn
+API cùng origin và ghi dữ liệu vào SQLite.
+
+```text
+Browser -> frontend JavaScript -> HTTP API -> C++ Database layer -> SQLite
+```
+
+## Quy tắc chung
+
+- Base path là `/api`; request/response dùng JSON UTF-8.
+- Các API yêu cầu đăng nhập dùng cookie `vp_session` (HttpOnly, SameSite=Strict).
+- Server lấy user ID từ session, không nhận user ID từ frontend.
+- Giá vật phẩm, coins, inventory và chỉ số pet do server quyết định.
+- Database chính: `backend/build/virtual_pet.db`. Schema runtime: `database/schema.sql`.
+- Chạy game actions bằng `POST`; tải dữ liệu bằng `GET`.
+
+## Đăng nhập
+
+### `POST /api/auth/register`
+
+Body: `{ "username": "player_01", "email": "player@example.com", "password": "at-least-8-characters" }`
+
+Username dài 3–20 ký tự ASCII gồm chữ, số hoặc `_`; password tối thiểu 8 ký tự.
+Đăng ký thành công trả `201` và tạo tài khoản cùng pet mặc định trong SQLite.
+
+### `POST /api/auth/login`
+
+Body: `{ "email": "player@example.com", "password": "..." }`.
+Thành công trả `200`, thông tin user và cookie `vp_session`.
+
+### `GET /api/auth/session`
+
+Trả `200` với `authenticated` và user hiện tại; khi chưa đăng nhập, `user` là `null`.
+
+### `POST /api/auth/logout`
+
+Thu hồi session trong SQLite và xóa cookie.
+
+## Game
+
+### `GET /api/shop`
+
+Trả danh sách catalog. Có thể gọi trước khi đăng nhập.
+
+### `GET /api/game/state`
+
+Yêu cầu đăng nhập. Trả trạng thái user, pet, inventory, equipment và settings.
+
+```json
+{
+  "user": { "id": 1, "username": "player_01", "coins": 100 },
+  "pet": {
+    "name": "Mochi", "species": "cat", "level": 1,
+    "experience": 0, "happiness": 85, "hunger": 30, "energy": 70
+  },
+  "inventory": [{ "itemId": 1, "quantity": 2 }],
+  "equipment": { "headwear": null, "background": null, "floor": null },
+  "settings": { "soundEnabled": true }
+}
+```
+
+### Các thao tác yêu cầu đăng nhập
+
+| Method | Route | Body |
+|---|---|---|
+| `POST` | `/api/shop/purchases` | `{ "itemId": 1, "quantity": 2 }` |
+| `POST` | `/api/pet/feed` | `{ "itemId": 1 }` |
+| `POST` | `/api/pet/play` | Không có |
+| `POST` | `/api/pet/sleep` | Không có |
+| `POST` | `/api/pet/bath` | Không có |
+| `POST` | `/api/pet/decorate` | `{ "itemId": 8 }` |
+| `POST` | `/api/pet/unequip` | `{ "slot": "background" }` |
+| `PUT` | `/api/pet` | `{ "name": "Mochi", "species": "dog" }` |
+| `PUT` | `/api/settings` | `{ "soundEnabled": false }` |
+| `GET` | `/api/exercises` | Không có; trả danh sách bài công khai |
+| `POST` | `/api/exercises/{id}/submissions` | `{ "answer": "..." }` |
+
+Action thành công trả envelope có `success: true` và `state` mới. Action thất bại
+trả HTTP error cùng `success: false`, `code`, `message`. Từng thay đổi game được
+ghi vào SQLite; mua hàng và cho ăn chạy trong transaction.
+
+`species` chỉ nhận `cat` hoặc `dog`; `slot` chỉ nhận `headwear`, `background`
+hoặc `floor`. Happiness đủ 100 sẽ tăng level và giữ phần dư.
+
+Các endpoint bài tập được giữ riêng cho luồng học tập; chúng không thuộc màn hình
+pet này. Server chấm câu trả lời và lưu tiến độ bài tập trong SQLite.
+
+## API tương thích cũ
+
+Các route `/api/register`, `/api/login`, `/api/me` và `/api/logout` vẫn được giữ
+để không làm hỏng client/test cũ. Chúng gọi cùng backend và cùng file SQLite,
+nhưng frontend hiện tại chỉ dùng route `/api/auth/*` và `/api/game/*` ở trên.
+
+Reward claim và offline decay chưa được triển khai.

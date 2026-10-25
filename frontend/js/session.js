@@ -3,12 +3,21 @@ let petLevel = 0;
 function applyAccountState(state) {
 	coins = state.user.coins;
 	if (state.inventory) {
-		inventory.splice(0, inventory.length, ...state.inventory.map((owned) => ({
-			...shopItems.find((item) => item.id === owned.id), quantity: owned.quantity
-		})));
+		inventory.splice(0, inventory.length, ...state.inventory.map((owned) => {
+			const itemId = owned.itemId ?? owned.id;
+			return { ...shopItems.find((item) => item.id === itemId), id: itemId, quantity: owned.quantity };
+		}));
 	}
 	if (state.pet) {
-		document.querySelector('#pet-name').textContent = state.pet.name;
+		const petName = state.pet.name;
+		const species = state.pet.species === 'dog' ? 'dog' : 'cat';
+		window.currentPetProfile = { name: petName, species };
+		document.querySelector('#pet-name').textContent = petName;
+		document.querySelector('.pet-stage .pet-name').textContent = petName;
+		const petImage = species === 'dog' ? 'assets/pets/gaugau.png' : 'assets/pets/meomeo.png';
+		document.querySelector('.pet-stage .pet-image').src = petImage;
+		document.querySelector('.pet-stage .pet-image').alt = `${species === 'dog' ? 'Dog' : 'Cat'}, ${petName}`;
+		document.querySelector('.hud-avatar img').src = petImage;
 		document.querySelector('#pet-level').textContent = state.pet.level;
 		petLevel = state.pet.level;
 		const exp = state.pet.exp ?? state.pet.experience ?? 0;
@@ -21,9 +30,14 @@ function applyAccountState(state) {
 			stat.querySelector('.px-bar i').style.width = `${state.pet[name]}%`;
 		});
 	}
-	if (state.decor) {
-		equippedDecor.background = state.decor.background ?? null;
-		equippedDecor.floor = state.decor.floor ?? null;
+	const equipment = state.equipment ?? state.decor;
+	if (equipment) {
+		equippedDecor.background = equipment.background ?? null;
+		equippedDecor.floor = equipment.floor ?? null;
+		equippedDecor.headwear = equipment.headwear ?? null;
+	}
+	if (typeof state.settings?.soundEnabled === 'boolean') {
+		window.applySoundPreference?.(state.settings.soundEnabled);
 	}
 	accountReady = true;
 	updateCoinDisplays();
@@ -37,7 +51,7 @@ function applyAccountState(state) {
 async function loadAccount() {
 	const catalog = await api.listShop();
 	shopItems.splice(0, shopItems.length, ...catalog);
-	applyAccountState(await api.me());
+	applyAccountState(await api.gameState());
 }
 
 function reportFailure(failure) {
@@ -56,9 +70,23 @@ let feeding = false;
 let selectedFood = null;
 const petStage = document.querySelector('.pet-stage');
 const feedingStatus = document.querySelector('#feeding-status');
+let feedingStatusTimeout;
+
+function setFeedingStatus(message, duration = 0) {
+	clearTimeout(feedingStatusTimeout);
+	feedingStatusTimeout = null;
+	feedingStatus.textContent = message;
+	if (duration > 0) {
+		feedingStatusTimeout = setTimeout(() => {
+			feedingStatus.textContent = '';
+			feedingStatusTimeout = null;
+		}, duration);
+	}
+}
+
 petStage.tabIndex = 0;
 petStage.setAttribute('role', 'button');
-petStage.setAttribute('aria-label', 'Feed selected food to UIA');
+petStage.setAttribute('aria-label', `Feed selected food to ${window.getCurrentPetName()}`);
 
 document.querySelector('#close-food').addEventListener('click', () => {
 	document.querySelector('#food-drawer').hidden = true;
@@ -127,7 +155,7 @@ function renderFood() {
 async function feedFood(item) {
 	if (feeding || !accountReady || !item) return;
 	feeding = true;
-	feedingStatus.textContent = '';
+	setFeedingStatus('');
 	renderFood();
 	try {
 		const previousLevel = petLevel;
@@ -142,11 +170,11 @@ async function feedFood(item) {
 		bite.className = 'eating-food';
 		petStage.append(bite);
 		bite.addEventListener('animationend', () => bite.remove(), { once: true });
-		feedingStatus.textContent = fed.pet.level > previousLevel
-			? `${item.name} eaten! Level up! UIA is now level ${fed.pet.level}`
-			: `${item.name} eaten!`;
+		setFeedingStatus(fed.pet.level > previousLevel
+			? `${item.name} eaten! Level up! ${window.getCurrentPetName()} is now level ${fed.pet.level}`
+			: `${item.name} eaten!`);
 	} catch (failure) {
-		feedingStatus.textContent = reportFailure(failure);
+		setFeedingStatus(reportFailure(failure));
 	} finally {
 		feeding = false;
 		renderFood();
@@ -168,17 +196,23 @@ document.querySelector('#sleep-pet').addEventListener('click', async (event) => 
 	button.disabled = true;
 	try {
 		applyAccountState(await api.sleepPet());
-		feedingStatus.textContent = 'UIA took a nap and feels rested!';
+		setFeedingStatus(`${window.getCurrentPetName()} took a nap and feels rested!`);
 	} catch (failure) {
-		feedingStatus.textContent = reportFailure(failure);
+		const message = reportFailure(failure);
+		setFeedingStatus(message, message.includes('not sleepy right now') ? 5000 : 0);
 	} finally {
 		button.disabled = false;
 	}
 });
 
 async function initializeAccount() {
-	try { await loadAccount(); }
-	catch (failure) { feedingStatus.textContent = reportFailure(failure); }
+	try {
+		await loadAccount();
+		return true;
+	} catch (failure) {
+		setFeedingStatus(reportFailure(failure));
+		return false;
+	}
 }
 
-initializeAccount();
+window.initializeAccount = initializeAccount;
