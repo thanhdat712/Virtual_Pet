@@ -173,7 +173,7 @@ target_link_libraries(test_database PRIVATE pet_db)
 add_test(NAME database_access COMMAND test_database)
 
 # PET-06: clamps, feeding, polymorphism and time decay
-add_executable(test_pet_requirements tests/test_pet_requirements.cpp)
+add_executable(test_pet_requirements tests/tests/test_pet_requirements.cpp)
 target_link_libraries(test_pet_requirements PRIVATE pet_core)
 add_test(NAME pet_requirements COMMAND test_pet_requirements)
 
