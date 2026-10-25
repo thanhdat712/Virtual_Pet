@@ -147,6 +147,11 @@ bool Database::runSchema() {
             "token_hash TEXT PRIMARY KEY,"
             "user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,"
             "expires_at INTEGER NOT NULL);");
+        execute(db_, "CREATE TABLE IF NOT EXISTS pending_email_changes ("
+            "user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,"
+            "email TEXT NOT NULL UNIQUE COLLATE NOCASE,"
+            "token_hash TEXT NOT NULL UNIQUE,"
+            "expires_at INTEGER NOT NULL);");
         execute(db_, "DELETE FROM sessions WHERE expires_at<=CAST(strftime('%s','now') AS INTEGER);");
         transaction.commit();
         return true;
@@ -196,6 +201,37 @@ bool Database::verifyEmail(const std::string& email, const std::string& tokenHas
     if (sqlite3_changes(db_) != 1) return false;
     Statement removeTokens(db_, "DELETE FROM email_verification_tokens WHERE user_id=?;");
     removeTokens.bind(1,userId); removeTokens.done();
+    transaction.commit();
+    return true;
+}
+
+bool Database::createPendingEmailChange(long long userId, const std::string& email,
+                                       const std::string& tokenHash, long long expiresAt) {
+    Transaction transaction(db_);
+    Statement existing(db_, "SELECT id FROM users WHERE email=? COLLATE NOCASE AND id<>?;");
+    existing.bind(1,email); existing.bind(2,userId);
+    if (existing.row()) { transaction.commit(); return false; }
+    Statement existingPending(db_, "SELECT user_id FROM pending_email_changes WHERE email=? COLLATE NOCASE AND user_id<>?;");
+    existingPending.bind(1,email); existingPending.bind(2,userId);
+    if (existingPending.row()) { transaction.commit(); return false; }
+    Statement removeOld(db_, "DELETE FROM pending_email_changes WHERE user_id=?;");
+    removeOld.bind(1,userId); removeOld.done();
+    Statement insert(db_, "INSERT INTO pending_email_changes(user_id,email,token_hash,expires_at) VALUES(?,?,?,?);");
+    insert.bind(1,userId); insert.bind(2,email); insert.bind(3,tokenHash); insert.bind(4,expiresAt); insert.done();
+    transaction.commit();
+    return true;
+}
+
+bool Database::confirmEmailChange(long long userId, const std::string& email, const std::string& tokenHash) {
+    Transaction transaction(db_);
+    Statement pending(db_, "SELECT 1 FROM pending_email_changes WHERE user_id=? AND email=? COLLATE NOCASE AND token_hash=? AND expires_at>CAST(strftime('%s','now') AS INTEGER);");
+    pending.bind(1,userId); pending.bind(2,email); pending.bind(3,tokenHash);
+    if (!pending.row()) { transaction.commit(); return false; }
+    Statement update(db_, "UPDATE users SET email=?,email_verified=1 WHERE id=?;");
+    update.bind(1,email); update.bind(2,userId); update.done();
+    if (sqlite3_changes(db_) != 1) return false;
+    Statement remove(db_, "DELETE FROM pending_email_changes WHERE user_id=?;");
+    remove.bind(1,userId); remove.done();
     transaction.commit();
     return true;
 }
@@ -280,6 +316,24 @@ bool Database::resetPassword(const std::string& tokenHash, const std::string& sa
     removeTokens.bind(1,userId); removeTokens.done();
     Statement revokeSessions(db_, "DELETE FROM sessions WHERE user_id=?;");
     revokeSessions.bind(1,userId); revokeSessions.done();
+    transaction.commit();
+    return true;
+}
+
+bool Database::changePassword(long long userId, const std::string& currentPassword,
+                              const std::string& newPassword, const std::string& currentSessionHash) {
+    UserRow account, verifiedAccount;
+    if (!getUserById(userId,account) || !verifyLogin(account.email,currentPassword,verifiedAccount) ||
+        verifiedAccount.id != userId) return false;
+
+    const std::string salt = crypto::randomHex(16);
+    const std::string hash = crypto::passwordHash(newPassword,salt);
+    Transaction transaction(db_);
+    Statement update(db_, "UPDATE users SET password_salt=?,password_hash=? WHERE id=?;");
+    update.bind(1,salt); update.bind(2,hash); update.bind(3,userId); update.done();
+    if (sqlite3_changes(db_) != 1) return false;
+    Statement revokeOtherSessions(db_, "DELETE FROM sessions WHERE user_id=? AND token<>?;");
+    revokeOtherSessions.bind(1,userId); revokeOtherSessions.bind(2,currentSessionHash); revokeOtherSessions.done();
     transaction.commit();
     return true;
 }

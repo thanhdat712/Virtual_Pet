@@ -327,6 +327,52 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
     long long userId = 0;
     const auto token = tokenFor(request);
     if (!db.userIdForToken(token,userId)) return error(401,"Authentication required");
+    if (request.method == "GET" && request.path == "/api/account/profile") {
+        UserRow user;
+        if (!db.getUserById(userId,user)) return apiError(404,"USER_NOT_FOUND","Account not found.");
+        return response(200,{{"user",{{"username",user.username},{"email",user.email},
+            {"emailVerified",user.emailVerified}}}});
+    }
+    if (request.method == "PUT" && request.path == "/api/account/password") {
+        const auto fields = json::object(request.body);
+        const std::string currentPassword = stringField(fields,"currentPassword",128);
+        const std::string newPassword = stringField(fields,"newPassword",128);
+        if (fields.size() != 2 || newPassword.size() < 8)
+            return apiError(400,"INVALID_ARGUMENT","The new password must be at least 8 characters.");
+        if (!db.changePassword(userId,currentPassword,newPassword,sha256::hashHex(token)))
+            return apiError(403,"CURRENT_PASSWORD_INVALID","The current password is incorrect.");
+        return response(200,{{"success",true},{"message","Password changed. Other sessions have been signed out."}});
+    }
+    if (request.method == "POST" && request.path == "/api/account/email/request") {
+        const auto fields = json::object(request.body);
+        const std::string currentPassword = stringField(fields,"currentPassword",128);
+        const std::string newEmail = stringField(fields,"newEmail",254);
+        if (fields.size() != 2 || newEmail.find('@') == std::string::npos)
+            return apiError(400,"INVALID_ARGUMENT","Enter a valid new email address.");
+        UserRow account, verifiedAccount;
+        if (!db.getUserById(userId,account) ||
+            !db.verifyLogin(account.email,currentPassword,verifiedAccount) || verifiedAccount.id != userId)
+            return apiError(403,"CURRENT_PASSWORD_INVALID","The current password is incorrect.");
+        if (db.emailExists(newEmail)) return apiError(409,"EMAIL_TAKEN","That email is already registered.");
+        const std::string verificationCode = crypto::randomHex(32);
+        if (!db.createPendingEmailChange(userId,newEmail,sha256::hashHex(verificationCode),
+                                        static_cast<long long>(std::time(nullptr))+1800))
+            return apiError(409,"EMAIL_TAKEN","That email is already registered or awaiting verification.");
+        return response(200,{{"success",true},
+            {"message","Verify the new email to finish changing your account email."},
+            {"verificationCode",verificationCode},{"expiresInSeconds",1800}});
+    }
+    if (request.method == "POST" && request.path == "/api/account/email/confirm") {
+        const auto fields = json::object(request.body);
+        const std::string email = stringField(fields,"email",254);
+        const std::string verificationCode = stringField(fields,"verificationCode",64);
+        if (fields.size() != 2 || email.find('@') == std::string::npos || verificationCode.size() != 64 ||
+            verificationCode.find_first_not_of("0123456789abcdef") != std::string::npos)
+            return apiError(400,"INVALID_ARGUMENT","Enter a valid email address and verification code.");
+        if (!db.confirmEmailChange(userId,email,sha256::hashHex(verificationCode)))
+            return apiError(400,"INVALID_VERIFICATION_CODE","That code is invalid or expired. Request a new one.");
+        return response(200,{{"success",true},{"message","Email address updated and verified."}});
+    }
     if (request.method == "POST" && request.path == "/api/logout") {
         db.revokeSession(token); return response(200,{{"ok",true}});
     }

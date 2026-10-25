@@ -79,6 +79,31 @@ const api = {
 		});
 	},
 
+	accountProfile() {
+		return request('/api/account/profile');
+	},
+
+	changePassword(currentPassword, newPassword) {
+		return request('/api/account/password', {
+			method: 'PUT',
+			body: { currentPassword, newPassword }
+		});
+	},
+
+	requestEmailChange(currentPassword, newEmail) {
+		return request('/api/account/email/request', {
+			method: 'POST',
+			body: { currentPassword, newEmail }
+		});
+	},
+
+	confirmEmailChange(email, verificationCode) {
+		return request('/api/account/email/confirm', {
+			method: 'POST',
+			body: { email, verificationCode }
+		});
+	},
+
 	session() {
 		return request('/api/auth/session');
 	},

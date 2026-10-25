@@ -24,6 +24,14 @@ resetStyles.textContent = `
 	.password-reset-panel { text-align: left; }
 	.password-reset-panel h1 { text-align: center; }
 	.password-reset-panel .entry-description { text-align: center; }
+	.account-profile-gate { z-index: 2200; overflow-y: auto; }
+	.account-profile-card { display: grid; gap: 12px; width: min(100%, 480px); max-height: calc(100dvh - 32px); overflow-y: auto; text-align: left; }
+	.account-profile-card > h1, .account-profile-card > .entry-kicker { text-align: center; }
+	.account-profile-card h2 { margin: 4px 0; font-size: 18px; }
+	.account-profile-details { display: grid; gap: 8px; margin: 0; padding: 10px; border: 2px solid #5ca98c; background: #f5fff8; }
+	.account-profile-details > div { display: flex; justify-content: space-between; gap: 12px; }
+	.account-profile-details dd { max-width: 65%; margin: 0; overflow-wrap: anywhere; text-align: right; }
+	.account-profile-card form { padding-top: 10px; border-top: 1px solid #8bcaaa; }
 	.entry-error.is-success { color: #267b61; }
 `;
 document.head.append(resetStyles);
@@ -142,6 +150,161 @@ verificationForm.addEventListener('submit', async (event) => {
 	}
 });
 
+const accountProfilePanel = document.createElement('section');
+accountProfilePanel.className = 'entry-gate account-profile-gate';
+accountProfilePanel.hidden = true;
+accountProfilePanel.innerHTML = `
+	<div class="entry-card account-profile-card">
+		<p class="entry-kicker">PET HOME ACCOUNT</p>
+		<h1>Account profile</h1>
+		<p id="account-profile-message" class="entry-error" role="status" aria-live="polite"></p>
+		<dl class="account-profile-details">
+			<div><dt>Username</dt><dd id="account-profile-username">—</dd></div>
+			<div><dt>Email</dt><dd id="account-profile-email">—</dd></div>
+			<div><dt>Email status</dt><dd id="account-profile-email-status">—</dd></div>
+		</dl>
+		<form id="account-password-form" class="entry-form">
+			<h2>Change password</h2>
+			<label for="account-current-password">Current password</label>
+			<input id="account-current-password" type="password" autocomplete="current-password" required>
+			<label for="account-new-password">New password</label>
+			<input id="account-new-password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required>
+			<label for="account-confirm-password">Confirm new password</label>
+			<input id="account-confirm-password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required>
+			<button class="entry-primary" type="submit">Save new password</button>
+		</form>
+		<form id="account-email-request-form" class="entry-form">
+			<h2>Change email</h2>
+			<label for="account-email-current-password">Current password</label>
+			<input id="account-email-current-password" type="password" autocomplete="current-password" required>
+			<label for="account-new-email">New email address</label>
+			<input id="account-new-email" type="email" maxlength="254" autocomplete="email" required>
+			<button class="entry-primary" type="submit">Send verification code</button>
+		</form>
+		<p id="account-email-verification-message" class="entry-error" role="status" aria-live="polite"></p>
+		<form id="account-email-confirm-form" class="entry-form" hidden>
+			<label for="account-email-verification-code">Code for new email</label>
+			<input id="account-email-verification-code" type="text" maxlength="64" autocomplete="off" required>
+			<p class="entry-description">Local development: the code appears here. Email delivery is not configured.</p>
+			<button class="entry-primary" type="submit">Verify and change email</button>
+		</form>
+		<button id="close-account-profile" class="entry-back" type="button">Back to settings</button>
+	</div>`;
+document.body.append(accountProfilePanel);
+
+const accountProfileMessage = accountProfilePanel.querySelector('#account-profile-message');
+const accountEmailMessage = accountProfilePanel.querySelector('#account-email-verification-message');
+const accountEmailConfirmForm = accountProfilePanel.querySelector('#account-email-confirm-form');
+const accountEmailRequestForm = accountProfilePanel.querySelector('#account-email-request-form');
+
+async function refreshAccountProfile() {
+	const result = await api.accountProfile();
+	document.querySelector('#account-profile-username').textContent = result.user.username;
+	document.querySelector('#account-profile-email').textContent = result.user.email;
+	document.querySelector('#account-profile-email-status').textContent = result.user.emailVerified ? 'Verified' : 'Not verified';
+}
+
+async function openAccountProfile() {
+	accountProfilePanel.hidden = false;
+	accountProfileMessage.textContent = 'Loading account profile…';
+	accountEmailMessage.textContent = '';
+	accountEmailRequestForm.hidden = false;
+	accountEmailConfirmForm.hidden = true;
+	try {
+		await refreshAccountProfile();
+		accountProfileMessage.textContent = '';
+	} catch (failure) {
+		accountProfileMessage.textContent = failure.message || 'Could not load account profile.';
+	}
+}
+
+function closeAccountProfile() {
+	accountProfilePanel.hidden = true;
+	accountProfilePanel.querySelector('#account-password-form').reset();
+	accountEmailRequestForm.reset();
+	accountEmailConfirmForm.reset();
+	accountProfileMessage.textContent = '';
+	accountEmailMessage.textContent = '';
+	document.querySelector('#open-account-profile').focus();
+}
+
+accountProfilePanel.addEventListener('click', (event) => {
+	if (event.target === accountProfilePanel) closeAccountProfile();
+});
+accountProfilePanel.querySelector('#close-account-profile').addEventListener('click', closeAccountProfile);
+
+accountProfilePanel.querySelector('#account-password-form').addEventListener('submit', async (event) => {
+	event.preventDefault();
+	const currentPassword = accountProfilePanel.querySelector('#account-current-password').value;
+	const newPassword = accountProfilePanel.querySelector('#account-new-password').value;
+	const confirmation = accountProfilePanel.querySelector('#account-confirm-password').value;
+	if (newPassword !== confirmation) {
+		accountProfileMessage.textContent = 'The new passwords do not match.';
+		return;
+	}
+	const button = event.currentTarget.querySelector('[type="submit"]');
+	button.disabled = true;
+	accountProfileMessage.textContent = '';
+	try {
+		const result = await api.changePassword(currentPassword,newPassword);
+		event.currentTarget.reset();
+		accountProfileMessage.classList.add('is-success');
+		accountProfileMessage.textContent = result.message || 'Password changed.';
+	} catch (failure) {
+		accountProfileMessage.classList.remove('is-success');
+		accountProfileMessage.textContent = failure.message || 'Could not change the password.';
+	} finally {
+		button.disabled = false;
+	}
+});
+
+accountEmailRequestForm.addEventListener('submit', async (event) => {
+	event.preventDefault();
+	const button = event.currentTarget.querySelector('[type="submit"]');
+	button.disabled = true;
+	accountEmailMessage.classList.remove('is-success');
+	accountEmailMessage.textContent = '';
+	try {
+		const result = await api.requestEmailChange(
+			accountProfilePanel.querySelector('#account-email-current-password').value,
+			accountProfilePanel.querySelector('#account-new-email').value.trim());
+		accountEmailMessage.classList.add('is-success');
+		accountEmailMessage.textContent = result.verificationCode
+			? `Verification code for the new email (valid 30 minutes): ${result.verificationCode}`
+			: result.message;
+		accountEmailRequestForm.hidden = true;
+		accountEmailConfirmForm.hidden = false;
+		accountProfilePanel.querySelector('#account-email-verification-code').focus();
+	} catch (failure) {
+		accountEmailMessage.textContent = failure.message || 'Could not request an email change.';
+	} finally {
+		button.disabled = false;
+	}
+});
+
+accountEmailConfirmForm.addEventListener('submit', async (event) => {
+	event.preventDefault();
+	const button = event.currentTarget.querySelector('[type="submit"]');
+	button.disabled = true;
+	accountEmailMessage.classList.remove('is-success');
+	accountEmailMessage.textContent = '';
+	try {
+		const result = await api.confirmEmailChange(
+			accountProfilePanel.querySelector('#account-new-email').value.trim(),
+			accountProfilePanel.querySelector('#account-email-verification-code').value.trim());
+		await refreshAccountProfile();
+		accountEmailConfirmForm.reset();
+		accountEmailConfirmForm.hidden = true;
+		accountEmailRequestForm.hidden = false;
+		accountEmailMessage.classList.add('is-success');
+		accountEmailMessage.textContent = result.message || 'Email address updated.';
+	} catch (failure) {
+		accountEmailMessage.textContent = failure.message || 'Could not verify the new email.';
+	} finally {
+		button.disabled = false;
+	}
+});
+
 forgotPasswordButton.addEventListener('click', () => {
 	passwordResetPanel.querySelector('#reset-email').value = document.querySelector('#entry-email').value.trim();
 	resetRequestMessage.textContent = '';
@@ -235,6 +398,18 @@ document.querySelector('#close-settings').addEventListener('click', closeSetting
 settingsPanel.addEventListener('click', (event) => {
 	if (event.target === settingsPanel) closeSettings();
 });
+
+const accountProfileSection = document.createElement('section');
+accountProfileSection.className = 'settings-section';
+accountProfileSection.innerHTML = `
+	<h2>Account</h2>
+	<div class="settings-row">
+		<div><strong>Account profile</strong><span>Manage your email and password</span></div>
+		<button id="open-account-profile" class="settings-action" type="button">Open</button>
+	</div>`;
+settingsPanel.querySelector('.settings-body').insertBefore(accountProfileSection,settingsMessage);
+document.querySelector('#open-account-profile').addEventListener('click', openAccountProfile);
+
 settingsSoundToggle.addEventListener('change', async () => {
 	const previous = !settingsSoundToggle.checked;
 	setSoundEnabled(settingsSoundToggle.checked);
@@ -247,6 +422,10 @@ settingsSoundToggle.addEventListener('change', async () => {
 	}
 });
 document.addEventListener('keydown', (event) => {
+	if (event.key === 'Escape' && !accountProfilePanel.hidden) {
+		closeAccountProfile();
+		return;
+	}
 	if (event.key === 'Escape' && !settingsPanel.hidden) closeSettings();
 });
 
