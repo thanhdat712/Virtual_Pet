@@ -38,6 +38,42 @@ const lobbyFloor = document.querySelector('#lobby-floor');
 const petGame = document.querySelector('.pet-game');
 const petImage = document.querySelector('.pet-image');
 
+const compactViewportNotice = document.createElement('div');
+compactViewportNotice.className = 'compact-viewport-notice';
+compactViewportNotice.setAttribute('role', 'status');
+compactViewportNotice.setAttribute('aria-live', 'polite');
+compactViewportNotice.textContent = 'Please enlarge the game window for a better gaming experience.';
+compactViewportNotice.hidden = true;
+const compactViewportStyles = document.createElement('style');
+compactViewportStyles.textContent = `
+	.compact-viewport-notice {
+		position: fixed;
+		z-index: 2000;
+		top: 12px;
+		left: 50%;
+		width: max-content;
+		max-width: calc(100vw - 24px);
+		padding: 10px 16px;
+		transform: translateX(-50%);
+		border: 2px solid #174c3e;
+		background: #dff5e9;
+		box-shadow: 4px 4px 0 rgba(23, 76, 62, .8);
+		color: #174c3e;
+		font: 700 14px/1.4 Nunito, Arial, sans-serif;
+		text-align: center;
+	}
+	.compact-viewport-notice[hidden] { display: none !important; }
+`;
+document.head.append(compactViewportStyles);
+document.body.append(compactViewportNotice);
+
+const compactViewport = window.matchMedia('(max-width: 900px), (max-height: 620px)');
+function updateCompactViewportNotice() {
+	compactViewportNotice.hidden = !compactViewport.matches;
+}
+window.addEventListener('resize', () => window.requestAnimationFrame(updateCompactViewportNotice), { passive: true });
+updateCompactViewportNotice();
+
 window.getCurrentPetName = function () {
 	const profileName = window.currentPetProfile?.name;
 	const displayedName = document.querySelector('#pet-name')?.textContent;
