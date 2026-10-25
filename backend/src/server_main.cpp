@@ -26,11 +26,8 @@
 namespace {
 using json::Value;
 
-// SUB-02 API scaffold. Storage is in-memory until SUB-05 adds a database repository.
-// SUB-04 evaluator is not connected yet, so submissions remain queued.
-std::map<long long, Submission> codeSubmissions;
+// Submission throttling is process-local; submission records themselves are persisted in SQLite.
 std::map<long long, std::deque<std::chrono::steady_clock::time_point>> submitTimes;
-long long nextCodeSubmissionId = 1;
 constexpr std::size_t MAX_SOURCE_BYTES = 32768;
 constexpr std::size_t MAX_SUBMISSIONS_PER_MINUTE = 5;
 
@@ -379,12 +376,12 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
                 return result;
             }
             times.push_back(now);
-            sub.id = nextCodeSubmissionId++;
             sub.status = SubmissionStatus::Queued;
             sub.score = 0;
-            sub.message = "Submission queued. Code evaluator is not connected yet.";
+            sub.message = "Submission queued. The evaluator worker will process it asynchronously.";
             sub.submittedAt = utcTimestamp();
-            codeSubmissions[sub.id] = sub;
+            if (!db.createCodeSubmission(sub))
+                return apiError(500,"SUBMISSION_STORAGE_ERROR","Could not persist submission.");
             auto result = response(202,submissionJson(sub));
             result.extraHeaders["Location"] = "/api/submissions/" + std::to_string(sub.id);
             return result;
@@ -399,10 +396,10 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
             return apiError(400,"INVALID_SUBMISSION_ID","Invalid submission ID.");
         long long id = 0;
         try { id = std::stoll(idText); } catch (...) { return apiError(400,"INVALID_SUBMISSION_ID","Invalid submission ID."); }
-        auto it = codeSubmissions.find(id);
-        if (it == codeSubmissions.end()) return apiError(404,"SUBMISSION_NOT_FOUND","Submission not found.");
-        if (it->second.userId != userId) return apiError(403,"FORBIDDEN","You cannot view this submission.");
-        return response(200,submissionJson(it->second));
+        Submission sub;
+        if (!db.getCodeSubmission(id, sub)) return apiError(404,"SUBMISSION_NOT_FOUND","Submission not found.");
+        if (sub.userId != userId) return apiError(403,"FORBIDDEN","You cannot view this submission.");
+        return response(200,submissionJson(sub));
     }
 
     if (request.method == "POST" && path.compare(0,prefix.size(),prefix) == 0 &&

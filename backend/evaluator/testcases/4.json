@@ -1,0 +1,4 @@
+[
+  {"input":"3 9 2 7\n", "expectedOutput":"9\n", "hidden":false, "timeLimitMs":2000, "memoryLimitMb":128},
+  {"input":"-10 -2 -30\n", "expectedOutput":"-2\n", "hidden":true, "timeLimitMs":2000, "memoryLimitMb":128}
+]
