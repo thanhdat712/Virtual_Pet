@@ -23,6 +23,7 @@ private:
     GameStatus status;
     std::unique_ptr<PlayerData> player;
     std::unique_ptr<Pet> pet;
+ main
     std::unique_ptr<Shop> shop;
 
 public:

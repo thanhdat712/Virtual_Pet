@@ -3,6 +3,7 @@
 
 #include <map>
 #include <string>
+
 #include "../Core/ActionResult.h"
 #include "../Item/Decoration.h" // DecorationSlot
 
@@ -13,6 +14,7 @@ class Food;
 //   - hunger là mức NO: 100 = no căng, 0 = đói; Food::hungerRestore làm giá trị này TĂNG.
 //   - happiness vừa là độ vui vừa là thanh lên cấp: đầy 100 thì lên 1 cấp và thanh quay về phần dư.
 // Các hành động là hàm virtual để Cat/Dog (KAN-31/32) ghi đè hành vi riêng.
+ main
 class Pet {
 private:
     int id;
@@ -20,31 +22,42 @@ private:
     int level;
     int health;
     int happiness;
-    int hunger;
+    int hunger;main
     int energy;
     std::map<DecorationSlot, int> equipment; // slot -> id đồ đang gắn (không có = chưa gắn)
 
     int addHappiness(int amount); // cộng/trừ độ vui, trả về số cấp vừa lên
 
+protected:
+    static int clampStat(int value);
+    void changeHealth(int amount);
+    void changeHappiness(int amount);
+    void changeHunger(int amount);
+    void changeEnergy(int amount);
+
 public:
     static constexpr int MIN_STAT = 0;
     static constexpr int MAX_STAT = 100;
 
-    // Giá trị cân bằng game: chỉnh tại đây. (Chưa có số liệu chính thức cho play/sleep/bath/giảm theo thời gian.)
-    static constexpr int PLAY_HAPPINESS_GAIN = 15;
-    static constexpr int PLAY_ENERGY_COST = 15;
-    static constexpr int PLAY_HUNGER_COST = 10;
-    static constexpr int SLEEP_ENERGY_GAIN = 40;
-    static constexpr int SLEEP_HUNGER_COST = 5;
-    static constexpr int BATH_HAPPINESS_GAIN = 5;
-    static constexpr int BATH_ENERGY_COST = 5;
-    static constexpr int HUNGER_DECAY_PER_TICK = 1;
-    static constexpr int ENERGY_DECAY_PER_TICK = 1;
+// Giá trị cân bằng game: chỉnh tại đây.
+static constexpr int PLAY_HAPPINESS_GAIN = 15;
+static constexpr int PLAY_ENERGY_COST = 15;
+static constexpr int PLAY_HUNGER_COST = 10;
+static constexpr int SLEEP_ENERGY_GAIN = 40;
+static constexpr int SLEEP_HUNGER_COST = 5;
+static constexpr int BATH_HAPPINESS_GAIN = 5;
+static constexpr int BATH_ENERGY_COST = 5;
+static constexpr int HUNGER_DECAY_PER_TICK = 1;
+static constexpr int ENERGY_DECAY_PER_TICK = 1;
 
-    // Các chỉ số được kẹp trong khoảng [MIN_STAT, MAX_STAT]; level tối thiểu là 1.
-    // Mặc định khớp bảng pets: happiness 85, hunger 30, energy 70.
-    Pet(int id, const std::string& name,
-        int health = 100, int happiness = 85, int hunger = 30, int energy = 70, int level = 1);
+// Các chỉ số được kẹp trong khoảng [MIN_STAT, MAX_STAT];
+// level tối thiểu là 1.
+Pet(int id, const std::string& name,
+    int level = 1,
+    int health = 100,
+    int happiness = 0,
+    int hunger = 50,
+    int energy = 50);
     virtual ~Pet() = default;
 
     int getId() const;
@@ -55,19 +68,30 @@ public:
     int getHunger() const;
     int getEnergy() const;
 
-    // Hành động của pet. Trả về lỗi (không im lặng) nếu pet không làm được.
-    virtual ActionResult feed(const Food& food); // ăn: tăng no, tăng vui (có thể lên cấp)
-    virtual ActionResult play();                 // chơi: tăng vui, tốn năng lượng và no
-    virtual ActionResult sleep();                // ngủ: hồi năng lượng
-    virtual ActionResult bath();                 // tắm: tăng vui một chút
+    void setName(const std::string& newName);
+    void setHealth(int value);
+    void setHappiness(int value);
+    void setHunger(int value);
+    void setEnergy(int value);
 
-    // Giảm chỉ số khi thời gian trôi: mỗi "tick" làm pet đói và mệt hơn.
+    // Hành động của pet
+    virtual ActionResult feed(const Food& food);
+    virtual ActionResult play();
+    virtual ActionResult sleep();
+    virtual ActionResult bath();
+
+    // Tương thích với phần code cũ nếu các hàm này vẫn được sử dụng.
+    bool eat(const Food& food);
+    void updateOverTime(int minutes);
     virtual void applyTimePassed(int ticks);
+
+    virtual std::string getType() const = 0;
+    virtual std::string getSound() const = 0;
 
     // Đồ trang trí đang gắn
     void equip(DecorationSlot slot, int itemId);
     void unequip(DecorationSlot slot);
-    int getEquipped(DecorationSlot slot) const; // 0 nếu chưa gắn gì
+    int getEquipped(DecorationSlot slot) const;
     const std::map<DecorationSlot, int>& getEquipment() const;
 };
 
