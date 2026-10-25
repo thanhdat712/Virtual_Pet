@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include "Submission.h"
 
 struct sqlite3;
 
@@ -104,6 +105,10 @@ public:
     // Ghi một lần nộp bài và cập nhật tiến độ (best_score, attempts, status).
     bool recordSubmission(long long userId, long long exerciseId, const std::string& answer,
                           int& score, ProgressRow& outProgress);
+
+    // --- Bài nộp mã nguồn (SUB) ---
+    bool createCodeSubmission(Submission& submission);
+    bool getCodeSubmission(long long submissionId, Submission& outSubmission);
 
 private:
     bool exec(const std::string& sql);
