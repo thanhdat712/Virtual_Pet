@@ -43,6 +43,13 @@ CREATE TABLE IF NOT EXISTS email_verification_tokens (
     expires_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS pending_email_changes (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS exercises (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
