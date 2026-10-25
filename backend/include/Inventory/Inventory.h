@@ -1,21 +1,32 @@
-#ifndef FOOD_H
-#define FOOD_H
+#ifndef INVENTORY_H
+#define INVENTORY_H
 
-#include "Item.h"
+#include <vector>
+#include <memory>
+#include "../Item/Item.h"
 
-class Food : public Item {
+// 1 ô trong túi đồ: chứa loại item nào và có bao nhiêu cái
+struct InventorySlot {
+    std::shared_ptr<Item> item;
+    int quantity;
+};
+
+class Inventory {
 private:
-    int hungerRestore;    // ăn vào tăng chỉ số no thêm bao nhiêu %, thang 0-100
-    int happinessRestore; // ăn vào tăng chỉ số vui thêm bao nhiêu %, thang 0-100, mặc định 0
+    std::vector<InventorySlot> slots;
+
+    int findSlotIndex(int itemId) const; // tìm vị trí item trong túi, -1 nếu không có
 
 public:
-    Food(int id, const std::string& name, const std::string& description, int price,
-         const std::string& imagePath, int hungerRestore, int happinessRestore = 0);
+    Inventory();
 
-    int getHungerRestore() const;
-    int getHappinessRestore() const;
+    void addItem(std::shared_ptr<Item> item, int quantity);
+    bool removeItem(int itemId, int quantity); // trả về false nếu không đủ số lượng để xóa
 
-    ItemType getType() const override;
+    int getQuantity(int itemId) const;
+    bool hasItem(int itemId) const; // túi có chứa item này không
+    bool isEmpty() const;           // túi có đang rỗng không
+    const std::vector<InventorySlot>& getSlots() const;
 };
 
 #endif
