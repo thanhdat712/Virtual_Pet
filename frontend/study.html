@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
@@ -20,14 +20,14 @@
     </div>
 
     <header class="topbar">
-        <a class="back" href="index.html">← Về nhà</a>
-        <h1>Lớp Học Thú Cưng 😺🐶</h1>
+        <a class="back" href="index.html">← Home</a>
+        <h1>Pet Study Class 😺🐶</h1>
         <div class="wallet"><span id="pts">✦ 0</span><span id="coins">◎ 0</span></div>
     </header>
 
     <!-- MÀN 1: DÂY LEO LỘ TRÌNH -->
     <main id="tree" class="screen">
-        <p class="start-tip">Kéo hoặc vuốt ngang để lướt theo dây leo, chạm vào nút để chọn cấp</p>
+        <p class="start-tip">Drag or swipe along the vine, then tap a level to choose it.</p>
         <div class="path" id="path">
             <div class="path-in" id="pathIn"><canvas id="vc" class="vc" width="950" height="85"></canvas></div>
         </div>
@@ -37,7 +37,7 @@
     <!-- MÀN 2: LÀM BÀI -->
     <main id="quiz" class="screen hidden">
         <div class="quiz-head">
-            <button id="quit" class="btn ghost">✕ Thoát</button>
+            <button id="quit" class="btn ghost">✕ Quit</button>
             <div class="bar"><i id="barFill"></i></div>
             <b id="qTitle"></b>
         </div>
@@ -52,7 +52,7 @@
             </div>
             <div id="fbR" class="meme-box fbm r"></div>
         </div>
-        <button id="next" class="btn hidden">Tiếp tục →</button>
+        <button id="next" class="btn hidden">Continue →</button>
     </main>
 
     <!-- MÀN 3: KẾT QUẢ -->
@@ -61,8 +61,8 @@
             <div id="resMeme" class="meme-box big"></div>
             <h2 id="resTitle"></h2>
             <p id="resText"></p>
-            <button id="retry" class="btn ghost">Làm lại</button>
-            <button id="toTree" class="btn">Về dây leo</button>
+            <button id="retry" class="btn ghost">Try Again</button>
+            <button id="toTree" class="btn">Back to Levels</button>
         </section>
     </main>
 
@@ -78,8 +78,8 @@
     <button id="study-music-toggle" class="music-toggle" type="button" aria-pressed="false">♫ Play music</button>
     <footer class="music-credit">Music: <a href="https://incompetech.com/music/royalty-free/index.html?Search=Search&amp;isrc=USUAN1200099" target="_blank" rel="noopener noreferrer">“Peace of Mind” by Kevin MacLeod</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a></footer>
     <script src="js/sound.js?v=study-music-controls-20261027"></script>
-    <script src="js/study-data.js"></script>
-    <script src="js/study.js"></script>
+    <script src="js/study-data.js?v=study-ui-en-20261027"></script>
+    <script src="js/study.js?v=study-ui-en-feedback-vi-20261027"></script>
 </body>
 
 </html>
