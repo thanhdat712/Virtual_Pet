@@ -2,8 +2,8 @@
 
 ## 1. Đã bổ sung trong bản ZIP này
 
-1. `backend/evaluator/worker.py` — worker xử lý hàng đợi, biên dịch/chạy trong Docker, so sánh output, lưu kết quả, thưởng xu lần đầu đạt.
-2. `backend/evaluator/README.md` — hướng dẫn cài đặt, chạy worker và giới hạn sandbox.
+1. `backend/evaluator/worker.py` — worker xử lý hàng đợi, biên dịch/chạy bằng compiler local, so sánh output, lưu kết quả, thưởng xu lần đầu đạt.
+2. `backend/evaluator/README.md` — hướng dẫn cài đặt, chạy worker và giới hạn tài nguyên evaluator.
 3. `backend/evaluator/requirements.txt` — xác nhận chỉ dùng thư viện chuẩn Python.
 4. `backend/evaluator/testcases/1.json` — test mẫu bài Hello World.
 5. `backend/evaluator/testcases/2.json` — test mẫu bài cộng hai số.
@@ -24,7 +24,7 @@
 
 ## 3. Trước khi đưa lên máy chủ thật vẫn cần
 
-1. Cài Docker Engine, tải image `gcc:13-bookworm` và chạy thử worker với đúng đường dẫn database của backend.
+1. Cài C++17 compiler (g++/MinGW-w64/MSYS2 trên Windows) và chạy thử worker với đúng đường dẫn database của backend.
 2. Thay/duyệt bộ test mẫu theo đề bài thật; test ẩn phải được quản lý phía server.
 3. Chạy kiểm thử tích hợp API + worker + SQLite trên Windows/môi trường triển khai mục tiêu.
 4. Đánh giá bảo mật container cho mã không tin cậy; production nên cân nhắc runtime cách ly mạnh hơn như gVisor/Kata và giới hạn log/quan sát.

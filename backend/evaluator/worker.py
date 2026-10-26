@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""Docker-backed C++ submission worker. Requires Docker Engine and Python 3.10+.
-Run beside the backend with the same SQLite database path as the HTTP server.
+"""Cross-platform C++ submission worker.
+
+Uses a local subprocess instead of Docker so the evaluator can run on a normal
+Windows/Linux development machine. It isolates each submission in a temporary
+folder, applies a wall-clock timeout, caps captured output, and kills the
+process tree when the limit is exceeded.
 """
 from __future__ import annotations
-import argparse, json, os, pathlib, sqlite3, subprocess, tempfile, time, math
+import argparse, json, os, pathlib, sqlite3, subprocess, tempfile, time, threading, signal, shutil, ctypes
 from datetime import datetime, timezone
-IMAGE = os.environ.get("PET_JUDGE_IMAGE", "gcc:13-bookworm")
+
 MAX_SOURCE_BYTES = 32 * 1024
 MAX_OUTPUT_BYTES = 64 * 1024
 DEFAULT_TIMEOUT_MS = 2000
@@ -38,8 +42,7 @@ def ensure_schema(db: sqlite3.Connection) -> None:
       CREATE INDEX IF NOT EXISTS code_submissions_queue_idx
         ON code_submissions(status, id);
     """)
-    # A single worker is supported. On restart, release claims abandoned by its prior process.
-    db.execute("UPDATE code_submissions SET status='queued',message='Recovered after evaluator restart.' WHERE status='evaluating' AND finished_at=''")
+    db.execute("UPDATE code_submissions SET status='queued',message='Recovered after evaluator restart.' WHERE status='evaluating' AND finished_at=''" )
     db.commit()
 
 
@@ -52,14 +55,18 @@ def load_cases(case_dir: pathlib.Path, exercise_id: int) -> list[dict]:
         raise ValueError("Test case file must be a non-empty JSON array")
     cases = []
     for index, case in enumerate(raw):
-        if not isinstance(case, dict) or not isinstance(case.get("input", ""), str) or not isinstance(case.get("expectedOutput"), str):
+        if (not isinstance(case, dict) or
+            not isinstance(case.get("input", ""), str) or
+            not isinstance(case.get("expectedOutput"), str) or
+            not isinstance(case.get("hidden", False), bool)):
             raise ValueError(f"Invalid test case at index {index}")
         timeout = int(case.get("timeLimitMs", DEFAULT_TIMEOUT_MS))
         memory = int(case.get("memoryLimitMb", DEFAULT_MEMORY_MB))
         if not 100 <= timeout <= 10000 or not 16 <= memory <= 512:
             raise ValueError(f"Invalid resource limits at index {index}")
         cases.append({"input": case.get("input", ""), "expectedOutput": case["expectedOutput"],
-                      "timeLimitMs": timeout, "memoryLimitMb": memory})
+                      "hidden": case.get("hidden", False), "timeLimitMs": timeout,
+                      "memoryLimitMb": memory})
     return cases
 
 
@@ -67,49 +74,147 @@ def normalize_output(value: str) -> str:
     return "\n".join(line.rstrip(" \t\r") for line in value.replace("\r\n", "\n").replace("\r", "\n").split("\n")).rstrip("\n")
 
 
-def run_in_docker(source: str, case: dict, docker_bin: str) -> tuple[str, str]:
-    """Compile and execute in a disposable container. Returns (status, output/message)."""
-    with tempfile.TemporaryDirectory(prefix="pet-judge-") as temp:
-        source_dir = pathlib.Path(temp)
-        source_path = source_dir / "main.cpp"
-        source_path.write_text(source, encoding="utf-8")
-        source_path.chmod(0o644)
-        # The only host mount is the source file, read-only. Root FS is read-only;
-        # /tmp is bounded tmpfs and is the only writable executable location.
-        command = [docker_bin, "run", "--rm", "-i", "--network", "none", "--read-only",
-                   "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", "--user", "65534:65534",
-                   "--pids-limit", "64", "--memory", "512m",
-                   "--memory-swap", "512m", "--cpus", "1.0",
-                   "--ulimit", "cpu=3:3", "--ulimit", "fsize=65536:65536",
-                   "--ulimit", "nofile=64:64", "--tmpfs", "/tmp:rw,nosuid,nodev,size=64m,exec",
-                   "-v", f"{source_path}:/workspace/main.cpp:ro", "-w", "/workspace", IMAGE,
-                   "bash", "-o", "pipefail", "-lc", f"g++ -std=c++17 -O2 -pipe -static-libstdc++ -static-libgcc /workspace/main.cpp -o /tmp/main 2>/tmp/compile.err || {{ cat /tmp/compile.err; exit 42; }}; ulimit -v {case['memoryLimitMb'] * 1024}; timeout --kill-after=0.2s {max(1, math.ceil(case['timeLimitMs'] / 1000))}s /tmp/main 2>&1 | head -c 65537"]
+def _kill_process(proc: subprocess.Popen) -> None:
+    try:
+        if os.name == "nt":
+            proc.kill()
+        else:
+            os.killpg(proc.pid, signal.SIGKILL)
+    except (ProcessLookupError, OSError):
         try:
-            proc = subprocess.run(command, input=case["input"].encode("utf-8"), stdout=subprocess.PIPE,
-                                  stderr=subprocess.PIPE, timeout=case["timeLimitMs"] / 1000 + 8,
-                                  check=False, cwd=temp)
+            proc.kill()
+        except OSError:
+            pass
+
+
+def _start_process(command: list[str], **kwargs) -> subprocess.Popen:
+    if os.name == "nt":
+        return subprocess.Popen(command, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP, **kwargs)
+    return subprocess.Popen(command, start_new_session=True, **kwargs)
+
+
+def _memory_usage_bytes(pid: int) -> int | None:
+    """Return resident memory for a process where the host OS exposes it."""
+    if os.name == "nt":
+        try:
+            class PROCESS_MEMORY_COUNTERS(ctypes.Structure):
+                _fields_ = [("cb", ctypes.c_ulong), ("PageFaultCount", ctypes.c_ulong),
+                            ("PeakWorkingSetSize", ctypes.c_size_t), ("WorkingSetSize", ctypes.c_size_t),
+                            ("QuotaPeakPagedPoolUsage", ctypes.c_size_t), ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                            ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t), ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                            ("PagefileUsage", ctypes.c_size_t), ("PeakPagefileUsage", ctypes.c_size_t)]
+            counters = PROCESS_MEMORY_COUNTERS()
+            counters.cb = ctypes.sizeof(counters)
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+            if not handle:
+                return None
+            try:
+                ok = ctypes.windll.psapi.GetProcessMemoryInfo(handle, ctypes.byref(counters), counters.cb)
+                return int(counters.WorkingSetSize) if ok else None
+            finally:
+                ctypes.windll.kernel32.CloseHandle(handle)
+        except (AttributeError, OSError):
+            return None
+    try:
+        return int(pathlib.Path(f"/proc/{pid}/status").read_text().split("VmRSS:", 1)[1].split()[0]) * 1024
+    except (FileNotFoundError, IndexError, ValueError):
+        return None
+
+
+def _run_limited(command: list[str], input_data: bytes, timeout_s: float, memory_limit_mb: int) -> tuple[int, bytes, bool, bool, bool]:
+    """Run command and return (returncode, output, timed_out, output_limited, memory_limited)."""
+    proc = _start_process(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    chunks: list[bytes] = []
+    total = 0
+    limited = False
+    memory_limited = False
+    lock = threading.Lock()
+
+    def reader() -> None:
+        nonlocal total, limited
+        while True:
+            chunk = proc.stdout.read(4096)
+            if not chunk:
+                break
+            with lock:
+                remaining = MAX_OUTPUT_BYTES + 1 - total
+                if remaining > 0:
+                    chunks.append(chunk[:remaining])
+                    total += min(len(chunk), remaining)
+                if total > MAX_OUTPUT_BYTES:
+                    limited = True
+                    _kill_process(proc)
+                    break
+
+    thread = threading.Thread(target=reader, daemon=True)
+    thread.start()
+    try:
+        try:
+            proc.stdin.write(input_data)
+            proc.stdin.close()
+        except (BrokenPipeError, OSError):
+            pass
+        deadline = time.monotonic() + timeout_s
+        timed_out = False
+        memory_limit_bytes = memory_limit_mb * 1024 * 1024
+        while proc.poll() is None:
+            usage = _memory_usage_bytes(proc.pid)
+            if usage is not None and usage > memory_limit_bytes:
+                memory_limited = True
+                _kill_process(proc)
+                break
+            if time.monotonic() >= deadline:
+                timed_out = True
+                _kill_process(proc)
+                break
+            time.sleep(0.01)
+        proc.wait(timeout=2)
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        _kill_process(proc)
+        proc.wait()
+    finally:
+        thread.join(timeout=2)
+        try:
+            proc.stdout.close()
+        except (AttributeError, OSError):
+            pass
+    return proc.returncode, b"".join(chunks), timed_out, limited, memory_limited
+
+
+def run_local(source: str, case: dict, compiler: str = "g++") -> tuple[str, str]:
+    """Compile and execute C++ locally in a temporary directory."""
+    compiler_path = shutil.which(compiler) or compiler
+    if not shutil.which(compiler) and not pathlib.Path(compiler).exists():
+        return "internal_error", f"C++ compiler not found: {compiler}"
+    with tempfile.TemporaryDirectory(prefix="pet-judge-") as temp:
+        root = pathlib.Path(temp)
+        src = root / "main.cpp"
+        exe = root / ("main.exe" if os.name == "nt" else "main")
+        src.write_text(source, encoding="utf-8")
+        compile_cmd = [compiler_path, "-std=c++17", "-O2", str(src), "-o", str(exe)]
+        try:
+            cp = subprocess.run(compile_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                timeout=15, cwd=temp, check=False)
         except subprocess.TimeoutExpired:
+            return "compile_error", "Compilation exceeded 15 seconds."
+        compile_output = cp.stdout[:MAX_OUTPUT_BYTES].decode("utf-8", errors="replace")
+        if cp.returncode != 0:
+            return "compile_error", compile_output[-4000:] or "Compilation failed."
+
+        timeout_s = case["timeLimitMs"] / 1000.0
+        rc, output, timed_out, limited, memory_limited = _run_limited([str(exe)], case["input"].encode("utf-8"), timeout_s, case["memoryLimitMb"])
+        text = output.decode("utf-8", errors="replace")
+        if timed_out:
             return "time_limit_exceeded", "Program exceeded the time limit."
-        out = proc.stdout[:MAX_OUTPUT_BYTES + 1]
-        err = proc.stderr[:MAX_OUTPUT_BYTES + 1]
-        if len(out) > MAX_OUTPUT_BYTES or len(err) > MAX_OUTPUT_BYTES:
+        if limited:
             return "runtime_error", "Output exceeded 64 KiB limit."
-        stderr = err.decode("utf-8", errors="replace")
-        stdout = out.decode("utf-8", errors="replace")
-        if proc.returncode == 42:
-            return "compile_error", stdout[-4000:] or stderr[-4000:] or "Compilation failed."
-        if proc.returncode == 124:
-            return "time_limit_exceeded", "Program exceeded the time limit."
-        if proc.returncode == 137:
-            return "memory_limit_exceeded", "Program was killed after exceeding the container resource limit."
-        if proc.returncode == 125 or "Cannot connect to the Docker daemon" in stderr:
-            return "internal_error", "Docker Engine is unavailable or failed to start the sandbox."
-        if proc.returncode != 0:
-            # Docker daemon/runner failures should not be mistaken for user runtime errors.
-            if "Cannot connect to the Docker daemon" in stderr or "docker: command not found" in stderr:
-                return "internal_error", "Docker Engine is unavailable; evaluator cannot run safely."
-            return "runtime_error", f"Program exited with code {proc.returncode}. {stderr[-1000:]}".strip()
-        return "ok", stdout
+        if memory_limited:
+            return "memory_limit_exceeded", f"Program exceeded the {case['memoryLimitMb']} MiB memory limit."
+        if rc != 0:
+            return "runtime_error", f"Program exited with code {rc}. {text[-1000:]}".strip()
+        return "ok", text
 
 
 def claim_one(db: sqlite3.Connection):
@@ -143,7 +248,7 @@ def finish(db: sqlite3.Connection, sub: dict, status: str, score: int, message: 
     db.commit()
 
 
-def evaluate(db: sqlite3.Connection, sub: dict, case_dir: pathlib.Path, docker_bin: str) -> None:
+def evaluate(db: sqlite3.Connection, sub: dict, case_dir: pathlib.Path, compiler: str = "g++") -> None:
     if sub["language"] != "cpp":
         finish(db, sub, "internal_error", 0, "Unsupported language; only cpp is enabled.")
         return
@@ -154,7 +259,7 @@ def evaluate(db: sqlite3.Connection, sub: dict, case_dir: pathlib.Path, docker_b
     try:
         cases = load_cases(case_dir, int(sub["exercise_id"]))
         for index, case in enumerate(cases, 1):
-            status, output = run_in_docker(source, case, docker_bin)
+            status, output = run_local(source, case, compiler)
             if status != "ok":
                 finish(db, sub, status, 0, f"Test {index}: {output}")
                 return
@@ -170,7 +275,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Virtual Pet C++ submission evaluator")
     parser.add_argument("--db", required=True, help="Same SQLite DB path used by backend")
     parser.add_argument("--case-dir", default=str(pathlib.Path(__file__).parent / "testcases"))
-    parser.add_argument("--docker", default="docker")
+    parser.add_argument("--compiler", default=os.environ.get("CXX", "g++"))
     parser.add_argument("--poll-seconds", type=float, default=1.0)
     parser.add_argument("--once", action="store_true", help="Process at most one queued submission")
     args = parser.parse_args()
@@ -185,7 +290,7 @@ def main() -> int:
             if sub:
                 processed = True
                 try:
-                    evaluate(db, sub, pathlib.Path(args.case_dir), args.docker)
+                    evaluate(db, sub, pathlib.Path(args.case_dir), args.compiler)
                 except Exception as exc:
                     finish(db, sub, "internal_error", 0, f"Evaluator internal error: {type(exc).__name__}")
                 if args.once:
@@ -196,7 +301,8 @@ def main() -> int:
                 time.sleep(args.poll_seconds)
     finally:
         db.close()
-    return 0 if processed or not args.once else 0
+    return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())
