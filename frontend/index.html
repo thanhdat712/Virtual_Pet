@@ -5,8 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pet Home</title>
-    <link rel="stylesheet" href="css/style.css?v=auth-labels-20261024">
-    <link rel="stylesheet" href="css/pixel.css?v=settings-20261024">
+    <link rel="stylesheet" href="css/style.css?v=sleep-room-20261026">
+    <link rel="stylesheet" href="css/pixel.css?v=settings-volume-20261026-2">
 </head>
 
 <body class="entry-open">
@@ -219,6 +219,11 @@
                                 <span><strong>Sound effects</strong><span>Turn game sounds on or off</span></span>
                                 <input id="settings-sound-toggle" type="checkbox" checked>
                             </label>
+                            <label class="settings-volume-row" for="settings-sound-volume">
+                                <span class="settings-volume-label"><strong>Sound volume</strong><output id="settings-sound-volume-value" for="settings-sound-volume">70%</output></span>
+                                <input id="settings-sound-volume" type="range" min="0" max="100" step="5" value="70">
+                                <span class="settings-volume-scale" aria-hidden="true"><span>Quiet</span><span>Loud</span></span>
+                            </label>
                         </section>
                         <p class="settings-message" id="settings-message" role="status" aria-live="polite"></p>
                     </div>
@@ -251,6 +256,7 @@
             <button class="entry-back" id="cancel-rename" type="button">Cancel</button>
         </form>
     </section>
+    <script src="js/sound.js?v=sfx-volume-20261026" defer></script>
     <script src="js/pixel.js" defer></script>
     <script src="js/api.js?v=pet-name-20261024" defer></script>
     <script src="js/app.js?v=study-navigation-20261025" defer></script>
