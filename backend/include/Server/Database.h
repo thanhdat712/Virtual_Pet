@@ -3,19 +3,24 @@
 
 #include <string>
 #include <vector>
+#include "Submission.h"
 
 struct sqlite3;
 
 // Dữ liệu người dùng (không bao gồm hash mật khẩu khi trả ra ngoài).
 struct UserRow {
     long long id = 0;
+        std::string username;
     std::string email;
     int coins = 0;
+        bool soundEnabled = true;
+    bool emailVerified = true;
 };
 
 struct PetRow {
     long long userId = 0;
     std::string name = "UIA";
+        std::string species = "cat";
     int level = 1;
     int experience = 0;
     int happiness = 85;
@@ -44,6 +49,11 @@ struct InventoryRow {
     int quantity = 0;
 };
 
+    struct EquipmentRow {
+        std::string slot;
+        int itemId = 0;
+    };
+
 // Bao bọc kết nối SQLite + các thao tác CRUD cho API.
 // Mọi câu lệnh đều dùng prepared statement với tham số buộc (chống SQL injection).
 class Database {
@@ -61,10 +71,22 @@ public:
 
     // --- Người dùng & phiên đăng nhập ---
     bool emailExists(const std::string& email);
+    bool issueEmailVerification(const std::string& email, const std::string& tokenHash, long long expiresAt);
+    bool verifyEmail(const std::string& email, const std::string& tokenHash);
+    bool createPendingEmailChange(long long userId, const std::string& email,
+                                  const std::string& tokenHash, long long expiresAt);
+    bool confirmEmailChange(long long userId, const std::string& email, const std::string& tokenHash);
+        bool usernameExists(const std::string& username);
     // Tạo user + pet mặc định. Trả về true và điền outUser nếu thành công.
     bool createUser(const std::string& email, const std::string& password, UserRow& outUser);
+        bool createUser(const std::string& username, const std::string& email,
+                        const std::string& password, UserRow& outUser);
     // Kiểm tra đăng nhập; true nếu đúng mật khẩu, điền outUser.
     bool verifyLogin(const std::string& email, const std::string& password, UserRow& outUser);
+    bool createPasswordReset(const std::string& email, const std::string& tokenHash, long long expiresAt);
+    bool resetPassword(const std::string& tokenHash, const std::string& salt, const std::string& passwordHash);
+    bool changePassword(long long userId, const std::string& currentPassword,
+                        const std::string& newPassword, const std::string& currentSessionHash);
     bool touchLastLogin(long long userId);
 
     std::string createSession(long long userId);
@@ -72,13 +94,19 @@ public:
     bool revokeSession(const std::string& token);
 
     bool getUserById(long long userId, UserRow& outUser);
+        bool setSoundEnabled(long long userId, bool enabled);
     std::vector<InventoryRow> listInventory(long long userId);
+        std::vector<EquipmentRow> listEquipment(long long userId);
     int purchase(long long userId, int itemId, int quantity);
 
     // --- Pet ---
     bool getPet(long long userId, PetRow& outPet);
     bool renamePet(long long userId, const std::string& name);
+        bool savePetProfile(long long userId, const std::string& name, const std::string& species);
     int feed(long long userId, int itemId);
+        int performPetAction(long long userId, const std::string& action, int& levelsGained);
+        int equipDecoration(long long userId, int itemId);
+        bool unequipDecoration(long long userId, const std::string& slot);
 
     // --- Bài tập & tiến độ ---
     std::vector<ExerciseRow> listExercises();
@@ -87,6 +115,10 @@ public:
     // Ghi một lần nộp bài và cập nhật tiến độ (best_score, attempts, status).
     bool recordSubmission(long long userId, long long exerciseId, const std::string& answer,
                           int& score, ProgressRow& outProgress);
+
+    // --- Bài nộp mã nguồn (SUB) ---
+    bool createCodeSubmission(Submission& submission);
+    bool getCodeSubmission(long long submissionId, Submission& outSubmission);
 
 private:
     bool exec(const std::string& sql);

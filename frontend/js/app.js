@@ -8,8 +8,12 @@ const inventoryGrid = document.querySelector('#inventory-grid');
 const inventoryCount = document.querySelector('#inventory-count');
 const openInventoryButton = document.querySelector('#open-inventory');
 const closeInventoryButton = document.querySelector('#close-inventory');
-const inventoryTabs = document.querySelectorAll('.inventory-tab');
+const studyButton = document.querySelector('#study-btn');
+const inventoryTabs = document.querySelectorAll('#inventory-panel [data-filter]');
+const inventoryDetail = document.querySelector('#inventory-detail');
 let activeFilter = 'all';
+let selectedBagId = null;
+let bagMessage = '';
 const shopPanel = document.querySelector('#shop-panel');
 const shopGrid = document.querySelector('#shop-grid');
 const shopMessage = document.querySelector('#shop-message');
@@ -17,8 +21,8 @@ const shopCoinBalance = document.querySelector('#shop-coin-balance');
 const coinBalance = document.querySelector('#coin-balance');
 const openShopButton = document.querySelector('#open-shop');
 const closeShopButton = document.querySelector('#close-shop');
-const shopTabs = document.querySelectorAll('.shop-tab');
-let activeShopFilter = 'all';
+const shopTabs = document.querySelectorAll('#shop-panel [data-shop-filter]');
+let activeShopFilter = 'food';
 let purchaseDialog = null;
 
 const decoratePanel = document.querySelector('#decorate-panel');
@@ -26,16 +30,84 @@ const decorateGrid = document.querySelector('#decorate-grid');
 const decorateHint = document.querySelector('#decorate-hint');
 const openDecorateButton = document.querySelector('#open-decorate');
 const closeDecorateButton = document.querySelector('#close-decorate');
-const decorateTabs = document.querySelectorAll('.decorate-tab');
+const decorateTabs = document.querySelectorAll('#decorate-panel [data-decor-slot]');
 let activeDecorSlot = 'background';
-const equippedDecor = { background: null, floor: null };
+const equippedDecor = { background: null, floor: null, headwear: null };
 const lobbyScene = document.querySelector('#lobby-scene');
 const lobbyFloor = document.querySelector('#lobby-floor');
 const petGame = document.querySelector('.pet-game');
+const petImage = document.querySelector('.pet-image');
+
+const compactViewportNotice = document.createElement('div');
+compactViewportNotice.className = 'compact-viewport-notice';
+compactViewportNotice.setAttribute('role', 'status');
+compactViewportNotice.setAttribute('aria-live', 'polite');
+compactViewportNotice.textContent = 'Please enlarge the game window for a better gaming experience.';
+compactViewportNotice.hidden = true;
+const compactViewportStyles = document.createElement('style');
+compactViewportStyles.textContent = `
+	.compact-viewport-notice {
+		position: fixed;
+		z-index: 2000;
+		top: 12px;
+		left: 50%;
+		width: max-content;
+		max-width: calc(100vw - 24px);
+		padding: 10px 16px;
+		transform: translateX(-50%);
+		border: 2px solid #174c3e;
+		background: #dff5e9;
+		box-shadow: 4px 4px 0 rgba(23, 76, 62, .8);
+		color: #174c3e;
+		font: 700 14px/1.4 Nunito, Arial, sans-serif;
+		text-align: center;
+	}
+	.compact-viewport-notice[hidden] { display: none !important; }
+`;
+document.head.append(compactViewportStyles);
+document.body.append(compactViewportNotice);
+
+const compactViewport = window.matchMedia('(max-width: 900px), (max-height: 620px)');
+function updateCompactViewportNotice() {
+	compactViewportNotice.hidden = !compactViewport.matches;
+}
+window.addEventListener('resize', () => window.requestAnimationFrame(updateCompactViewportNotice), { passive: true });
+updateCompactViewportNotice();
+
+window.getCurrentPetName = function () {
+	const profileName = window.currentPetProfile?.name;
+	const displayedName = document.querySelector('#pet-name')?.textContent;
+	return (typeof profileName === 'string' && profileName.trim())
+		|| (typeof displayedName === 'string' && displayedName.trim())
+		|| 'UIA';
+};
 
 function updateCoinDisplays() {
 	coinBalance.textContent = coins;
 	shopCoinBalance.textContent = coins;
+}
+
+function buildItemArt(item) {
+	const art = document.createElement('div');
+	art.className = 'win-art';
+	if (item.filter === 'background' || item.filter === 'floor') {
+		art.dataset[item.filter === 'background' ? 'scene' : 'floor'] = String(item.id);
+		art.style.backgroundImage = `url("${item.image}")`;
+		return art;
+	}
+	const image = document.createElement('img');
+	image.src = item.image;
+	image.alt = item.name;
+	image.draggable = false;
+	image.addEventListener('error', () => {
+		const fallback = document.createElement('span');
+		fallback.className = 'art-fallback';
+		fallback.setAttribute('aria-hidden', 'true');
+		fallback.textContent = item.icon ?? '?';
+		image.replaceWith(fallback);
+	}, { once: true });
+	art.append(image);
+	return art;
 }
 
 function renderInventory() {
@@ -44,144 +116,147 @@ function renderInventory() {
 	});
 	const totalQuantity = visibleItems.reduce((total, item) => total + item.quantity, 0);
 
-	inventoryCount.textContent = `${visibleItems.length} types · ${totalQuantity} items`;
+	inventoryCount.textContent = `${totalQuantity} items`;
 	inventoryGrid.replaceChildren();
+	if (!visibleItems.some((item) => item.id === selectedBagId)) {
+		selectedBagId = visibleItems[0]?.id ?? null;
+	}
 
 	if (visibleItems.length === 0) {
-		const emptyState = document.createElement('div');
-		emptyState.className = 'inventory-empty';
-		emptyState.innerHTML = '<strong>This section is empty</strong>Visit the shop to find something for UIA.';
+		const emptyState = document.createElement('p');
+		emptyState.className = 'win-empty';
+		const title = document.createElement('strong');
+		title.textContent = 'Nothing here yet';
+		const description = document.createElement('span');
+		description.textContent = `Visit the shop to find something for ${window.getCurrentPetName()}.`;
+		emptyState.append(title, description);
 		inventoryGrid.append(emptyState);
+		renderBagDetail();
 		return;
 	}
 
-	const groups = activeFilter === 'all'
-		? [
-			{ category: 'food', title: 'Food', items: visibleItems.filter((item) => item.category === 'food') },
-			{ category: 'decoration', title: 'Decorations', items: visibleItems.filter((item) => item.category === 'decoration') }
-		]
-		: [{ category: activeFilter, title: activeFilter === 'food' ? 'Food' : 'Decorations', items: visibleItems }];
+	visibleItems.forEach((item) => {
+		const selected = item.id === selectedBagId;
+		const cell = document.createElement('button');
+		cell.type = 'button';
+		cell.className = `bag-cell${selected ? ' is-selected' : ''}`;
+		cell.setAttribute('aria-pressed', String(selected));
 
-	groups.filter((group) => group.items.length > 0).forEach((group) => {
-		const section = document.createElement('section');
-		section.className = 'inventory-section';
+		const name = document.createElement('span');
+		name.className = 'bag-name';
+		name.textContent = item.name;
+		cell.append(buildItemArt(item), name);
 
-		const heading = document.createElement('h2');
-		heading.className = 'inventory-section-title';
-		heading.textContent = group.title;
-
-		const itemGrid = document.createElement('div');
-		itemGrid.className = 'inventory-section-grid';
-
-		group.items.forEach((item) => {
-			const card = document.createElement('article');
-			card.className = `inventory-item inventory-item-${item.category}`;
-
-			const art = document.createElement('div');
-			art.className = 'item-art';
-
-			const image = document.createElement('img');
-			image.src = item.image;
-			image.alt = item.name;
-			image.addEventListener('error', () => {
-				const fallback = document.createElement('span');
-				fallback.className = 'item-fallback';
-				fallback.setAttribute('aria-hidden', 'true');
-				fallback.textContent = item.icon;
-				image.replaceWith(fallback);
-			}, { once: true });
-			art.append(image);
-
-			const category = document.createElement('p');
-			category.className = 'item-category';
-			category.textContent = item.categoryLabel;
-
-			const name = document.createElement('h3');
-			name.textContent = item.name;
-
-			const description = document.createElement('p');
-			description.className = 'item-description';
-			description.textContent = item.description;
-
-			const footer = document.createElement('div');
-			footer.className = 'item-footer';
-
+		if (item.category === 'food') {
 			const quantity = document.createElement('span');
-			quantity.className = 'item-quantity';
-			quantity.textContent = `Quantity: ${item.quantity}`;
+			quantity.className = 'bag-qty';
+			quantity.textContent = `x${item.quantity}`;
+			cell.append(quantity);
+		}
 
-			footer.append(quantity);
-			card.append(art, category, name, description, footer);
-			itemGrid.append(card);
+		cell.addEventListener('click', () => {
+			selectedBagId = item.id;
+			bagMessage = '';
+			renderInventory();
+			inventoryGrid.querySelector('.is-selected')?.focus();
 		});
-
-		section.append(heading, itemGrid);
-		inventoryGrid.append(section);
+		inventoryGrid.append(cell);
 	});
+	renderBagDetail();
+}
+
+function renderBagDetail() {
+	inventoryDetail.replaceChildren();
+	const item = inventory.find((entry) => entry.id === selectedBagId);
+	if (!item) {
+		const hint = document.createElement('p');
+		hint.className = 'win-message';
+		hint.textContent = 'Select an item to see its details.';
+		inventoryDetail.append(hint);
+		return;
+	}
+
+	const info = document.createElement('div');
+	info.className = 'win-detail-text';
+	const name = document.createElement('h2');
+	name.textContent = item.name;
+	const description = document.createElement('p');
+	description.textContent = item.description;
+	const message = document.createElement('p');
+	message.className = 'win-message';
+	message.setAttribute('role', 'status');
+	message.textContent = bagMessage;
+	info.append(name, description, message);
+
+	const action = document.createElement('button');
+	action.type = 'button';
+	action.className = 'win-btn';
+	if (item.category === 'food') {
+		action.textContent = 'Use';
+		action.addEventListener('click', () => useBagFood(item));
+	} else {
+		const worn = equippedDecor[item.filter] === item.id;
+		action.textContent = worn ? 'Remove' : (item.filter === 'headwear' ? 'Wear' : 'Equip');
+		action.addEventListener('click', () => equipBagDecoration(item, worn));
+	}
+	inventoryDetail.append(buildItemArt(item), info, action);
+}
+
+async function useBagFood(item) {
+	try {
+		applyAccountState(await api.feedPet(item.id));
+		bagMessage = `${item.name} eaten!`;
+	} catch (failure) {
+		bagMessage = failure.message;
+	}
+	renderBagDetail();
+}
+
+async function equipBagDecoration(item, worn) {
+	try {
+		applyAccountState(await api.equipDecoration(item.filter, worn ? null : item.id));
+		bagMessage = worn ? `${item.name} removed.` : `${item.name} equipped.`;
+	} catch (failure) {
+		bagMessage = failure.message;
+	}
+	renderBagDetail();
 }
 
 function renderShop() {
-	const visibleItems = shopItems.filter((item) => {
-		return activeShopFilter === 'all' || item.filter === activeShopFilter;
-	});
+	const visibleItems = shopItems.filter((item) => item.filter === activeShopFilter);
 	shopGrid.replaceChildren();
 
 	visibleItems.forEach((item) => {
-		const card = document.createElement('article');
 		const owned = item.category === 'decoration' && inventory.some((ownedItem) => ownedItem.id === item.id);
-		card.className = `inventory-item shop-item inventory-item-${item.category}${owned ? ' shop-item-owned' : ''}`;
+		const row = document.createElement('article');
+		row.className = `shop-row${owned ? ' is-owned' : ''}`;
 
-		const art = document.createElement('div');
-		art.className = 'item-art';
-		const image = document.createElement('img');
-		image.src = item.image;
-		image.alt = item.name;
-		image.addEventListener('error', () => {
-			const fallback = document.createElement('span');
-			fallback.className = 'item-fallback';
-			fallback.setAttribute('aria-hidden', 'true');
-			fallback.textContent = item.icon;
-			image.replaceWith(fallback);
-		}, { once: true });
-		art.append(image);
-		if (owned) {
-			const ownedBadge = document.createElement('span');
-			ownedBadge.className = 'shop-owned-badge';
-			ownedBadge.textContent = 'OWNED';
-			art.append(ownedBadge);
-		}
-
-		const category = document.createElement('p');
-		category.className = 'item-category';
-		category.textContent = item.categoryLabel;
-
+		const text = document.createElement('div');
+		text.className = 'shop-row-text';
 		const name = document.createElement('h3');
 		name.textContent = item.name;
-
 		const description = document.createElement('p');
-		description.className = 'item-description';
 		description.textContent = item.description;
+		text.append(name, description);
 
-		const footer = document.createElement('div');
-		footer.className = 'shop-item-footer';
+		const price = document.createElement('span');
+		price.className = 'shop-row-price';
+		const coinIcon = document.createElement('span');
+		coinIcon.className = 'px-icon';
+		coinIcon.dataset.px = 'coin';
+		price.append(coinIcon, String(item.price));
 
 		const buyButton = document.createElement('button');
 		buyButton.type = 'button';
-		buyButton.className = 'shop-buy-button';
+		buyButton.className = 'win-btn';
 		buyButton.dataset.buyId = String(item.id);
-		buyButton.disabled = item.category === 'decoration' && owned;
-		buyButton.textContent = buyButton.disabled ? 'Owned' : 'Buy';
+		buyButton.disabled = owned;
+		buyButton.textContent = owned ? 'Owned' : 'Buy';
 
-		const price = document.createElement('span');
-		price.className = 'shop-item-price';
-		price.textContent = `${item.price} coins`;
-
-		footer.append(price, buyButton);
-
-		card.append(art, category, name, description, footer);
-		shopGrid.append(card);
+		row.append(buildItemArt(item), text, price, buyButton);
+		shopGrid.append(row);
 	});
-
+	applyPixelIcons(shopGrid);
 }
 
 function closePurchaseDialog() {
@@ -319,7 +394,7 @@ function openPurchaseDialog(item) {
 	}
 	dialog.append(total, error, actions);
 	backdrop.append(dialog);
-	document.body.append(backdrop);
+	petGame.append(backdrop);
 	purchaseDialog = backdrop;
 	(quantityInput ?? confirmButton).focus();
 }
@@ -356,6 +431,9 @@ function closeShop() {
 
 openInventoryButton.addEventListener('click', openInventory);
 closeInventoryButton.addEventListener('click', closeInventory);
+studyButton.addEventListener('click', () => {
+	window.location.href = 'study.html';
+});
 openShopButton.addEventListener('click', openShop);
 closeShopButton.addEventListener('click', closeShop);
 
@@ -425,21 +503,37 @@ shopGrid.addEventListener('click', (event) => {
 // Áp nền & sàn đang trang bị lên sảnh chờ (khu vực .pet-game).
 function applyLobbyDecor() {
 	if (equippedDecor.background) {
+		const background = shopItems.find((item) => item.id === equippedDecor.background);
 		lobbyScene.dataset.scene = String(equippedDecor.background);
+		lobbyScene.style.backgroundImage = background ? `url("${background.image}")` : '';
 		lobbyScene.classList.add('is-active');
 		petGame.classList.add('has-scene');
 	} else {
 		lobbyScene.removeAttribute('data-scene');
+		lobbyScene.style.backgroundImage = '';
 		lobbyScene.classList.remove('is-active');
 		petGame.classList.remove('has-scene');
 	}
 	if (equippedDecor.floor) {
+		const floor = shopItems.find((item) => item.id === equippedDecor.floor);
 		lobbyFloor.dataset.floor = String(equippedDecor.floor);
+		lobbyFloor.style.backgroundImage = floor ? `url("${floor.image}")` : '';
 		lobbyFloor.classList.add('is-active');
 	} else {
 		lobbyFloor.removeAttribute('data-floor');
+		lobbyFloor.style.backgroundImage = '';
 		lobbyFloor.classList.remove('is-active');
 	}
+	const headwear = shopItems.find((item) => item.id === equippedDecor.headwear);
+	const isDog = window.currentPetProfile?.species === 'dog';
+	const defaultPetImage = isDog ? 'assets/pets/gaugau.png' : 'assets/pets/meomeo.png';
+	const dogHeadwearImages = {
+		6: 'assets/pets/gaugau_mulen.png?v=pet-scale-20261024-2',
+		7: 'assets/pets/gaugau_vuongmieng.png?v=pet-scale-20261024-2'
+	};
+	petImage.src = headwear
+		? (isDog ? dogHeadwearImages[headwear.id] ?? defaultPetImage : headwear.petImage ?? defaultPetImage)
+		: defaultPetImage;
 }
 
 function buildDecorCard(item) {
@@ -447,24 +541,34 @@ function buildDecorCard(item) {
 	const selected = equippedDecor[activeDecorSlot] === id;
 	const card = document.createElement('button');
 	card.type = 'button';
-	card.className = `decorate-card${selected ? ' is-selected' : ''}`;
+	card.className = `bag-cell${selected ? ' is-selected' : ''}`;
 	card.setAttribute('aria-pressed', String(selected));
 
-	const art = document.createElement('div');
-	art.className = 'decorate-card-art';
+	let art;
 	if (item) {
-		art.dataset[activeDecorSlot === 'background' ? 'scene' : 'floor'] = String(id);
+		art = buildItemArt(item);
+	} else if (activeDecorSlot === 'headwear') {
+		art = document.createElement('div');
+		art.className = 'win-art';
+		const image = document.createElement('img');
+		const isDog = window.currentPetProfile?.species === 'dog';
+		image.src = isDog ? 'assets/pets/gaugau.png' : 'assets/pets/meomeo.png';
+		image.alt = `${isDog ? 'Dog' : 'Cat'} without headwear`;
+		art.append(image);
 	} else {
-		art.classList.add('decorate-card-default');
+		art = document.createElement('div');
+		art.className = 'win-art art-default';
 	}
 
 	const name = document.createElement('span');
-	name.className = 'decorate-card-name';
-	name.textContent = item ? item.name : 'Default room';
+	name.className = 'bag-name';
+	name.textContent = item ? item.name : (activeDecorSlot === 'headwear' ? 'No headwear' : 'Default room');
 
 	const status = document.createElement('span');
-	status.className = 'decorate-card-status';
-	status.textContent = selected ? 'In use' : 'Tap to use';
+	status.className = 'bag-status';
+	status.textContent = activeDecorSlot === 'headwear'
+		? (selected ? 'No headwear equipped' : 'Tap to remove headwear')
+		: (selected ? 'In use' : 'Tap to use');
 
 	card.append(art, name, status);
 	card.addEventListener('click', () => chooseDecor(id));
@@ -474,20 +578,18 @@ function buildDecorCard(item) {
 function renderDecorate() {
 	decorateGrid.replaceChildren();
 	const owned = inventory.filter((item) => item.category === 'decoration' && item.filter === activeDecorSlot);
+	const slotLabel = activeDecorSlot === 'headwear' ? 'headwear' : activeDecorSlot;
 	decorateHint.textContent = owned.length
-		? `${owned.length} ${activeDecorSlot} item${owned.length > 1 ? 's' : ''} owned`
-		: `No ${activeDecorSlot} items yet`;
+		? `${owned.length} ${slotLabel} item${owned.length > 1 ? 's' : ''} owned`
+		: `No ${slotLabel} items yet`;
 
-	const options = document.createElement('div');
-	options.className = 'decorate-options';
-	options.append(buildDecorCard(null));
-	owned.forEach((item) => options.append(buildDecorCard(item)));
-	decorateGrid.append(options);
+	decorateGrid.append(buildDecorCard(null));
+	owned.forEach((item) => decorateGrid.append(buildDecorCard(item)));
 
 	if (owned.length === 0) {
 		const empty = document.createElement('p');
-		empty.className = 'decorate-empty';
-		empty.innerHTML = `<strong>Nothing here yet</strong>Buy a ${activeDecorSlot} in the shop to decorate the lobby.`;
+		empty.className = 'win-empty';
+		empty.innerHTML = `<strong>Nothing here yet</strong>Buy ${activeDecorSlot === 'headwear' ? 'headwear' : `a ${activeDecorSlot}`} in the shop to decorate the lobby.`;
 		decorateGrid.append(empty);
 	}
 }

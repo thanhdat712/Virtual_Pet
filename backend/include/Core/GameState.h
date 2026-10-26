@@ -4,7 +4,7 @@
 #include <memory>
 
 // Khai báo trước để header nhẹ, tránh include vòng
-class User;
+class PlayerData;
 class Pet;
 class Shop;
 
@@ -21,26 +21,25 @@ enum class GameStatus {
 class GameState {
 private:
     GameStatus status;
-    std::unique_ptr<User> player;
-    std::unique_ptr<Pet> pet;
+    std::unique_ptr<PlayerData> player;
+    std::shared_ptr<Pet> pet;
     std::unique_ptr<Shop> shop;
 
 public:
     GameState();
-    ~GameState(); // định nghĩa trong .cpp vì unique_ptr cần kiểu đầy đủ
+    ~GameState() = default;
 
-    GameState(const GameState&) = delete;            // mỗi ván game chỉ có một trạng thái
+    GameState(const GameState&) = delete;
     GameState& operator=(const GameState&) = delete;
 
-    // Tạo lại người chơi (id 1, xu khởi điểm, túi đồ rỗng), pet mặc định và shop mới,
-    // đặt trạng thái về NOT_STARTED. Gọi lại được để bắt đầu ván mới.
     void initialize();
+    void restore(std::unique_ptr<PlayerData> newPlayer, std::shared_ptr<Pet> newPet);
 
     GameStatus getStatus() const;
     void setStatus(GameStatus newStatus);
 
-    User& getPlayer();
-    const User& getPlayer() const;
+    PlayerData& getPlayer();
+    const PlayerData& getPlayer() const;
     Pet& getPet();
     const Pet& getPet() const;
     Shop& getShop();

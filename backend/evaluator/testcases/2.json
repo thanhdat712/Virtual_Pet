@@ -1,0 +1,37 @@
+[
+  {
+    "input": "7 5\n",
+    "expectedOutput": "12\n",
+    "hidden": false,
+    "timeLimitMs": 2000,
+    "memoryLimitMb": 128
+  },
+  {
+    "input": "-4 9\n",
+    "expectedOutput": "5\n",
+    "hidden": true,
+    "timeLimitMs": 2000,
+    "memoryLimitMb": 128
+  },
+  {
+    "input": "0 0\n",
+    "expectedOutput": "0\n",
+    "hidden": true,
+    "timeLimitMs": 2000,
+    "memoryLimitMb": 128
+  },
+  {
+    "input": "-100 50\n",
+    "expectedOutput": "-50\n",
+    "hidden": true,
+    "timeLimitMs": 2000,
+    "memoryLimitMb": 128
+  },
+  {
+    "input": "2147483647 1\n",
+    "expectedOutput": "2147483648\n",
+    "hidden": true,
+    "timeLimitMs": 2000,
+    "memoryLimitMb": 128
+  }
+]

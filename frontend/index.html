@@ -5,38 +5,90 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pet Home</title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=auth-labels-20261024">
+    <link rel="stylesheet" href="css/pixel.css?v=settings-20261024">
 </head>
 
-<body>
+<body class="entry-open">
     <main class="pet-game" aria-label="Màn hình chăm sóc thú cưng">
+        <section class="entry-gate" id="entry-gate" aria-labelledby="entry-title">
+            <div class="entry-card">
+                <p class="entry-kicker">PET HOME</p>
+                <h1 id="entry-title">Welcome!</h1>
+                <p class="entry-description">Log in or create an account to continue.</p>
+                <div class="entry-actions" id="entry-actions">
+                    <button class="entry-primary" id="show-login" type="button">Log in</button>
+                    <button class="entry-secondary" id="show-register" type="button">Sign up</button>
+                </div>
+                <form class="entry-form" id="entry-form" hidden>
+                    <div id="email-field">
+                        <label for="entry-email">Email</label>
+                        <input id="entry-email" name="email" type="email" maxlength="254" autocomplete="email" placeholder="name@example.com" required>
+                    </div>
+                    <div id="username-field" hidden>
+                        <label for="entry-username">Username</label>
+                        <input id="entry-username" name="username" type="text" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]{3,20}" autocomplete="username" placeholder="Your username">
+                    </div>
+                    <label for="entry-password">Password</label>
+                    <div class="password-field">
+                        <input id="entry-password" name="password" type="password" minlength="8" maxlength="128" autocomplete="current-password" placeholder="Enter your password" required>
+                        <button class="password-toggle" id="toggle-password" type="button" aria-label="Show password" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="m3 3 18 18"/></svg></button>
+                    </div>
+                    <div id="confirm-password-field" hidden>
+                        <label for="entry-confirm-password">Confirm password</label>
+                        <div class="password-field">
+                            <input id="entry-confirm-password" name="confirmPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="Enter it again to confirm">
+                            <button class="password-toggle" type="button" data-password-target="entry-confirm-password" aria-label="Show password" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="m3 3 18 18"/></svg></button>
+                        </div>
+                    </div>
+                    <p class="entry-error" id="entry-error" role="alert" aria-live="polite"></p>
+                    <button class="entry-primary" id="submit-auth" type="submit">Log in</button>
+                    <button class="entry-back" id="entry-back" type="button">Back</button>
+                </form>
+            </div>
+        </section>
         <div class="lobby-scene" id="lobby-scene" aria-hidden="true"></div>
         <div class="lobby-floor" id="lobby-floor" aria-hidden="true"></div>
-        <section class="player-card glass-card" aria-label="Thông tin thú cưng">
-            <div class="avatar"><img src="assets/pets/meomeo.png" alt="PetLovery"></div>
-            <div>
-                <p>Nickname: <strong>PetLovery</strong></p>
-                <p>Level: <strong>15</strong></p>
+        <section class="px-box hud-player" aria-label="Thông tin thú cưng">
+            <div class="hud-avatar"><img src="assets/pets/meomeo.png" alt="PetLovery"></div>
+            <div class="hud-player-info">
+                <p class="hud-level-row"><span class="px-icon" data-px="star"></span><span>Lv. <b id="pet-level">1</b></span><span class="hud-name" id="pet-name">UIA</span></p>
+                <div class="px-bar exp"><i id="exp-fill" style="width:0%"></i></div>
+                <p class="hud-exp-text" id="exp-text">EXP 0 / 100</p>
             </div>
         </section>
 
-        <section class="stats-card glass-card" aria-label="Chỉ số thú cưng">
-            <div class="stat" title="Fill the bar to level up">
-                <div class="stat-line"><span>☻ Happiness:</span><b>85%</b></div>
-                <div class="meter yellow"><i style="width:85%"></i></div>
-            </div>
-            <div class="stat">
-                <div class="stat-line"><span>◒ Hunger:</span><b>30%</b></div>
-                <div class="meter orange"><i style="width:30%"></i></div>
-            </div>
-            <div class="stat">
-                <div class="stat-line"><span>ϟ Energy:</span><b>70%</b></div>
-                <div class="meter purple"><i style="width:70%"></i></div>
+        <section class="px-box hud-weather" aria-label="Thời tiết và giờ">
+            <span class="px-icon big" id="hud-weather-icon" data-px="sun"></span>
+            <div><b id="hud-weather-label">Sunny</b><span id="hud-clock" aria-label="Current local time">00:00</span></div>
+        </section>
+
+        <section class="px-box hud-coins" aria-label="Tiền tệ">
+            <span class="px-icon" data-px="coin"></span><span>Coins</span><b id="coin-balance">100</b>
+        </section>
+
+        <section class="px-box hud-happy" aria-label="Happiness">
+            <div class="hud-stat" data-stat="happiness" title="Fill the bar to level up">
+                <span class="px-icon big" data-px="heart"></span>
+                <span class="hud-stat-name">Happiness</span>
+                <div class="px-bar"><i style="width:85%"></i></div>
+                <b class="hud-stat-value">85 / 100</b>
             </div>
         </section>
 
-        <section class="currency" aria-label="Tiền tệ">
-            <div class="currency-row glass-card"><span class="coin">$</span><span>Coins:</span><b id="coin-balance">100</b></div>
+        <section class="px-box hud-vitals" aria-label="Chỉ số thú cưng">
+            <div class="hud-stat" data-stat="energy">
+                <span class="px-icon big" data-px="bolt"></span>
+                <span class="hud-stat-name">Energy</span>
+                <div class="px-bar"><i style="width:70%"></i></div>
+                <b class="hud-stat-value">70 / 100</b>
+            </div>
+            <div class="hud-stat" data-stat="hunger">
+                <span class="px-icon big" data-px="utensils"></span>
+                <span class="hud-stat-name">Hunger</span>
+                <div class="px-bar"><i style="width:30%"></i></div>
+                <b class="hud-stat-value">30 / 100</b>
+            </div>
         </section>
 
         <section class="pet-stage" aria-label="UIA">
@@ -44,24 +96,27 @@
             <img class="pet-image" src="assets/pets/meomeo_mulen.png" alt="UIA, thú cưng của bạn">
         </section>
 
-        <section class="training" aria-label="Huấn luyện">
-            <span class="section-tag">TRAINING</span>
-            <div class="training-actions glass-card">
-                <div class="training-row">
-                    <div class="training-item">
-                        <button class="round-button exercise" type="button">🏋</button>
-                        <b class="study-text">Study</b>
-                    </div>
-                    <div class="training-item">
-                        <button class="round-button practice" type="button">🎯</button>
-                        <b class="practice-text">Practice</b>
-                    </div>
-                </div>
-            </div>
+        <section class="px-box hud-training" aria-label="Training">
+            <header class="px-head"><span class="px-icon" data-px="dumbbell"></span>Training</header>
+            <button class="train-row" id="study-btn" type="button">
+                <span class="px-icon big" data-px="book"></span>
+                <span class="train-name">Study</span>
+            </button>
+            <button class="train-row" id="practice-btn" type="button">
+                <span class="px-icon big" data-px="code"></span>
+                <span class="train-name">Practice</span>
+            </button>
         </section>
 
-        <nav class="main-actions glass-card" aria-label="Các hành động chính">
-            <button class="action feed" id="open-food" type="button" aria-expanded="false" aria-controls="food-drawer"><span>🥣</span><b>Food</b></button>
+        <nav class="hud-care" aria-label="Các hành động chính">
+            <button class="px-card care-eat" id="open-food" type="button" aria-expanded="false" aria-controls="food-drawer">
+                <span class="px-card-head"><span class="px-icon" data-px="utensils"></span>Eat</span>
+                <span class="px-card-body"><span class="px-icon huge" data-px="bowl"></span></span>
+            </button>
+            <button class="px-card care-sleep" id="sleep-pet" type="button">
+                <span class="px-card-head"><span class="px-icon" data-px="moon"></span>Sleep</span>
+                <span class="px-card-body"><span class="px-icon huge" data-px="bed"></span></span>
+            </button>
         </nav>
 
         <aside class="food-drawer glass-card" id="food-drawer" aria-label="Food" hidden>
@@ -70,97 +125,137 @@
         </aside>
         <p class="feeding-status" id="feeding-status" role="status" aria-live="polite"></p>
 
-        <nav class="quick-actions glass-card" aria-label="Điều hướng nhanh">
-            <button class="action shop" id="open-shop" type="button" aria-haspopup="dialog" aria-controls="shop-panel"><span>🛒</span><b>Shop</b></button>
-            <button class="action inventory" id="open-inventory" type="button" aria-haspopup="dialog" aria-controls="inventory-panel"><span>🎒</span><b>Inventory</b></button>
-            <button class="action decorate" id="open-decorate" type="button" aria-haspopup="dialog" aria-controls="decorate-panel"><span>🖌</span><b>Decorate</b></button>
+        <nav class="px-box hud-tools" aria-label="Điều hướng nhanh">
+            <button class="tool-btn" id="open-shop" type="button" title="Shop" aria-label="Shop" aria-haspopup="dialog" aria-controls="shop-panel"><span class="px-icon big" data-px="bag"></span></button>
+            <button class="tool-btn" id="open-inventory" type="button" title="Inventory" aria-label="Inventory" aria-haspopup="dialog" aria-controls="inventory-panel"><span class="px-icon big" data-px="backpack"></span></button>
+            <button class="tool-btn" id="open-decorate" type="button" title="Decorate" aria-label="Decorate" aria-haspopup="dialog" aria-controls="decorate-panel"><span class="px-icon big" data-px="brush"></span></button>
+            <button class="tool-btn settings-open" id="open-settings" type="button" title="Settings" aria-label="Settings" aria-haspopup="dialog" aria-controls="settings-panel"><span aria-hidden="true">⚙</span></button>
         </nav>
 
-        <section class="inventory-backdrop" id="inventory-panel" lang="en" role="dialog" aria-modal="true" aria-labelledby="inventory-title" aria-label="Inventory" hidden>
-            <div class="inventory-window">
-                <header class="inventory-header">
-                    <div>
-                        <p class="inventory-kicker">PETLOVERY / INVENTORY</p>
-                        <h1 id="inventory-title">UIA's Inventory</h1>
-                        <p class="inventory-subtitle">Snacks for later and little treasures for a cozy room.</p>
-                    </div>
-                    <button class="inventory-close" id="close-inventory" type="button" aria-label="Close inventory">×</button>
-                </header>
+        <p class="px-box hud-hint"><span class="px-icon big" data-px="paw"></span><span>Take care of your pet!</span><span class="px-icon" data-px="heart"></span></p>
 
-                <div class="inventory-toolbar">
-                    <div class="inventory-tabs" role="group" aria-label="Filter inventory items">
-                        <button class="inventory-tab is-active" type="button" data-filter="all" aria-pressed="true">All</button>
-                        <button class="inventory-tab" type="button" data-filter="food" aria-pressed="false">Food</button>
-                        <button class="inventory-tab" type="button" data-filter="decoration" aria-pressed="false">Decorations</button>
+        <section class="win-backdrop" id="inventory-panel" lang="en" role="dialog" aria-modal="true" aria-labelledby="inventory-title" aria-label="Bag" hidden>
+            <div class="win">
+                <div class="win-main">
+                    <header class="win-head">
+                        <span class="px-icon huge" data-px="backpack"></span>
+                        <h1 id="inventory-title">Bag</h1>
+                        <span class="win-count" id="inventory-count" aria-live="polite"></span>
+                        <button class="win-close" id="close-inventory" type="button" aria-label="Close bag">×</button>
+                    </header>
+                    <div class="win-tabs" role="group" aria-label="Filter bag items">
+                        <button class="win-tab is-active" type="button" data-filter="all" aria-pressed="true">All</button>
+                        <button class="win-tab" type="button" data-filter="food" aria-pressed="false">Food</button>
+                        <button class="win-tab" type="button" data-filter="decoration" aria-pressed="false">Decor</button>
                     </div>
-                    <p class="inventory-count" id="inventory-count" aria-live="polite"></p>
+                    <div class="win-body"><div class="bag-grid" id="inventory-grid"></div></div>
+                    <footer class="win-detail" id="inventory-detail"></footer>
                 </div>
-
-                <div class="inventory-grid" id="inventory-grid"></div>
             </div>
         </section>
 
-        <section class="inventory-backdrop" id="shop-panel" lang="en" role="dialog" aria-modal="true" aria-labelledby="shop-title" aria-label="Shop" hidden>
-            <div class="inventory-window shop-window">
-                <header class="inventory-header">
-                    <div>
-                        <p class="inventory-kicker">PETLOVERY / ITEM SHOP</p>
-                        <h1 id="shop-title">Little Paws Market</h1>
-                        <p class="inventory-subtitle">A few lovely things for your pet and its room.</p>
+        <section class="win-backdrop" id="shop-panel" lang="en" role="dialog" aria-modal="true" aria-labelledby="shop-title" aria-label="Shop" hidden>
+            <div class="win">
+                <div class="win-main">
+                    <header class="win-head">
+                        <span class="px-icon huge" data-px="bag"></span>
+                        <h1 id="shop-title">Shop</h1>
+                        <button class="win-close" id="close-shop" type="button" aria-label="Close shop">×</button>
+                    </header>
+                    <div class="win-tabs" role="group" aria-label="Filter shop items">
+                        <button class="win-tab is-active" type="button" data-shop-filter="food" aria-pressed="true">Food</button>
+                        <button class="win-tab" type="button" data-shop-filter="headwear" aria-pressed="false">Headwear</button>
+                        <button class="win-tab" type="button" data-shop-filter="background" aria-pressed="false">Background</button>
+                        <button class="win-tab" type="button" data-shop-filter="floor" aria-pressed="false">Floor</button>
                     </div>
-                    <button class="inventory-close" id="close-shop" type="button" aria-label="Close shop">×</button>
-                </header>
-
-                <div class="shop-toolbar">
-                    <div class="shop-tabs" role="group" aria-label="Filter shop items">
-                        <button class="shop-tab is-active" type="button" data-shop-filter="all" aria-pressed="true">All</button>
-                        <button class="shop-tab" type="button" data-shop-filter="food" aria-pressed="false">Food</button>
-                        <button class="shop-tab" type="button" data-shop-filter="headwear" aria-pressed="false">Headwear</button>
-                        <button class="shop-tab" type="button" data-shop-filter="background" aria-pressed="false">Backgrounds</button>
-                        <button class="shop-tab" type="button" data-shop-filter="floor" aria-pressed="false">Floors</button>
-                    </div>
-                    <p class="shop-coins">Your coins: <strong id="shop-coin-balance">100</strong></p>
+                    <div class="win-body"><div class="shop-list" id="shop-grid"></div></div>
+                    <footer class="win-foot">
+                        <p class="win-message" id="shop-message" role="status" aria-live="polite"></p>
+                        <span class="win-coins"><span class="px-icon" data-px="coin"></span><b id="shop-coin-balance">100</b></span>
+                    </footer>
                 </div>
-
-                <p class="shop-message" id="shop-message" role="status" aria-live="polite"></p>
-                <div class="shop-grid" id="shop-grid"></div>
             </div>
         </section>
 
-        <section class="inventory-backdrop" id="decorate-panel" lang="en" role="dialog" aria-modal="true" aria-labelledby="decorate-title" aria-label="Decorate" hidden>
-            <div class="inventory-window">
-                <header class="inventory-header">
-                    <div>
-                        <p class="inventory-kicker">PETLOVERY / DECORATE</p>
-                        <h1 id="decorate-title">Decorate the Lobby</h1>
-                        <p class="inventory-subtitle">Pick a background and floor you own to redecorate the waiting room.</p>
+        <section class="win-backdrop" id="decorate-panel" lang="en" role="dialog" aria-modal="true" aria-labelledby="decorate-title" aria-label="Decorate" hidden>
+            <div class="win">
+                <div class="win-main">
+                    <header class="win-head">
+                        <span class="px-icon huge" data-px="brush"></span>
+                        <h1 id="decorate-title">Decorate</h1>
+                        <button class="win-close" id="close-decorate" type="button" aria-label="Close decorate">×</button>
+                    </header>
+                    <div class="win-tabs" role="group" aria-label="Choose decoration slot">
+                        <button class="win-tab is-active" type="button" data-decor-slot="background" aria-pressed="true">Background</button>
+                        <button class="win-tab" type="button" data-decor-slot="floor" aria-pressed="false">Floor</button>
                     </div>
-                    <button class="inventory-close" id="close-decorate" type="button" aria-label="Close decorate">×</button>
-                </header>
-
-                <div class="inventory-toolbar">
-                    <div class="inventory-tabs" role="group" aria-label="Choose decoration slot">
-                        <button class="inventory-tab decorate-tab is-active" type="button" data-decor-slot="background" aria-pressed="true">Background</button>
-                        <button class="inventory-tab decorate-tab" type="button" data-decor-slot="floor" aria-pressed="false">Floor</button>
-                    </div>
-                    <p class="inventory-count" id="decorate-hint" aria-live="polite"></p>
+                    <div class="win-body"><div class="bag-grid" id="decorate-grid"></div></div>
+                    <footer class="win-foot">
+                        <p class="win-message" id="decorate-hint" aria-live="polite"></p>
+                    </footer>
                 </div>
+            </div>
+        </section>
 
-                <div class="inventory-grid" id="decorate-grid"></div>
+        <section class="win-backdrop" id="settings-panel" lang="en" role="dialog" aria-modal="true" aria-labelledby="settings-title" aria-label="Settings" hidden>
+            <div class="win">
+                <div class="win-main settings-main">
+                    <header class="win-head">
+                        <span class="settings-heading-icon" aria-hidden="true">⚙</span>
+                        <h1 id="settings-title">Settings</h1>
+                        <button class="win-close" id="close-settings" type="button" aria-label="Close settings">×</button>
+                    </header>
+                    <div class="win-body settings-body">
+                        <section class="settings-section" aria-labelledby="settings-pet-title">
+                            <h2 id="settings-pet-title">Pet</h2>
+                            <div class="settings-row">
+                                <div><strong>Pet name</strong><span id="settings-pet-name">UIA</span></div>
+                                <button class="settings-action" id="settings-rename" type="button">Change name</button>
+                            </div>
+                        </section>
+                        <section class="settings-section" aria-labelledby="settings-sound-title">
+                            <h2 id="settings-sound-title">Sound</h2>
+                            <label class="settings-row settings-sound-row" for="settings-sound-toggle">
+                                <span><strong>Sound effects</strong><span>Turn game sounds on or off</span></span>
+                                <input id="settings-sound-toggle" type="checkbox" checked>
+                            </label>
+                        </section>
+                        <p class="settings-message" id="settings-message" role="status" aria-live="polite"></p>
+                    </div>
+                    <footer class="win-foot settings-footer">
+                        <button class="settings-logout" id="settings-logout" type="button">Log out</button>
+                    </footer>
+                </div>
             </div>
         </section>
     </main>
-    <dialog class="exercise-dialog" id="exercise-dialog" aria-labelledby="exercise-title">
-        <header class="inventory-header">
-            <h2 id="exercise-title">Study</h2>
-            <button class="inventory-close" id="close-exercises" type="button" aria-label="Close exercises">×</button>
-        </header>
-        <p class="form-message" id="exercise-message" role="status" aria-live="polite"></p>
-        <div id="exercise-list"></div>
-    </dialog>
-    <script src="js/demo.js" defer></script>
-    <script src="js/app.js" defer></script>
-    <script src="js/session.js" defer></script>
+    <section class="entry-gate pet-picker" id="pet-picker" aria-labelledby="pet-picker-title" hidden>
+        <div class="entry-card pet-picker-card">
+            <p class="entry-kicker">CHOOSE YOUR COMPANION</p>
+            <h1 id="pet-picker-title">Which pet would you like?</h1>
+            <div class="pet-choices" role="group" aria-label="Choose a pet">
+                <button class="pet-choice" type="button" data-pet-species="cat" aria-pressed="false"><img src="assets/pets/meomeo.png" alt="Cat"><span>Cat</span></button>
+                <button class="pet-choice" type="button" data-pet-species="dog" aria-pressed="false"><img src="assets/pets/gaugau.png" alt="Dog"><span>Dog</span></button>
+            </div>
+            <p class="entry-error" id="pet-choice-error" role="alert" aria-live="polite"></p>
+            <button class="entry-primary" id="confirm-pet-choice" type="button">Choose this pet</button>
+        </div>
+    </section>
+    <section class="entry-gate rename-gate" id="rename-dialog" aria-labelledby="rename-title" hidden>
+        <form class="entry-card rename-card" id="rename-form">
+            <h2 id="rename-title">Name your pet</h2>
+            <label for="pet-new-name">Pet name</label>
+            <input id="pet-new-name" name="name" type="text" maxlength="80" required autocomplete="off">
+            <p class="entry-error" id="rename-message" role="alert" aria-live="polite"></p>
+            <button class="entry-primary" type="submit">Save name</button>
+            <button class="entry-back" id="cancel-rename" type="button">Cancel</button>
+        </form>
+    </section>
+    <script src="js/pixel.js" defer></script>
+    <script src="js/api.js?v=pet-name-20261024" defer></script>
+    <script src="js/app.js?v=study-navigation-20261025" defer></script>
+    <script src="js/session.js?v=pet-name-20261024" defer></script>
+    <script src="js/auth.js?v=settings-20261024" defer></script>
 </body>
 
 </html>

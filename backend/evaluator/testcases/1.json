@@ -1,0 +1,16 @@
+[
+  {
+    "input": "",
+    "expectedOutput": "Hello World!\n",
+    "hidden": false,
+    "timeLimitMs": 2000,
+    "memoryLimitMb": 128
+  },
+  {
+    "input": "",
+    "expectedOutput": "Hello World!\n",
+    "hidden": true,
+    "timeLimitMs": 2000,
+    "memoryLimitMb": 128
+  }
+]
