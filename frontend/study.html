@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=VT323&family=Be+Vietnam+Pro:wght@400;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="css/study.css">
+    <link rel="stylesheet" href="css/study.css?v=study-music-controls-20261027">
 </head>
 
 <body>
@@ -74,7 +74,10 @@
         <div class="meme-box stk d"></div>
     </div>
 
-    <script src="js/sound.js?v=all-clicks-sfx-20261027"></script>
+    <audio id="study-background-music" src="assets/peace-of-mind.mp3" loop preload="auto" aria-hidden="true"></audio>
+    <button id="study-music-toggle" class="music-toggle" type="button" aria-pressed="false">♫ Play music</button>
+    <footer class="music-credit">Music: <a href="https://incompetech.com/music/royalty-free/index.html?Search=Search&amp;isrc=USUAN1200099" target="_blank" rel="noopener noreferrer">“Peace of Mind” by Kevin MacLeod</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a></footer>
+    <script src="js/sound.js?v=study-music-controls-20261027"></script>
     <script src="js/study-data.js"></script>
     <script src="js/study.js"></script>
 </body>
