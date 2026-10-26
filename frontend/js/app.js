@@ -432,6 +432,9 @@ function closeShop() {
 openInventoryButton.addEventListener('click', openInventory);
 closeInventoryButton.addEventListener('click', closeInventory);
 studyButton.addEventListener('click', () => {
+	if (window.currentPetProfile) {
+		try { sessionStorage.setItem('virtual-pet-returning-from-study', 'true'); } catch { /* Navigation still works without session storage. */ }
+	}
 	window.location.href = 'study.html';
 });
 openShopButton.addEventListener('click', openShop);
