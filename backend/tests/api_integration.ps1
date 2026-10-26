@@ -117,6 +117,9 @@ try {
     foreach ($item in $catalog | Where-Object { $_.category -eq 'decoration' }) {
         Check ((Call GET ('/' + $item.image)).Status -eq 200) "Decoration image is served for item $($item.id)"
     }
+    foreach ($item in $catalog | Where-Object { $_.filter -eq 'headwear' }) {
+        Check ($item.petImage -and (Call GET ('/' + $item.petImage)).Status -eq 200) "Cat headwear sprite is served for item $($item.id)"
+    }
     Check ((Call GET '/').Status -eq 200) 'Same-origin index served'
     Check ((Call GET '/js/api.js').Status -eq 200) 'Same-origin JavaScript served'
     Check ((Call GET '/%2e%2e/backend/build/token.txt').Status -eq 403) 'Encoded traversal rejected'
