@@ -353,3 +353,4 @@ pixelScene(); tiles(); grass(); decor();
 growVine(); buildNodes(); enableDrag($('path'));
 $('stickers').querySelectorAll('.stk').forEach((el, i) => setMeme(el, MEMES.corner[i]));
 renderTree();
+window.startStudyMusic?.();

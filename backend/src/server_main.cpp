@@ -176,7 +176,7 @@ HttpResponse staticFile(const std::string& path) {
         {".css","text/css; charset=utf-8"},{".js","text/javascript; charset=utf-8"},
         {".png","image/png"},{".jpg","image/jpeg"},{".jpeg","image/jpeg"},
         {".gif","image/gif"},{".webp","image/webp"},{".svg","image/svg+xml"},
-        {".ico","image/x-icon"},{".woff2","font/woff2"}};
+        {".ico","image/x-icon"},{".woff2","font/woff2"},{".mp3","audio/mpeg"}};
     auto type = types.find(extension);
     if (type == types.end()) return error(404,"File not found");
     std::ifstream input(std::string(PET_FRONTEND_DIR) + relative, std::ios::binary);
