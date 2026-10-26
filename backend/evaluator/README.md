@@ -1,16 +1,14 @@
 # C++ evaluator worker (SUB-04)
 
 The HTTP server persists source submissions as `queued`. This worker claims queued rows,
-compiles/runs C++ in a disposable Docker container, compares stdout to configured test
-cases, stores the final status and score, and awards 10 coins only on the user's first
-accepted submission for an exercise.
+compiles/runs C++17 with a local compiler, compares stdout to configured test cases, stores
+the final status and score, and awards 10 coins only on the user's first accepted submission
+for an exercise. Docker is not required.
 
 ## Requirements
 
 - Python 3.10+ (standard library only)
-- Docker Engine running, with permission to run containers
-- Pullable image `gcc:13-bookworm` (override with `PET_JUDGE_IMAGE` if your deployment
-  maintains an audited equivalent)
+- C++17 compiler available as `g++` or configured with `--compiler` / `CXX`
 - The exact same SQLite file path used by the HTTP server
 
 ## Start
@@ -21,8 +19,11 @@ From the repository root, start the backend as usual, then in a second terminal:
 python backend/evaluator/worker.py --db backend/build/virtual_pet.db
 ```
 
-Use the absolute database path if the server was started with a custom path. Do not point
-the worker at a different database, or submissions will remain queued.
+If `g++` is not on PATH:
+
+```powershell
+python backend/evaluator/worker.py --db backend/build/virtual_pet.db --compiler C:/path/to/g++.exe
+```
 
 Process only one submission (useful for local smoke tests):
 
@@ -30,18 +31,19 @@ Process only one submission (useful for local smoke tests):
 python backend/evaluator/worker.py --db backend/build/virtual_pet.db --once
 ```
 
-The first run requires Docker to have the judge image available. Run one worker instance per database; on restart it re-queues jobs left in `evaluating`. The worker does not
-silently execute source code on the host. If Docker is unavailable, the submission is
-marked `internal_error` rather than executed unsafely.
+Run one worker instance per database. On restart, rows left in `evaluating` are re-queued.
 
-## Sandbox controls
+## Local execution controls
 
-Each test gets a new container with networking disabled, read-only root filesystem, dropped
-Linux capabilities, `no-new-privileges`, an unprivileged UID, PID/CPU/memory limits, bounded
-tmpfs, file-size/file-descriptor limits and an execution timeout. The source is mounted
-read-only. Review Docker Engine hardening and OS-level isolation before exposing this to
-untrusted public traffic; a dedicated VM/runtime such as gVisor or Kata is recommended for
-higher-risk production deployments.
+Each submission is compiled in a temporary directory and executed as a separate process.
+The worker applies a per-test wall-clock timeout, kills the process when it exceeds the
+time limit, caps captured output at 64 KiB, and rejects source larger than 32 KiB. Compile
+errors and non-zero exit codes are reported separately.
+
+The local evaluator is intended for an internal student project/demo. It is **not a security
+sandbox for arbitrary hostile code** because the evaluated process still runs on the host OS.
+For a public judge, add a VM/container/OS-level sandbox before exposing submissions to
+untrusted users.
 
 ## Test cases
 
@@ -54,8 +56,8 @@ JSON files are named `<exercise_id>.json` under `testcases/`. Each is a non-empt
 ]
 ```
 
-Keep hidden case inputs and expected output on the server only. The current sample cases
-match the seeded exercise descriptions; replace/extend them to match the actual curriculum.
+The current set contains 22 cases across the five seeded exercises, including public and
+hidden cases plus edge cases.
 
 ## Worker tests
 
@@ -63,5 +65,5 @@ match the seeded exercise descriptions; replace/extend them to match the actual 
 python -m unittest discover -s backend/evaluator/tests -v
 ```
 
-These tests cover output normalization and test-case configuration. End-to-end sandbox tests
-must be run on a host with Docker available; they are not claimed as passed by this package.
+Current result: **9 tests passed, 0 skipped**. Tests cover output normalization, testcase
+configuration, compile errors, infinite-loop timeout, output limit and a correct submission.

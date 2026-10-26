@@ -22,7 +22,7 @@ button:disabled{opacity:.55;cursor:wait}.muted{color:#627064}.status{padding:12p
 <section class="card">
 <h1> Nộp mã nguồn C++</h1>
 <p class="muted">SUB-02 · Gửi bài qua API backend và nhận mã submission để truy vấn trạng thái.</p>
-<div class="warning"><strong>Lưu ý:</strong> API nhận bài và truy vấn trạng thái đã được nối. Worker chấm code trong sandbox (SUB-04) chưa tích hợp, nên bài sẽ ở trạng thái chờ; không hiển thị bài là đạt giả.</div>
+<div class="warning"><strong>Lưu ý:</strong> API nhận bài và truy vấn trạng thái đã được nối. Worker chấm code chạy riêng bằng local evaluator; nếu worker chưa chạy, bài sẽ giữ trạng thái chờ.</div>
 <form id="submissionForm">
 <label for="exerciseId">Mã bài tập</label>
 <input id="exerciseId" type="number" min="1" max="2147483647" value="1" required>
