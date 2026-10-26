@@ -474,6 +474,24 @@ async function migrateBrowserPreferences(user) {
 
 function showPetPicker() {
 	const profile = window.currentPetProfile || { species: 'cat', name: 'UIA' };
+	const choiceKey = `virtual-pet-pet-choice-v1-${String(signedInUser?.id ?? signedInUser?.username ?? 'guest')}`;
+	let alreadyChosen = false;
+	try {
+		alreadyChosen = localStorage.getItem(choiceKey) === profile.species;
+		if (sessionStorage.getItem('virtual-pet-returning-from-study') === 'true') {
+			sessionStorage.removeItem('virtual-pet-returning-from-study');
+			localStorage.setItem(choiceKey, profile.species);
+			alreadyChosen = true;
+		}
+	} catch {
+		// The pet picker remains available when browser storage is disabled.
+	}
+	if (alreadyChosen) {
+		petPicker.hidden = true;
+		entryGate.hidden = true;
+		document.body.classList.remove('entry-open');
+		return;
+	}
 	entryGate.hidden = true;
 	selectedSpecies = profile.species;
 	document.querySelectorAll('[data-pet-species]').forEach((button) => {
@@ -546,6 +564,12 @@ document.querySelector('#confirm-pet-choice').addEventListener('click', async (e
 	try {
 		const petName = window.currentPetProfile?.name || 'UIA';
 		applyAccountState(await api.savePetProfile(petName, selectedSpecies));
+		try {
+			const choiceKey = `virtual-pet-pet-choice-v1-${String(signedInUser?.id ?? signedInUser?.username ?? 'guest')}`;
+			localStorage.setItem(choiceKey, selectedSpecies);
+		} catch {
+			// The saved species on the server is still available if browser storage is disabled.
+		}
 		applyLobbyDecor();
 		petPicker.hidden = true;
 		entryGate.hidden = true;

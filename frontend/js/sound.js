@@ -79,16 +79,10 @@
 		enabled = event.detail?.enabled !== false;
 	});
 
-	document.addEventListener('pointerdown', (event) => {
-		if (event.target instanceof Element && event.target.closest('button:not(#sleep-pet):not(.food-choice),[role="button"]:not(#sleep-pet):not(.food-choice)')) {
-			playGameSound('click');
-		}
-	}, true);
-
-	document.addEventListener('keydown', (event) => {
-		if ((event.key === 'Enter' || event.key === ' ') && !event.repeat
-			&& event.target instanceof Element && event.target.closest('button:not(#sleep-pet):not(.food-choice),[role="button"]:not(#sleep-pet):not(.food-choice)')) {
-			playGameSound('click');
-		}
+	document.addEventListener('click', (event) => {
+		const action = event.target instanceof Element
+			? event.target.closest('button:not(#sleep-pet):not(.food-choice),[role="button"]:not(#sleep-pet):not(.food-choice),a[href],[onclick],input[type="checkbox"],select')
+			: null;
+		if (action) playGameSound('click');
 	}, true);
 })();
