@@ -2,7 +2,7 @@
 const KEY = 'petStudy';
 const LV = Object.keys(D);
 const TI = ['easy', 'medium', 'hard'];
-const TNAME = { easy: 'Dễ', medium: 'Vừa', hard: 'Khó' };
+const TNAME = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
 const PT = { easy: 15, medium: 18, hard: 20 };    // điểm mỗi câu đúng
 const QUIZ_SIZE = 5;                              // mỗi lần làm rút ngẫu nhiên 5 câu từ nhóm
 const PASS_RATE = 0.8;                            // 4/5 câu đúng là qua nhóm
@@ -18,10 +18,10 @@ const MEMES = {
     wrong: ['chopixel2.gif', 'meopixel9.gif', 'meopixel4.jpg', 'chopixel8.jpg', 'chopixel1.jpg', 'meopixel7.jpg']       // 5 meme khi trả lời SAI (mỗi lần rút 2)
 };
 const CAP = {
-    right: ['Bá Khí! ', 'Hay Lắm, human! ', 'Bá đạo trên từng hạt gạo. ', 'Mèo Méo Meo Mèo Meo. ',
-        'Cook tiếp đi đầu bếp 👨‍🍳🍳. ', 'Cổ điển, tôn trọng. ', '  Trên cái đất Thủ Đức này tui nể mỗi bạn. '],
-    wrong: ['Hồi chiều...hồi chiều làm sai câu TA. ', 'Cạn Phước. ', 'Chắc kiếp trước tặng chùa máy sấy tóc. ', 'Mong Tôn Hoa Sen thấy và làm ngơ. ', 'Thông báo: Pet của bạn đã gửi đơn xin đổi chủ. ',
-        'Pet 7 vọng về bạn. ', 'Tui nói này bạn đừng buồn nha. ', 'Pet nước mình vất vả. ', 'Lên núi khỉ còn đuổi xuống. ']
+    right: ['Chính xác! ', 'Giỏi lắm! ', 'Tốt lắm! ', 'Bạn làm tốt lắm! ',
+        'Quá tuyệt! ', 'Đỉnh quá! ', 'Pet tự hào về bạn! '],
+    wrong: ['Không sao, thử lại nhé! ', 'Chưa đúng rồi! ', 'Gần đúng rồi, cố lên! ', 'Pet tin bạn làm được! ',
+        'Sai một chút thôi! ', 'Đừng lo, thử câu tiếp theo nhé! ', 'Cố lên nào! ']
 };
 
 /* ===================== TIỆN ÍCH ===================== */
@@ -33,6 +33,7 @@ let treeScroll = null;
 const $ = id => document.getElementById(id);
 const save = () => localStorage.setItem(KEY, JSON.stringify(S));
 const pick = a => a[Math.floor(Math.random() * a.length)];
+
 const shuffle = a => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(x => x[1]);
 const seeded = seed => () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 
@@ -150,7 +151,7 @@ function renderTree() {
     pn.classList.toggle('hidden', !selLv);
     if (selLv) {
         const l = selLv, open = unlocked(l, 'easy');
-        pn.innerHTML = `<h3>Cấp ${l}</h3><small>${S.done[l + '-hard'] ? 'Hoàn thành! Bạn có thể ôn lại.' : open ? 'Qua Dễ → Vừa → Khó để mở cấp tiếp theo' : 'Hoàn thành cấp trước để mở khóa'}</small><div class="tiers">`
+        pn.innerHTML = `<h3>Level ${l}</h3><small>${S.done[l + '-hard'] ? 'Completed! You can review this level.' : open ? 'Complete Easy → Medium → Hard to unlock the next level.' : 'Complete the previous level to unlock this level.'}</small><div class="tiers">`
             + TI.map(t => { const ok = unlocked(l, t); return `<button class="tier ${t} ${ok ? '' : 'locked'} ${S.done[l + '-' + t] ? 'done' : ''}" ${ok ? '' : 'disabled'} onclick="startQuiz('${l}','${t}')">${TNAME[t]}</button>`; }).join('') + '</div>';
     }
     const pe = $('path');
@@ -253,23 +254,23 @@ function showQ() {
     $('fbWrap').classList.add('hidden');
     $('next').classList.add('hidden');
     $('barFill').style.width = (cur.i / cur.qs.length * 100) + '%';
-    $('qTitle').textContent = `${cur.l} · ${TNAME[cur.t]}${cur.review ? ' · Ôn tập' : ''} · ${cur.i + 1}/${cur.qs.length}`;
+    $('qTitle').textContent = `${cur.l} · ${TNAME[cur.t]}${cur.review ? ' · Review' : ''} · ${cur.i + 1}/${cur.qs.length}`;
     let h = '';
     if (q.t === 'mcq' || q.t === 'read') {
         q.opts = shuffle(q.o.map((txt, k) => ({ txt, ok: k === 0 })));
-        h += `<span class="tag">${q.t === 'read' ? 'Đọc hiểu' : 'Chọn đáp án'}</span>`;
+        h += `<span class="tag">${q.t === 'read' ? 'Reading comprehension' : 'Multiple choice'}</span>`;
         if (q.v) h += `<div class="vi">${q.v}</div>`;
         if (q.x) h += `<div class="passage">${q.x}</div>`;
         h += `<div class="q">${q.q}</div>` + q.opts.map((o, k) => `<button class="opt" onclick="answerMcq(${k})">${o.txt}</button>`).join('');
     } else if (q.t === 'fill') {
-        h += `<span class="tag">Điền từ</span><div class="q">${q.q}</div>
-      <input class="fill" id="fillIn" autocomplete="off" placeholder="Gõ đáp án..." onkeydown="if(event.key==='Enter')answerFill()">
-      <button class="btn" onclick="answerFill()">Kiểm tra</button>`;
+        h += `<span class="tag">Fill in the blank</span><div class="q">${q.q}</div>
+      <input class="fill" id="fillIn" autocomplete="off" placeholder="Type your answer..." onkeydown="if(event.key==='Enter')answerFill()">
+      <button class="btn" onclick="answerFill()">Check answer</button>`;
     } else {
         q.words = shuffle(q.a.split(' '));
-        h += `<span class="tag">Sắp xếp câu</span><div class="q">Xếp các từ thành câu đúng:</div>
+        h += `<span class="tag">Sentence order</span><div class="q">Arrange the words to make a correct sentence:</div>
       <div class="chips answer-zone" id="zone"></div><div class="chips" id="pool"></div>
-      <button class="btn" onclick="answerOrder()">Kiểm tra</button>`;
+      <button class="btn" onclick="answerOrder()">Check answer</button>`;
     }
     $('qBox').innerHTML = h;
     if (q.t === 'order') drawChips();
@@ -313,31 +314,31 @@ function finish(correct, answer) {
     $('fb').className = 'feedback ' + (correct ? 'good' : 'wrong');
     $('fbWrap').classList.remove('hidden');
     $('fbVerdict').textContent = correct ? '✓ ĐÚNG!' : '✕ SAI RỒI';
-    $('fbText').textContent = correct ? `${pick(CAP.right)}${cur.review ? '' : ' +' + PT[cur.t] + ' điểm tạm tính'}` : `${pick(CAP.wrong)} Đáp án đúng: ${answer}`;
+    $('fbText').textContent = correct ? `${pick(CAP.right)}${cur.review ? '' : ' +' + PT[cur.t] + ' điểm tạm tính'}` : `${pick(CAP.wrong)}Đáp án đúng: ${answer}`;
     $('fbExp').textContent = cur.qs[cur.i].e;
     const pair = shuffle(MEMES[correct ? 'right' : 'wrong']); // 2 meme ngẫu nhiên khác nhau, hai bên bảng
     setMeme($('fbL'), pair[0]); setMeme($('fbR'), pair[1]);
     $('next').classList.remove('hidden');
-    $('next').textContent = cur.i + 1 < cur.qs.length ? 'Tiếp tục →' : 'Xem kết quả';
+    $('next').textContent = cur.i + 1 < cur.qs.length ? 'Continue →' : 'See results';
 }
 
 function endQuiz() {
     const n = cur.qs.length, need = Math.ceil(n * PASS_RATE), pass = cur.ok >= need, li = LV.indexOf(cur.l);
-    let msg = `Đúng ${cur.ok}/${n} câu.`;
-    if (cur.review) msg += ' Chế độ ôn tập nên không cộng điểm và xu.';
-    else if (!pass) msg += ` Cần đúng ít nhất ${need} câu để qua. ${cur.gain} điểm tạm tính đã được hoàn lại, thử lại nhé!`;
+    let msg = `${cur.ok}/${n} correct.`;
+    if (cur.review) msg += ' Review mode does not award points or coins.';
+    else if (!pass) msg += ` Get at least ${need} correct to pass. Your ${cur.gain} pending points have been returned. Try again!`;
     else {
         S.done[cur.l + '-' + cur.t] = 1;
         const hard = cur.t === 'hard', bonus = hard ? LEVEL_BONUS.pts : TIER_BONUS;
         if (hard) S.coins += LEVEL_BONUS.coins;
         addPts(cur.gain + bonus); // lưu điểm + xu
-        msg += ` Nhận ${cur.gain} điểm làm bài + ${bonus} điểm thưởng` + (hard
-            ? ` + ${LEVEL_BONUS.coins} xu. ${li < LV.length - 1 ? `Qua cấp ${cur.l}, đã mở khóa ${LV[li + 1]}!` : 'Bạn đã chinh phục toàn bộ dây leo!'}`
-            : '. Đã mở khóa nhóm tiếp theo!');
+        msg += ` You earned ${cur.gain} points for the quiz + ${bonus} bonus points` + (hard
+            ? ` + ${LEVEL_BONUS.coins} coins. ${li < LV.length - 1 ? `Level ${cur.l} complete! ${LV[li + 1]} is now unlocked.` : 'You have completed the entire vine!'}`
+            : '. The next tier is now unlocked!');
     }
     $('pts').textContent = '✦ ' + S.pts;
     $('coins').textContent = '◎ ' + S.coins;
-    $('resTitle').textContent = pass ? 'Tuyệt vời!' : 'Cố lên nào!';
+    $('resTitle').textContent = pass ? 'Excellent work!' : 'Keep going!';
     $('resText').textContent = msg;
     setMeme($('resMeme'), pick(MEMES[pass ? 'right' : 'wrong']));
     if (pass) window.playGameSound?.('study-complete');
