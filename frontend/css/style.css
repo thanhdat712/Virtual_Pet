@@ -49,6 +49,16 @@ button {
     pointer-events: none;
 }
 
+.pet-game.is-sleeping::before {
+    content: '';
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    background: rgba(10, 17, 54, .56);
+    pointer-events: none;
+    animation: night-fall .65s ease-out both;
+}
+
 .lobby-scene {
     position: absolute;
     inset: 0;
@@ -262,6 +272,52 @@ button {
     flex-direction: column;
     align-items: center;
     pointer-events: none;
+}
+
+.pet-stage.is-sleeping .pet-image {
+    transform: translateY(7%) scale(.88, .82) rotate(-5deg);
+    filter: brightness(.78) saturate(.78) drop-shadow(0 11px 2px rgba(25, 23, 54, .35));
+    transition: transform .55s ease, filter .55s ease;
+}
+
+.pet-stage.is-sleeping::before {
+    content: 'Z z z';
+    position: absolute;
+    z-index: 5;
+    top: 8%;
+    right: -12%;
+    color: #e2ecff;
+    font: 700 clamp(18px, 2.4vw, 32px)/1 'Pixelify Sans', monospace;
+    text-shadow: 2px 2px 0 #354575;
+    animation: sleep-zzz 1.2s ease-in-out infinite alternate;
+}
+
+.pet-stage.is-sleeping::after {
+    content: '';
+    position: absolute;
+    z-index: 4;
+    left: 15%;
+    right: 12%;
+    bottom: 6%;
+    height: 29%;
+    border: 3px solid #245f76;
+    border-radius: 48% 48% 20% 20%;
+    background: repeating-linear-gradient(0deg, #438eac 0 9px, #58a9c2 9px 18px);
+    box-shadow: inset 0 5px 0 rgba(196, 238, 246, .46), 0 4px 0 rgba(22, 42, 78, .35);
+    clip-path: polygon(0 24%, 22% 5%, 50% 18%, 77% 0, 100% 20%, 100% 100%, 0 100%);
+    animation: blanket-settle .55s ease-out both;
+    pointer-events: none;
+}
+
+@keyframes night-fall { from { background: rgba(10, 17, 54, 0); } to { background: rgba(10, 17, 54, .56); } }
+@keyframes sleep-zzz { from { transform: translateY(7px) scale(.92); opacity: .72; } to { transform: translateY(-5px) scale(1.04); opacity: 1; } }
+@keyframes blanket-settle { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+    .pet-game.is-sleeping::before,
+    .pet-stage.is-sleeping::before,
+    .pet-stage.is-sleeping::after { animation: none; }
+    .pet-stage.is-sleeping .pet-image { transition: none; }
 }
 
 .pet-name {

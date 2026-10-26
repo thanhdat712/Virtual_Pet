@@ -71,6 +71,17 @@ let selectedFood = null;
 const petStage = document.querySelector('.pet-stage');
 const feedingStatus = document.querySelector('#feeding-status');
 let feedingStatusTimeout;
+let sleepVisualTimeout;
+
+function showSleepingScene() {
+	window.clearTimeout(sleepVisualTimeout);
+	petStage.classList.add('is-sleeping');
+	document.querySelector('.pet-game').classList.add('is-sleeping');
+	sleepVisualTimeout = window.setTimeout(() => {
+		petStage.classList.remove('is-sleeping');
+		document.querySelector('.pet-game').classList.remove('is-sleeping');
+	}, 4200);
+}
 
 function setFeedingStatus(message, duration = 0) {
 	clearTimeout(feedingStatusTimeout);
@@ -160,6 +171,7 @@ async function feedFood(item) {
 	try {
 		const previousLevel = petLevel;
 		const fed = await api.feedPet(item.id);
+		window.playGameSound?.('eat');
 		applyAccountState(fed);
 		petStage.classList.remove('is-eating');
 		void petStage.offsetWidth;
@@ -196,6 +208,8 @@ document.querySelector('#sleep-pet').addEventListener('click', async (event) => 
 	button.disabled = true;
 	try {
 		applyAccountState(await api.sleepPet());
+		window.playGameSound?.('sleep');
+		showSleepingScene();
 		setFeedingStatus(`${window.getCurrentPetName()} took a nap and feels rested!`);
 	} catch (failure) {
 		const message = reportFailure(failure);
