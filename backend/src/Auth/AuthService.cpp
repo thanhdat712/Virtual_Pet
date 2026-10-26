@@ -83,9 +83,9 @@ CREATE TABLE IF NOT EXISTS pets (
     name TEXT NOT NULL DEFAULT 'UIA',
     level INTEGER NOT NULL DEFAULT 1 CHECK (level > 0),
     experience INTEGER NOT NULL DEFAULT 0 CHECK (experience >= 0),
-    happiness INTEGER NOT NULL DEFAULT 85 CHECK (happiness BETWEEN 0 AND 100),
-    hunger INTEGER NOT NULL DEFAULT 30 CHECK (hunger BETWEEN 0 AND 100),
-    energy INTEGER NOT NULL DEFAULT 70 CHECK (energy BETWEEN 0 AND 100)
+    happiness INTEGER NOT NULL DEFAULT 0 CHECK (happiness BETWEEN 0 AND 100),
+    hunger INTEGER NOT NULL DEFAULT 50 CHECK (hunger BETWEEN 0 AND 100),
+    energy INTEGER NOT NULL DEFAULT 50 CHECK (energy BETWEEN 0 AND 100)
 );
 CREATE TABLE IF NOT EXISTS inventory (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
@@ -349,7 +349,7 @@ RegisterResult AuthService::registerUser(std::string username, std::string email
             return {RegisterStatus::DATABASE_ERROR, 0, detail};
         }
 
-        Statement insertPet(database, "INSERT INTO pets (user_id, name, level, experience, happiness, hunger, energy) VALUES (?, ?, 1, 0, 85, 30, 70);");
+        Statement insertPet(database, "INSERT INTO pets (user_id, name, level, experience, happiness, hunger, energy) VALUES (?, ?, 1, 0, 0, 50, 50);");
         sqlite3_bind_int64(insertPet.get(), 1, userId);
         sqlite3_bind_text(insertPet.get(), 2, "UIA", -1, SQLITE_TRANSIENT);
         if (sqlite3_step(insertPet.get()) != SQLITE_DONE) {
