@@ -241,6 +241,7 @@ function decor() { // hạt bay: ít phần tử để nhẹ máy
 function startQuiz(l, t) {
     // review: nhóm đã hoàn thành trước đó -> chế độ ôn tập, không cộng điểm/xu
     cur = { l, t, qs: shuffle(D[l][t]).slice(0, QUIZ_SIZE), i: 0, ok: 0, gain: 0, review: !!S.done[l + '-' + t] };
+    window.playGameSound?.('study-start');
     show('quiz');
     showQ();
 }
@@ -307,6 +308,7 @@ function answerOrder() {
 
 function finish(correct, answer) {
     cur.answered = true;
+    window.playGameSound?.(correct ? 'study-correct' : 'study-wrong');
     if (correct) { cur.ok++; if (!cur.review) { cur.gain += PT[cur.t]; $('pts').textContent = '✦ ' + (S.pts + cur.gain); } } // điểm tạm tính, chỉ lưu khi qua màn
     $('fb').className = 'feedback ' + (correct ? 'good' : 'wrong');
     $('fbWrap').classList.remove('hidden');
@@ -338,6 +340,7 @@ function endQuiz() {
     $('resTitle').textContent = pass ? 'Tuyệt vời!' : 'Cố lên nào!';
     $('resText').textContent = msg;
     setMeme($('resMeme'), pick(MEMES[pass ? 'right' : 'wrong']));
+    if (pass) window.playGameSound?.('study-complete');
     show('result');
 }
 

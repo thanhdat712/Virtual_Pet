@@ -373,6 +373,7 @@ resetConfirmForm.addEventListener('submit', async (event) => {
 function setSoundEnabled(enabled) {
 	window.soundEnabled = enabled;
 	settingsSoundToggle.checked = enabled;
+	try { localStorage.setItem('pet-home-sound-enabled', String(enabled)); } catch { /* Sound still works for this page. */ }
 	document.querySelectorAll('audio').forEach((audio) => { audio.muted = !enabled; });
 	window.dispatchEvent(new CustomEvent('soundsettingchange', { detail: { enabled } }));
 }
