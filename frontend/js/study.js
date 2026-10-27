@@ -11,7 +11,7 @@ const LEVEL_BONUS = { pts: 50, coins: 20 };       // thưởng khi qua nhóm Kh�
 
 /* MEME: ảnh nằm trong assets/memes/. Bạn chỉ cần đổi tên file tải về cho khớp tên bên dưới
    (hoặc sửa tên/đuôi .gif/.jpg/.png trong danh sách). Ảnh nào chưa có thì ô đó tự ẩn. */
-const MEMES_DIR = 'assets/study/';
+const MEMES_DIR = 'assets/memes/';
 const MEMES = {
     corner: ['chopixel9.gif', 'meopixel9.gif', 'chopixel2.gif', 'meopixel1.gif'], // 4 góc màn hình lúc mở trang Study
     right: ['chopixel5.gif', 'chopixel3.jpg', 'meopixel3.gif', 'chopixel7.gif', 'meopixel2.gif', 'meopixel6.gif', 'chopixel6.gif'], // 5 meme khi trả lời ĐÚNG (mỗi lần rút 2)
@@ -28,7 +28,7 @@ const CAP = {
 let S = JSON.parse(localStorage.getItem(KEY) || '{"done":{},"pts":0,"coins":0}');
 let cur = null;      // bài đang làm: {l, t, qs, i, ok, gain, review, answered, build}
 let selLv = null;    // cấp đang chọn trên dây leo
-let treeScroll = null;
+const memeRequests = new WeakMap();
 
 const $ = id => document.getElementById(id);
 const save = () => localStorage.setItem(KEY, JSON.stringify(S));
@@ -40,6 +40,48 @@ const seeded = seed => () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 function show(id) {
     ['tree', 'quiz', 'result'].forEach(s => $(s).classList.toggle('hidden', s !== id));
     $('stickers').classList.toggle('hidden', id !== 'tree');
+}
+
+function fitStudyLayout() {
+    const path = $('path');
+    const pathIn = $('pathIn');
+    const pathWorld = $('pathWorld');
+    const tree = $('tree');
+    const scale = innerWidth <= 350 ? .56 : innerWidth <= 420 ? .62 : innerWidth < 500 ? .78 : innerWidth < 1000 ? .9 : 1;
+    const viewportWidth = document.documentElement.clientWidth;
+    const treeStyle = getComputedStyle(tree);
+    const pathWidth = viewportWidth;
+    const treeContentLeft = tree.getBoundingClientRect().left + parseFloat(treeStyle.paddingLeft);
+    const activeIndex = selLv ? LV.indexOf(selLv) : LV.findIndex(l => !S.done[l + '-hard']);
+    const activeNode = NODE[activeIndex < 0 ? 5 : activeIndex];
+    const nextOffset = Math.max(0, pathWidth / 2 - activeNode.x * scale);
+    path.style.width = `${pathWidth}px`;
+    path.style.marginLeft = `${-treeContentLeft}px`;
+    path.style.marginTop = '0px';
+    pathWorld.style.left = `${nextOffset}px`;
+    pathWorld.style.transform = `scale(${scale})`;
+    pathIn.style.width = `${Math.max(W * scale, nextOffset + NODE[5].x * scale + pathWidth / 2)}px`;
+    pathIn.style.height = `${340 * scale}px`;
+    if (innerWidth <= 420) {
+        const pathTop = path.getBoundingClientRect().top;
+        path.style.marginTop = `${Math.max(0, innerHeight / 2 - (pathTop + 170 * scale))}px`;
+        const stickerTop = $('stickers');
+        const topY = Math.ceil(document.querySelector('.start-tip').getBoundingClientRect().bottom + 6);
+        const pathRect = path.getBoundingClientRect();
+        const bottomY = Math.ceil(pathRect.bottom + 10);
+        const stickerSize = Math.min(90, viewportWidth * .24, pathRect.top - topY - 8);
+        stickerTop.querySelector('.stk.a').style.top = `${topY}px`;
+        stickerTop.querySelector('.stk.b').style.top = `${topY}px`;
+        stickerTop.querySelector('.stk.c').style.top = `${bottomY}px`;
+        stickerTop.querySelector('.stk.d').style.top = `${bottomY}px`;
+        stickerTop.querySelectorAll('.stk').forEach(el => {
+            el.style.width = `${stickerSize}px`;
+            el.style.height = `${stickerSize}px`;
+        });
+    }
+    if (tree.offsetParent) {
+        path.scrollLeft = activeNode.x * scale + nextOffset - pathWidth / 2;
+    }
 }
 
 /* Điểm lưu riêng để phần Happiness đọc: 10 điểm study = 0.2% happiness (happiness += pts / 10 * 0.2) */
@@ -56,10 +98,20 @@ function unlocked(l, t) {
 }
 
 function setMeme(el, file) { // chỉ hiện khi ảnh tải được
+    const request = {};
+    memeRequests.set(el, request);
     el.style.display = 'none';
+    el.replaceChildren();
     const im = new Image();
-    im.onload = () => { el.replaceChildren(im); el.style.display = 'block'; };
-    im.src = MEMES_DIR + file;
+    im.onload = () => {
+        if (memeRequests.get(el) !== request) return;
+        el.replaceChildren(im);
+        el.style.display = 'block';
+    };
+    im.onerror = () => {
+        if (memeRequests.get(el) === request) console.error(`Study meme failed to load: ${MEMES_DIR + file}`);
+    };
+    im.src = new URL(MEMES_DIR + file, document.baseURI).href;
 }
 
 /* ===================== DÂY LEO PIXEL ===================== */
@@ -115,12 +167,12 @@ function growVine() { // vẽ một lần: 1 ô pixel = 4px màn hình
     }
     let berries = '';
     for (let k = 0; k < 14; k++) { const a = m.getPointAtLength(r() * L); berries += `<i class="pb" style="left:${a.x + (r() - .5) * 30}px;top:${a.y + (r() - .5) * 40}px;animation-delay:${-r()}s"></i>`; }
-    $('pathIn').insertAdjacentHTML('beforeend', berries);
+    $('pathWorld').insertAdjacentHTML('beforeend', berries);
     svg.remove();
 }
 
 function buildNodes() {
-    $('pathIn').insertAdjacentHTML('beforeend', LV.map((l, n) =>
+    $('pathWorld').insertAdjacentHTML('beforeend', LV.map((l, n) =>
         `<button class="node" data-l="${l}" style="left:${NODE[n].x}px;top:${NODE[n].y}px" onclick="pickLv('${l}')"><b>${l}</b><em></em></button>`).join(''));
 }
 
@@ -133,7 +185,6 @@ function enableDrag(pe) { // kéo chuột / lăn con lăn để lướt ngang (c
         const max = pe.scrollWidth - pe.clientWidth;
         if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && ((e.deltaY > 0 && pe.scrollLeft < max) || (e.deltaY < 0 && pe.scrollLeft > 0))) { pe.scrollLeft += e.deltaY; e.preventDefault(); }
     };
-    pe.addEventListener('scroll', () => { if (pe.offsetParent) treeScroll = pe.scrollLeft; }, { passive: true });
 }
 
 function pickLv(l) { selLv = l; renderTree(); }
@@ -154,9 +205,7 @@ function renderTree() {
         pn.innerHTML = `<h3>Level ${l}</h3><small>${S.done[l + '-hard'] ? 'Completed! You can review this level.' : open ? 'Complete Easy → Medium → Hard to unlock the next level.' : 'Complete the previous level to unlock this level.'}</small><div class="tiers">`
             + TI.map(t => { const ok = unlocked(l, t); return `<button class="tier ${t} ${ok ? '' : 'locked'} ${S.done[l + '-' + t] ? 'done' : ''}" ${ok ? '' : 'disabled'} onclick="startQuiz('${l}','${t}')">${TNAME[t]}</button>`; }).join('') + '</div>';
     }
-    const pe = $('path');
-    if (treeScroll === null) { const ci = LV.findIndex(l => !S.done[l + '-hard']); treeScroll = NODE[ci < 0 ? 5 : ci].x - pe.clientWidth / 2; }
-    pe.scrollLeft = treeScroll;
+    fitStudyLayout();
 }
 
 /* ===================== NỀN PIXEL ===================== */
@@ -353,5 +402,10 @@ $('retry').onclick = () => startQuiz(cur.l, cur.t);
 pixelScene(); tiles(); grass(); decor();
 growVine(); buildNodes(); enableDrag($('path'));
 $('stickers').querySelectorAll('.stk').forEach((el, i) => setMeme(el, MEMES.corner[i]));
+let layoutTimer;
+addEventListener('resize', () => {
+    clearTimeout(layoutTimer);
+    layoutTimer = setTimeout(fitStudyLayout, 120);
+});
 renderTree();
 window.startStudyMusic?.();
