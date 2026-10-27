@@ -275,15 +275,10 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
                 : error(409,"Email already registered");
             if (modern && db.usernameExists(username)) return apiError(409,"USERNAME_TAKEN","This username is already taken.");
             db.createUser(username,email,password,user);
-            const std::string candidate = crypto::randomHex(32);
-            if (!db.issueEmailVerification(email,sha256::hashHex(candidate),static_cast<long long>(std::time(nullptr))+1800))
-                return apiError(500,"VERIFICATION_SETUP_FAILED","Could not create an email verification code.");
             if (modern) return response(201,{{"success",true},{"code","REGISTERED"},
-                {"message","Account created. Verify your email before logging in."},
-                {"verificationCode",candidate},{"expiresInSeconds",1800},
+                {"message","Account created successfully."},
                 {"user",{{"id",user.id},{"username",user.username}}}});
-            return response(201,{{"success",true},{"message","Account created. Verify your email before logging in."},
-                {"verificationCode",candidate},{"expiresInSeconds",1800}});
+            return response(201,{{"success",true},{"message","Account created successfully."}});
         } else {
             int retry = authFailures.retryAfter();
             if (retry) {
@@ -297,10 +292,6 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
                 return request.path == "/api/auth/login"
                     ? apiError(401,"INVALID_CREDENTIALS","Invalid email or password.") : error(401,"Invalid credentials");
             }
-            if (!user.emailVerified)
-                return request.path == "/api/auth/login"
-                    ? apiError(403,"EMAIL_NOT_VERIFIED","Verify your email before logging in.")
-                    : error(403,"Email not verified");
             db.touchLastLogin(user.id);
         }
         const std::string token = db.createSession(user.id);

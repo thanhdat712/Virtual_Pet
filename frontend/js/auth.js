@@ -74,82 +74,6 @@ const resetConfirmForm = passwordResetPanel.querySelector('#password-reset-confi
 const resetRequestMessage = passwordResetPanel.querySelector('#reset-request-message');
 const resetConfirmMessage = passwordResetPanel.querySelector('#reset-confirm-message');
 
-const emailVerificationPanel = document.createElement('section');
-emailVerificationPanel.className = 'entry-form password-reset-panel';
-emailVerificationPanel.hidden = true;
-emailVerificationPanel.innerHTML = `
-	<h1>Verify your email</h1>
-	<p class="entry-description">Enter the one-time code to activate your account.</p>
-	<p class="entry-description">Local development: the code appears here because email delivery is not configured.</p>
-	<p id="email-verification-message" class="entry-error" role="status" aria-live="polite"></p>
-	<form id="email-verification-form" class="entry-form">
-		<label for="verification-email">Email</label>
-		<input id="verification-email" name="email" type="email" maxlength="254" autocomplete="email" required>
-		<label for="verification-code">Verification code</label>
-		<input id="verification-code" name="verificationCode" type="text" maxlength="64" autocomplete="off" required>
-		<button class="entry-primary" type="submit">Verify email</button>
-		<button id="resend-verification-code" class="entry-back" type="button">Resend code</button>
-		<button class="entry-back" type="button" data-verification-back>Back to login</button>
-	</form>`;
-passwordResetPanel.insertAdjacentElement('afterend', emailVerificationPanel);
-
-const verificationForm = emailVerificationPanel.querySelector('#email-verification-form');
-const verificationMessage = emailVerificationPanel.querySelector('#email-verification-message');
-const verificationEmail = emailVerificationPanel.querySelector('#verification-email');
-
-function showEmailVerification(email, message = '') {
-	entryForm.hidden = true;
-	entryTitle.hidden = true;
-	entryDescription.hidden = true;
-	passwordResetPanel.hidden = true;
-	emailVerificationPanel.hidden = false;
-	verificationEmail.value = email;
-	verificationMessage.classList.remove('is-success');
-	verificationMessage.textContent = message;
-	emailVerificationPanel.querySelector('#verification-code').focus();
-}
-
-emailVerificationPanel.querySelectorAll('[data-verification-back]').forEach((button) => {
-	button.addEventListener('click', () => showAuth('login'));
-});
-
-emailVerificationPanel.querySelector('#resend-verification-code').addEventListener('click', async (event) => {
-	const button = event.currentTarget;
-	button.disabled = true;
-	verificationMessage.classList.remove('is-success');
-	verificationMessage.textContent = '';
-	try {
-		const result = await api.requestEmailVerification(verificationEmail.value.trim());
-		verificationMessage.classList.add('is-success');
-		verificationMessage.textContent = result.verificationCode
-			? `New verification code (valid for 30 minutes): ${result.verificationCode}`
-			: 'If the account needs verification, a new code was generated.';
-	} catch (failure) {
-		verificationMessage.textContent = failure.message || 'Could not resend the verification code.';
-	} finally {
-		button.disabled = false;
-	}
-});
-
-verificationForm.addEventListener('submit', async (event) => {
-	event.preventDefault();
-	const button = verificationForm.querySelector('[type="submit"]');
-	button.disabled = true;
-	verificationMessage.classList.remove('is-success');
-	verificationMessage.textContent = '';
-	try {
-		const result = await api.verifyEmail(verificationEmail.value.trim(),
-			emailVerificationPanel.querySelector('#verification-code').value.trim());
-		showAuth('login');
-		entryError.classList.add('is-success');
-		entryError.textContent = result.message || 'Email verified. You can now log in.';
-	} catch (failure) {
-		verificationMessage.textContent = failure.message || 'Could not verify this email.';
-	} finally {
-		button.disabled = false;
-	}
-});
-
 const accountProfilePanel = document.createElement('section');
 accountProfilePanel.className = 'entry-gate account-profile-gate';
 accountProfilePanel.hidden = true;
@@ -519,7 +443,6 @@ function showAuth(mode) {
 	entryError.textContent = '';
 	entryError.classList.remove('is-success');
 	passwordResetPanel.hidden = true;
-		emailVerificationPanel.hidden = true;
 	entryTitle.hidden = false;
 	entryDescription.hidden = false;
 	forgotPasswordButton.hidden = mode !== 'login';
@@ -634,13 +557,7 @@ entryForm.addEventListener('submit', async (event) => {
 	}
 	try {
 		if (authMode === 'register') {
-			const result = await api.register(username, email, password);
-			entryForm.reset();
-			const localCodeMessage = result.verificationCode
-				? `Verification code for local testing (valid 30 minutes): ${result.verificationCode}`
-				: 'Check your email for the verification code.';
-			showEmailVerification(email,localCodeMessage);
-			return;
+			await api.register(username, email, password);
 		}
 		const result = await api.login(email, password);
 		signedInUser = result.user;
@@ -650,11 +567,7 @@ entryForm.addEventListener('submit', async (event) => {
 		entryGate.hidden = true;
 		continueToGame();
 	} catch (failure) {
-		if (authMode === 'login' && failure.code === 'EMAIL_NOT_VERIFIED') {
-			showEmailVerification(email,failure.message);
-		} else {
-			entryError.textContent = failure.message || 'Could not connect to the server. Open Virtual Pet through its server and try again.';
-		}
+		entryError.textContent = failure.message || 'Could not connect to the server. Open Virtual Pet through its server and try again.';
 	} finally {
 		entrySubmit.disabled = false;
 	}
