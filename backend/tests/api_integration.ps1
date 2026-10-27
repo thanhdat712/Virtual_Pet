@@ -303,7 +303,7 @@ try {
     Check ($frontendLogin.Status -eq 200 -and $frontendLogin.Body.success -and $frontendLogin.Body.user.username -eq 'frontend_01' -and $frontendCookie.StartsWith('vp_session=')) 'Frontend login sets HttpOnly session cookie'
     Check ((Call GET '/api/auth/session' $null '' '' $frontendCookie).Body.authenticated) 'Frontend cookie restores login session'
     $frontendState = (Call GET '/api/game/state' $null '' '' $frontendCookie).Body
-    Check ($frontendState.user.username -eq 'frontend_01' -and $frontendState.pet.species -eq 'cat' -and $frontendState.inventory.Count -eq 0) 'Frontend game state loads from database'
+    Check ($frontendState.user.username -eq 'frontend_01' -and $frontendState.pet.species -eq 'cat' -and -not $frontendState.pet.speciesChosen -and $frontendState.inventory.Count -eq 0) 'New account starts with pet selection pending'
     Check ((Call GET '/api/exercises').Body.Count -eq 5) 'Exercise API returns catalog'
     $frontendSubmission = Call POST '/api/exercises/1/submissions' @{answer='Hello World!'} '' '' $frontendCookie
     Check ($frontendSubmission.Status -eq 201 -and $frontendSubmission.Body.score -eq 100) 'Exercise API grades and stores submissions'
@@ -320,7 +320,7 @@ try {
     $frontendEquip = Call POST '/api/pet/decorate' @{itemId=10} '' '' $frontendCookie
     Check ($frontendEquip.Body.success -and $frontendEquip.Body.state.equipment.floor -eq 10) 'Frontend floor equipment persists'
     $frontendProfile = Call PUT '/api/pet' @{name='Mochi';species='dog'} '' '' $frontendCookie
-    Check ($frontendProfile.Body.state.pet.name -eq 'Mochi' -and $frontendProfile.Body.state.pet.species -eq 'dog') 'Pet name and species are saved in SQLite'
+    Check ($frontendProfile.Body.state.pet.name -eq 'Mochi' -and $frontendProfile.Body.state.pet.species -eq 'dog' -and $frontendProfile.Body.state.pet.speciesChosen) 'Pet choice and profile are saved in SQLite'
     $frontendSettings = Call PUT '/api/settings' @{soundEnabled=$false} '' '' $frontendCookie
     Check (-not $frontendSettings.Body.settings.soundEnabled) 'Sound preference is saved in SQLite'
     $frontendPlay = Call POST '/api/pet/play' $null '' '' $frontendCookie
@@ -333,7 +333,7 @@ try {
     Stop-TestServer
     Start-TestServer
     $frontendPersisted = (Call GET '/api/game/state' $null '' '' $frontendCookie).Body
-    Check ($frontendPersisted.pet.name -eq 'Mochi' -and $frontendPersisted.pet.species -eq 'dog' -and $frontendPersisted.pet.level -eq 2 -and $frontendPersisted.settings.soundEnabled -eq $false -and $null -eq $frontendPersisted.equipment.background -and $frontendPersisted.equipment.floor -eq 10) 'Frontend profile, settings, actions and equipment persist across restart'
+    Check ($frontendPersisted.pet.name -eq 'Mochi' -and $frontendPersisted.pet.species -eq 'dog' -and $frontendPersisted.pet.speciesChosen -and $frontendPersisted.pet.level -eq 2 -and $frontendPersisted.settings.soundEnabled -eq $false -and $null -eq $frontendPersisted.equipment.background -and $frontendPersisted.equipment.floor -eq 10) 'Pet choice, profile, settings, actions and equipment persist across restart'
     Check ((Call POST '/api/auth/logout' @{} '' '' $frontendCookie).Body.success) 'Frontend logout revokes cookie session'
     Check (-not (Call GET '/api/auth/session' $null '' '' $frontendCookie).Body.authenticated) 'Frontend logout prevents session reuse'
 
@@ -348,7 +348,7 @@ try {
     $database = $legacyDatabase
     Start-TestServer
     Check ((Sql 'SELECT username,coins,sound_enabled FROM users WHERE id=7;') -eq 'player_7|77|1') 'Legacy user data migrates without losing coins'
-    Check ((Sql 'SELECT name,species,level,happiness,hunger,energy FROM pets WHERE user_id=7;') -eq 'Old Pet|cat|3|42|55|66') 'Legacy pet data migrates without losing stats'
+    Check ((Sql 'SELECT name,species,species_chosen,level,happiness,hunger,energy FROM pets WHERE user_id=7;') -eq 'Old Pet|cat|1|3|42|55|66') 'Legacy pet data migrates without losing stats or prompting again'
     Write-Host "API integration: $script:checks checks passed"
 } catch {
     if ($script:server) {
