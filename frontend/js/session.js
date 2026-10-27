@@ -11,7 +11,7 @@ function applyAccountState(state) {
 	if (state.pet) {
 		const petName = state.pet.name;
 		const species = state.pet.species === 'dog' ? 'dog' : 'cat';
-		window.currentPetProfile = { name: petName, species };
+		window.currentPetProfile = { name: petName, species, speciesChosen: state.pet.speciesChosen !== false };
 		document.querySelector('#pet-name').textContent = petName;
 		document.querySelector('.pet-stage .pet-name').textContent = petName;
 		const petImage = species === 'dog' ? 'assets/pets/gaugau.png' : 'assets/pets/meomeo.png';

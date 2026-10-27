@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS pets (
     user_id INTEGER PRIMARY KEY REFERENCES users(id),
     name TEXT NOT NULL DEFAULT 'UIA',
     species TEXT NOT NULL DEFAULT 'cat' CHECK (species IN ('cat', 'dog')),
+    species_chosen INTEGER NOT NULL DEFAULT 0 CHECK (species_chosen IN (0, 1)),
     level INTEGER NOT NULL DEFAULT 1 CHECK (level >= 1),
     experience INTEGER NOT NULL DEFAULT 0 CHECK (experience >= 0),
     happiness INTEGER NOT NULL DEFAULT 0 CHECK (happiness BETWEEN 0 AND 100),

@@ -21,6 +21,7 @@ struct PetRow {
     long long userId = 0;
     std::string name = "UIA";
         std::string species = "cat";
+    bool speciesChosen = false;
     int level = 1;
     int experience = 0;
     int happiness = 85;

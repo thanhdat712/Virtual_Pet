@@ -118,6 +118,10 @@ bool Database::runSchema() {
             execute(db_, "ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 1;");
         if (!hasColumn(db_, "pets", "species"))
             execute(db_, "ALTER TABLE pets ADD COLUMN species TEXT NOT NULL DEFAULT 'cat';");
+        if (!hasColumn(db_, "pets", "species_chosen")) {
+            execute(db_, "ALTER TABLE pets ADD COLUMN species_chosen INTEGER NOT NULL DEFAULT 0;");
+            execute(db_, "UPDATE pets SET species_chosen=1;");
+        }
         execute(db_, "UPDATE users SET username='player_'||id WHERE username IS NULL OR username='';"
             "CREATE UNIQUE INDEX IF NOT EXISTS users_username_unique ON users(username COLLATE NOCASE);");
         if (!hasColumn(db_, "sessions", "expires_at"))
@@ -378,12 +382,13 @@ bool Database::setSoundEnabled(long long userId, bool enabled) {
 }
 
 bool Database::getPet(long long userId, PetRow& pet) {
-    Statement statement(db_, "SELECT user_id,name,species,level,experience,happiness,hunger,energy FROM pets WHERE user_id=?;");
+    Statement statement(db_, "SELECT user_id,name,species,species_chosen,level,experience,happiness,hunger,energy FROM pets WHERE user_id=?;");
     statement.bind(1,userId); if (!statement.row()) return false;
     pet.userId = statement.number(0); pet.name = statement.text(1); pet.species = statement.text(2);
-    pet.level = static_cast<int>(statement.number(3)); pet.experience = static_cast<int>(statement.number(4));
-    pet.happiness = static_cast<int>(statement.number(5)); pet.hunger = static_cast<int>(statement.number(6));
-    pet.energy = static_cast<int>(statement.number(7)); return true;
+    pet.speciesChosen = statement.number(3) != 0;
+    pet.level = static_cast<int>(statement.number(4)); pet.experience = static_cast<int>(statement.number(5));
+    pet.happiness = static_cast<int>(statement.number(6)); pet.hunger = static_cast<int>(statement.number(7));
+    pet.energy = static_cast<int>(statement.number(8)); return true;
 }
 
 bool Database::renamePet(long long userId, const std::string& name) {
@@ -393,7 +398,7 @@ bool Database::renamePet(long long userId, const std::string& name) {
 
 bool Database::savePetProfile(long long userId, const std::string& name, const std::string& species) {
     if (name.empty() || (species != "cat" && species != "dog")) return false;
-    Statement statement(db_, "UPDATE pets SET name=?,species=? WHERE user_id=?;");
+    Statement statement(db_, "UPDATE pets SET name=?,species=?,species_chosen=1 WHERE user_id=?;");
     statement.bind(1,name); statement.bind(2,species); statement.bind(3,userId); statement.done();
     return sqlite3_changes(db_) == 1;
 }

@@ -36,8 +36,10 @@ constexpr std::size_t MAX_SUBMISSIONS_PER_MINUTE = 5;
 std::string utcTimestamp() {
     const std::time_t now = std::time(nullptr);
     std::tm tm{};
-#ifdef _WIN32
+#if defined(_MSC_VER)
     gmtime_s(&tm, &now);
+#elif defined(_WIN32)
+    if (const std::tm* utc = std::gmtime(&now)) tm = *utc;
 #else
     gmtime_r(&now, &tm);
 #endif
@@ -92,7 +94,8 @@ Value userJson(const UserRow& user) {
 }
 
 Value petJson(const PetRow& pet) {
-    return {{"name",pet.name},{"species",pet.species},{"level",pet.level},{"experience",pet.experience},
+    return {{"name",pet.name},{"species",pet.species},{"speciesChosen",pet.speciesChosen},
+        {"level",pet.level},{"experience",pet.experience},
         {"happiness",pet.happiness},{"hunger",pet.hunger},{"energy",pet.energy}};
 }
 

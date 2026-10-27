@@ -501,6 +501,16 @@ function showPetPicker() {
 	petPicker.hidden = false;
 }
 
+function continueToGame() {
+	if (window.currentPetProfile?.speciesChosen === false) {
+		showPetPicker();
+		return;
+	}
+	petPicker.hidden = true;
+	entryGate.hidden = true;
+	document.body.classList.remove('entry-open');
+}
+
 function showAuth(mode) {
 	authMode = mode;
 	entryGate.hidden = false;
@@ -638,7 +648,7 @@ entryForm.addEventListener('submit', async (event) => {
 		if (!await window.initializeAccount()) throw new Error('Could not load your saved game.');
 		await migrateBrowserPreferences(signedInUser);
 		entryGate.hidden = true;
-		showPetPicker();
+		continueToGame();
 	} catch (failure) {
 		if (authMode === 'login' && failure.code === 'EMAIL_NOT_VERIFIED') {
 			showEmailVerification(email,failure.message);
@@ -656,7 +666,7 @@ api.session()
 			signedInUser = result.user;
 			if (!await window.initializeAccount()) throw new Error('Could not load your saved game.');
 			await migrateBrowserPreferences(signedInUser);
-			showPetPicker();
+			continueToGame();
 		} else {
 			entryGate.hidden = false;
 			document.body.classList.add('entry-open');
