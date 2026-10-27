@@ -3,19 +3,19 @@
 
 /* ===== Nền tảng ===== */
 *{box-sizing:border-box;border-radius:0}
-html{font-size:21px}
+html{font-size:clamp(14px,1.46vw,21px)}
 body{margin:0;min-height:100vh;overflow-x:hidden;background:#8fcaa2;color:var(--ink);font-family:"VT323","Be Vietnam Pro","Segoe UI",monospace;line-height:1.15}
 button,input{font:inherit;color:inherit}
 .hidden{display:none!important}
-.music-credit{position:fixed;right:8px;bottom:4px;z-index:20;font:12px/1.3 "Be Vietnam Pro","Segoe UI",sans-serif;color:#f6fbf3;text-shadow:0 1px 2px #2f4a3f;opacity:.78}
+.music-credit{position:fixed;right:clamp(4px,.55vw,8px);bottom:clamp(2px,.45vh,4px);z-index:20;font:clamp(9px,.83vw,12px)/1.3 "Be Vietnam Pro","Segoe UI",sans-serif;color:#f6fbf3;text-shadow:0 1px 2px #2f4a3f;opacity:.78}
 .music-credit a{color:inherit}
-.music-toggle{position:fixed;left:10px;bottom:10px;z-index:21;padding:7px 12px;border:2px solid #2f4a3f;background:#c4ecd6;color:#2f4a3f;font:16px "VT323",monospace;cursor:pointer;box-shadow:2px 2px 0 #2f4a3f}
+.music-toggle{position:fixed;left:clamp(6px,.7vw,10px);bottom:clamp(6px,1.1vh,10px);z-index:21;padding:clamp(4px,.5vw,7px) clamp(7px,.85vw,12px);border:2px solid #2f4a3f;background:#c4ecd6;color:#2f4a3f;font:clamp(12px,1.1vw,16px) "VT323",monospace;cursor:pointer;box-shadow:2px 2px 0 #2f4a3f}
 .music-toggle:hover{background:#f6fbf3}
 
 /* ===== Nền pixel (canvas + hạt bay) ===== */
 #jungle{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0;contain:strict}
 #px{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;image-rendering:pixelated}
-#gr{position:absolute;left:0;bottom:0;width:100%;height:120px;image-rendering:pixelated}
+#gr{position:absolute;left:0;bottom:0;width:100%;height:clamp(70px,13.33vh,120px);image-rendering:pixelated}
 #fx{position:absolute;inset:0}
 .petal,.fly,.bfly{position:absolute}
 .petal{top:0;width:6px;height:6px;background:var(--pink);animation:fall var(--t) steps(40) infinite var(--d)}
@@ -32,11 +32,11 @@ button,input{font:inherit;color:inherit}
 @keyframes pop{0%{transform:scale(.3)}70%{transform:scale(1.15)}100%{transform:scale(1)}}
 
 /* ===== Khung chung ===== */
-.screen{position:relative;z-index:1;max-width:600px;margin:0 auto;padding:20px 14px 130px}
-#tree{max-width:780px}
-.topbar{position:sticky;top:10px;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;max-width:760px;margin:12px auto 0;padding:10px 16px;background:var(--panel);border:4px solid var(--ink);box-shadow:5px 5px 0 var(--ink)}
-.topbar h1{margin:0;font-size:1.5rem;letter-spacing:.08em}
-.back,.wallet span{padding:4px 12px;color:var(--ink);border:3px solid var(--ink);box-shadow:3px 3px 0 var(--ink);font-size:1.15rem}
+.screen{position:relative;z-index:1;width:100%;max-width:min(600px,calc(100vw - 24px));margin:0 auto;padding:clamp(12px,2.2vh,20px) clamp(8px,1vw,14px) clamp(70px,14.5vh,130px)}
+#tree{max-width:min(780px,100vw)}
+.topbar{position:sticky;top:clamp(6px,1.1vh,10px);z-index:5;display:flex;align-items:center;justify-content:space-between;gap:clamp(5px,.7vw,10px);width:calc(100% - 24px);max-width:760px;margin:clamp(7px,1.3vh,12px) auto 0;padding:clamp(6px,1.1vh,10px) clamp(8px,1.1vw,16px);background:var(--panel);border:4px solid var(--ink);box-shadow:5px 5px 0 var(--ink)}
+.topbar h1{margin:0;font-size:clamp(1rem,2.1vw,1.5rem);letter-spacing:.08em}
+.back,.wallet span{padding:clamp(3px,.45vh,4px) clamp(7px,.85vw,12px);color:var(--ink);border:3px solid var(--ink);box-shadow:3px 3px 0 var(--ink);font-size:clamp(.85rem,1.6vw,1.15rem)}
 .back{background:var(--sky);text-decoration:none}
 .wallet span{background:var(--peach);margin-left:6px}
 .btn{margin:6px;padding:8px 20px;background:var(--pink);border:4px solid var(--ink);box-shadow:4px 4px 0 var(--ink);font-size:1.3rem;cursor:pointer}
@@ -45,18 +45,19 @@ button,input{font:inherit;color:inherit}
 
 /* ===== Dây leo + nút cấp ===== */
 .start-tip{width:fit-content;max-width:100%;margin:6px auto;padding:4px 12px;background:var(--panel);border:4px solid var(--ink);box-shadow:4px 4px 0 var(--ink);font-size:1.15rem;text-align:center}
-.path{width:100vw;margin-left:calc(50% - 50vw);overflow-x:auto;overflow-y:hidden;cursor:grab;scrollbar-width:none}
+.path{width:100%;margin-left:0;overflow-x:auto;overflow-y:hidden;cursor:grab;scrollbar-width:none}
 .path::-webkit-scrollbar{display:none}
 .path.drag{cursor:grabbing;user-select:none}
 .path-in{position:relative;width:3800px;height:340px}
+.path-world{position:absolute;left:0;top:0;width:3800px;height:340px;transform-origin:top left}
 .vc{position:absolute;left:0;top:0;width:3800px;height:340px;image-rendering:pixelated}
 .pb{position:absolute;width:8px;height:8px;background:#fff6e6;box-shadow:0 0 0 4px rgba(247,191,214,.45);animation:twinkle 1.2s steps(2) infinite}
 .node{--pix:polygon(0 24px,8px 24px,8px 16px,16px 16px,16px 8px,24px 8px,24px 0,calc(100% - 24px) 0,calc(100% - 24px) 8px,calc(100% - 16px) 8px,calc(100% - 16px) 16px,calc(100% - 8px) 16px,calc(100% - 8px) 24px,100% 24px,100% calc(100% - 24px),calc(100% - 8px) calc(100% - 24px),calc(100% - 8px) calc(100% - 16px),calc(100% - 16px) calc(100% - 16px),calc(100% - 16px) calc(100% - 8px),calc(100% - 24px) calc(100% - 8px),calc(100% - 24px) 100%,24px 100%,24px calc(100% - 8px),16px calc(100% - 8px),16px calc(100% - 16px),8px calc(100% - 16px),8px calc(100% - 24px),0 calc(100% - 24px));
   --edge:var(--ink);--fill:#b4c2bb;position:absolute;transform:translate(-50%,-50%);width:104px;height:104px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;border:0;background:var(--edge);clip-path:var(--pix);cursor:pointer}
 .node::after{content:"";position:absolute;inset:8px;background:var(--fill);clip-path:var(--pix)}
 .node b,.node em{position:relative;z-index:1;color:#fff;font-style:normal;text-shadow:2px 2px 0 var(--ink)}
-.node b{font-size:2.1rem;letter-spacing:.04em}
-.node em{font-size:1rem;letter-spacing:.1em}
+.node b{font-size:44px;letter-spacing:.04em}
+.node em{font-size:21px;letter-spacing:.1em}
 .node.open{--fill:#7fcf9f;animation:blink 1s steps(1) infinite}
 .node.done{--fill:#f4a6c3}
 .node:hover:not(.locked){--fill:#a8e0bd;transform:translate(-50%,-54%)}
@@ -112,11 +113,16 @@ input.fill{width:100%;margin-bottom:6px;padding:10px 14px;background:#fff;border
 /* ===== 4 meme ở 4 góc (nằm trên cỏ hoa dưới đáy) ===== */
 #stickers{position:fixed;inset:0;z-index:3;pointer-events:none}
 .stk img{border:0;box-shadow:none;object-fit:contain}
-.stk{position:absolute;width:150px;height:150px}
-.stk.a{left:100px;top:45px;rotate:0deg; width:250px;height:250px}.stk.b{right:10px;top:96px;rotate:6deg}
-.stk.c{left:50px;bottom:50px;rotate:5deg}.stk.d{right:190px;bottom:95px;rotate:0deg; width:200px;height:200px}
+.stk{position:absolute;width:clamp(80px,10.42vw,150px);height:clamp(80px,10.42vw,150px)}
+.stk.a{left:clamp(14px,6.95vw,100px);top:clamp(10px,5vh,45px);rotate:0deg;width:clamp(130px,17.36vw,250px);height:clamp(130px,17.36vw,250px)}.stk.b{right:clamp(6px,.7vw,10px);top:clamp(24px,10.67vh,96px);rotate:6deg}
+.stk.c{left:clamp(8px,3.47vw,50px);bottom:clamp(20px,5.56vh,50px);rotate:5deg}.stk.d{right:clamp(24px,13.2vw,190px);bottom:clamp(28px,10.56vh,95px);rotate:0deg;width:clamp(110px,13.89vw,200px);height:clamp(110px,13.89vw,200px)}
 
-@media(max-width:1000px){.fb-wrap:not(.hidden){display:flex;flex-wrap:wrap;justify-content:space-around;gap:10px}.fbm{position:static;margin-top:0;order:1;width:90px;height:90px}.feedback{order:2;flex:0 0 100%}}
-@media(max-width:900px){.stk{width:80px;height:80px}}
-@media(max-width:640px){.fbm{width:72px;height:72px}.topbar h1{display:none}}
+@media(max-width:1000px){.fbm{width:clamp(54px,9vw,90px);height:clamp(54px,9vw,90px);margin-top:calc(clamp(54px,9vw,90px)/-2)}.fbm.l{right:calc(100% + clamp(6px,1vw,18px))}.fbm.r{left:calc(100% + clamp(6px,1vw,18px))}}
+@media(max-width:640px){#quiz{max-width:min(600px,calc(100vw - 120px))}.fbm{width:clamp(36px,12vw,50px);height:clamp(36px,12vw,50px);margin-top:calc(clamp(36px,12vw,50px)/-2)}.fbm.l{right:calc(100% + 6px)}.fbm.r{left:calc(100% + 6px)}.topbar h1{display:none}}
+@media(max-width:480px){
+  #stickers{inset:0;width:100%;height:100%}
+  #stickers .stk{position:absolute;width:clamp(46px,24vw,90px);height:clamp(46px,24vw,90px);rotate:0deg}
+  #stickers .stk.a,#stickers .stk.c{left:6px;right:auto}
+  #stickers .stk.b,#stickers .stk.d{left:auto;right:6px}
+}
 @media(prefers-reduced-motion:reduce){#fx{display:none}}
