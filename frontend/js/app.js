@@ -307,20 +307,38 @@ function openPurchaseDialog(item) {
 
 	let quantityInput = null;
 	let quantityLabel = null;
+	let quantityControl = null;
+	let decreaseQuantityButton = null;
+	let increaseQuantityButton = null;
 	if (isFood) {
 		quantityLabel = document.createElement('label');
 		quantityLabel.className = 'purchase-quantity-label';
 		quantityLabel.htmlFor = 'purchase-quantity';
 		quantityLabel.textContent = 'Quantity';
+		quantityControl = document.createElement('div');
+		quantityControl.className = 'purchase-quantity-control';
+		decreaseQuantityButton = document.createElement('button');
+		decreaseQuantityButton.type = 'button';
+		decreaseQuantityButton.className = 'purchase-quantity-step';
+		decreaseQuantityButton.setAttribute('aria-label', 'Decrease quantity');
+		decreaseQuantityButton.textContent = '−';
 		quantityInput = document.createElement('input');
 		quantityInput.className = 'purchase-quantity-input';
 		quantityInput.id = 'purchase-quantity';
-		quantityInput.type = 'number';
-		quantityInput.min = '1';
-		quantityInput.max = String(Math.max(1, Math.floor(coins / item.price)));
+		quantityInput.type = 'text';
+		quantityInput.readOnly = true;
+		quantityInput.setAttribute('aria-label', 'Quantity');
+		quantityInput.setAttribute('aria-live', 'polite');
+		quantityInput.dataset.max = String(Math.max(1, Math.floor(coins / item.price)));
 		quantityInput.value = '1';
 		quantityInput.inputMode = 'numeric';
 		quantityInput.autocomplete = 'off';
+		increaseQuantityButton = document.createElement('button');
+		increaseQuantityButton.type = 'button';
+		increaseQuantityButton.className = 'purchase-quantity-step';
+		increaseQuantityButton.setAttribute('aria-label', 'Increase quantity');
+		increaseQuantityButton.textContent = '+';
+		quantityControl.append(decreaseQuantityButton, quantityInput, increaseQuantityButton);
 	}
 
 	const total = document.createElement('p');
@@ -346,8 +364,8 @@ function openPurchaseDialog(item) {
 	confirmButton.textContent = 'Confirm purchase';
 	confirmButton.addEventListener('click', async () => {
 		const quantity = quantityInput ? Number.parseInt(quantityInput.value, 10) : 1;
-		if (quantityInput && (!Number.isInteger(quantity) || quantity < 1 || quantity > Number(quantityInput.max))) {
-			error.textContent = `Choose a quantity from 1 to ${quantityInput.max}.`;
+		if (quantityInput && (!Number.isInteger(quantity) || quantity < 1 || quantity > Number(quantityInput.dataset.max))) {
+			error.textContent = `Choose a quantity from 1 to ${quantityInput.dataset.max}.`;
 			return;
 		}
 
@@ -374,23 +392,23 @@ function openPurchaseDialog(item) {
 	});
 	actions.append(cancelButton, confirmButton);
 
-	quantityInput?.addEventListener('input', () => {
-		const maxQuantity = Number(quantityInput.max);
-		let quantity = Number.parseInt(quantityInput.value, 10);
-		if (Number.isInteger(quantity) && quantity > maxQuantity) {
-			quantity = maxQuantity;
-			quantityInput.value = String(quantity);
-		}
-		if (!Number.isInteger(quantity) || quantity < 1) {
-			quantity = 1;
-		}
+	const updateQuantity = (amount) => {
+		if (!quantityInput) return;
+		const maxQuantity = Number(quantityInput.dataset.max);
+		const quantity = Math.min(maxQuantity, Math.max(1, Number(quantityInput.value) + amount));
+		quantityInput.value = String(quantity);
 		total.textContent = `Total: ${item.price * quantity} coins`;
+		decreaseQuantityButton.disabled = quantity <= 1;
+		increaseQuantityButton.disabled = quantity >= maxQuantity;
 		error.textContent = '';
-	});
+	};
+	decreaseQuantityButton?.addEventListener('click', () => updateQuantity(-1));
+	increaseQuantityButton?.addEventListener('click', () => updateQuantity(1));
+	updateQuantity(0);
 
 	dialog.append(header, itemName, unitPrice);
 	if (isFood) {
-		dialog.append(quantityLabel, quantityInput);
+		dialog.append(quantityLabel, quantityControl);
 	}
 	dialog.append(total, error, actions);
 	backdrop.append(dialog);
