@@ -7,6 +7,12 @@ html{font-size:clamp(14px,1.46vw,21px)}
 body{margin:0;min-height:100vh;overflow-x:hidden;background:#8fcaa2;color:var(--ink);font-family:"VT323","Be Vietnam Pro","Segoe UI",monospace;line-height:1.15}
 button,input{font:inherit;color:inherit}
 .hidden{display:none!important}
+#study-blocked{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;background:rgba(25,49,39,.88)}
+#study-blocked section{width:min(520px,100%);padding:24px;text-align:center;background:var(--paper);border:4px solid var(--ink);box-shadow:8px 8px 0 var(--ink)}
+#study-blocked h2{margin:0 0 14px;font-size:1.8rem}
+#study-blocked p{font-size:1.25rem}
+#study-blocked .btn{display:inline-block;color:var(--ink);text-decoration:none}
+body.study-blocked>:not(#study-blocked){display:none!important}
 .music-credit{position:fixed;right:clamp(4px,.55vw,8px);bottom:clamp(2px,.45vh,4px);z-index:20;font:clamp(9px,.83vw,12px)/1.3 "Be Vietnam Pro","Segoe UI",sans-serif;color:#f6fbf3;text-shadow:0 1px 2px #2f4a3f;opacity:.78}
 .music-credit a{color:inherit}
 .music-toggle{position:fixed;left:clamp(6px,.7vw,10px);bottom:clamp(6px,1.1vh,10px);z-index:21;padding:clamp(4px,.5vw,7px) clamp(7px,.85vw,12px);border:2px solid #2f4a3f;background:#c4ecd6;color:#2f4a3f;font:clamp(12px,1.1vw,16px) "VT323",monospace;cursor:pointer;box-shadow:2px 2px 0 #2f4a3f}

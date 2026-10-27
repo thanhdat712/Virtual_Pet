@@ -104,6 +104,14 @@ Value progressJson(const ProgressRow& progress) {
         {"attempts",progress.attempts},{"completedAt",progress.completedAt}};
 }
 
+Value studyStateJson(const StudyStateRow& state) {
+    Value completed = Value::array();
+    for (const auto& stage : state.completedStages) completed.push_back(stage);
+    return {{"success",true},{"points",state.points},{"coins",state.coins},{"completedStages",completed},
+        {"pet",{{"level",state.level},{"happiness",state.happiness},
+            {"hunger",state.hunger},{"energy",state.energy}}}};
+}
+
 Value inventoryJson(Database& db, long long userId) {
     Value result = Value::array();
     for (const auto& item : db.listInventory(userId)) result.push_back({{"itemId",item.id},{"quantity",item.quantity}});
@@ -372,6 +380,53 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
     }
     if (request.method == "GET" && request.path == "/api/game/state")
         return response(200,gameStateJson(db,userId));
+    if (request.method == "GET" && request.path == "/api/study/state") {
+        StudyStateRow state;
+        if (!db.getStudyState(userId,state)) return apiError(404,"STUDY_STATE_NOT_FOUND","Study state not found.");
+        return response(200,studyStateJson(state));
+    }
+    if (request.method == "POST" && request.path == "/api/study/time") {
+        const auto fields = json::object(request.body);
+        if (fields.size() != 1 || !fields.count("action") || !fields["action"].is_string())
+            return apiError(400,"INVALID_ARGUMENT","Expected a Study time action.");
+        StudyStateRow state;
+        const auto status = db.updateStudyActivity(userId,fields["action"].get<std::string>(),
+                                                    static_cast<long long>(std::time(nullptr)),state);
+        if (status == StudyOperationStatus::InvalidAction)
+            return apiError(400,"INVALID_ARGUMENT","Unknown Study time action.");
+        if (status == StudyOperationStatus::UserNotFound)
+            return apiError(404,"STUDY_STATE_NOT_FOUND","Study state not found.");
+        Value result = studyStateJson(state);
+        result["blocked"] = status == StudyOperationStatus::PetNeedsCare;
+        return response(200,result);
+    }
+    if (request.method == "POST" && request.path == "/api/study/complete") {
+        const auto fields = json::object(request.body);
+        if (fields.size() != 3 || !fields.count("level") || !fields["level"].is_string() ||
+            !fields.count("tier") || !fields["tier"].is_string() ||
+            !fields.count("correctAnswers") || !fields["correctAnswers"].is_number_integer() ||
+            fields["correctAnswers"] < 0 || fields["correctAnswers"] > 5)
+            return apiError(400,"INVALID_ARGUMENT","Expected level, tier, and 0–5 correct answers.");
+
+        StudyStateRow state;
+        bool passed = false, review = false;
+        int awardedPoints = 0, awardedCoins = 0;
+        const auto status = db.completeStudyStage(userId,fields["level"].get<std::string>(),
+            fields["tier"].get<std::string>(),fields["correctAnswers"].get<int>(),
+            state,passed,review,awardedPoints,awardedCoins);
+        if (status == StudyOperationStatus::PetNeedsCare)
+            return apiError(409,"PET_NEEDS_CARE","Your pet needs care before continuing Study.");
+        if (status == StudyOperationStatus::StageLocked)
+            return apiError(409,"STAGE_LOCKED","Complete the previous Study stage first.");
+        if (status == StudyOperationStatus::InvalidStage || status == StudyOperationStatus::InvalidAnswerCount)
+            return apiError(400,"INVALID_ARGUMENT","Invalid Study stage or answer count.");
+        if (status == StudyOperationStatus::UserNotFound)
+            return apiError(404,"STUDY_STATE_NOT_FOUND","Study state not found.");
+        Value result = {{"success",true},{"passed",passed},{"review",review},
+            {"correctAnswers",fields["correctAnswers"]},{"awardedPoints",awardedPoints},
+            {"awardedCoins",awardedCoins},{"state",studyStateJson(state)}};
+        return response(200,result);
+    }
     if (request.method == "GET" && request.path == "/api/me") {
         UserRow user; PetRow pet;
         if (!db.getUserById(userId,user) || !db.getPet(userId,pet)) return error(404,"User not found");

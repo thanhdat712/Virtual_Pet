@@ -35,6 +35,7 @@ Write-Host 'Bien dich server...'
 g++ -std=c++17 -O2 -Wall -Wextra `
     -I backend/include/Server -I backend/include/Exercise -I backend/include/Pet -I backend/third_party -I backend/third_party/sqlite `
     backend/src/server_main.cpp `
+    backend/src/Exercise/Exercise.cpp `
     backend/src/Exercise/Submission.cpp `
     backend/src/Server/Database.cpp `
     backend/src/Server/HttpServer.cpp `

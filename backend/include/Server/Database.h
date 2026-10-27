@@ -45,6 +45,26 @@ struct ProgressRow {
     std::string completedAt;
 };
 
+struct StudyStateRow {
+    long long points = 0;
+    int coins = 0;
+    int level = 1;
+    int happiness = 0;
+    int hunger = 50;
+    int energy = 50;
+    std::vector<std::string> completedStages;
+};
+
+enum class StudyOperationStatus {
+    Success,
+    PetNeedsCare,
+    StageLocked,
+    InvalidStage,
+    InvalidAnswerCount,
+    InvalidAction,
+    UserNotFound
+};
+
 struct InventoryRow {
     int id = 0;
     int quantity = 0;
@@ -116,6 +136,15 @@ public:
     // Ghi một lần nộp bài và cập nhật tiến độ (best_score, attempts, status).
     bool recordSubmission(long long userId, long long exerciseId, const std::string& answer,
                           int& score, ProgressRow& outProgress);
+
+    // --- Study quiz progression and visible-time stat decay ---
+    bool getStudyState(long long userId, StudyStateRow& outState);
+    StudyOperationStatus updateStudyActivity(long long userId, const std::string& action,
+                                              long long nowUnix, StudyStateRow& outState);
+    StudyOperationStatus completeStudyStage(long long userId, const std::string& level,
+                                             const std::string& tier, int correctAnswers,
+                                             StudyStateRow& outState, bool& passed, bool& review,
+                                             int& awardedPoints, int& awardedCoins);
 
     // --- Bài nộp mã nguồn (SUB) ---
     bool createCodeSubmission(Submission& submission);
