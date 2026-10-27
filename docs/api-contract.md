@@ -62,6 +62,38 @@ Yêu cầu đăng nhập. Trả trạng thái user, pet, inventory, equipment v�
 }
 ```
 
+### Study
+
+The Study page requires login and uses account-scoped SQLite progress instead of
+browser storage. `GET /api/study/state` returns total Study points, the shared
+coin balance, completed stage IDs, and current pet stats.
+
+| Method | Route | Body | Purpose |
+|---|---|---|---|
+| `GET` | `/api/study/state` | Không có | Load Study totals, completed stages and pet stats |
+| `POST` | `/api/study/time` | `{ "action": "start" }` | Start/resume visible Study time |
+| `POST` | `/api/study/time` | `{ "action": "heartbeat" }` | Account for visible time; sent every 20 seconds |
+| `POST` | `/api/study/time` | `{ "action": "pause" }` | Stop counting while the page is hidden |
+| `POST` | `/api/study/complete` | `{ "level": "A1", "tier": "easy", "correctAnswers": 4 }` | Submit a finished five-question stage |
+
+A stage requires 4 of 5 correct answers. Easy and medium award 15/18 points per
+correct answer plus 25 points; hard awards 20 per correct answer plus 50 points
+and 20 coins. A completed stage is review-only and cannot award twice. Every 50
+Study points add one happiness point; the remainder is retained, so the 0.2%
+conversion per 10 points is not lost to integer rounding. Happiness continues
+to use the game's existing level-up behavior.
+
+While Study is visible, each 210 accounted seconds subtracts one point from both
+hunger and energy. The server caps each heartbeat interval at 30 seconds; the
+page sends a heartbeat every 20 seconds and pauses on `visibilitychange`. Study
+is blocked when either stat is below 10, and the page offers only a Home link.
+
+The existing question bank and answer checks remain in `frontend/js/study-data.js`
+and `frontend/js/study.js`; the completion API receives the resulting correct
+answer count. The server owns reward calculations, unlock order, and one-time
+completion records, but does not independently re-grade each answer. A
+competitive/public deployment should move answer-key validation to the server.
+
 ### Các thao tác yêu cầu đăng nhập
 
 | Method | Route | Body |

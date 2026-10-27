@@ -1,17 +1,14 @@
 /* ===================== CẤU HÌNH ===================== */
-const KEY = 'petStudy';
 const LV = Object.keys(D);
 const TI = ['easy', 'medium', 'hard'];
 const TNAME = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
 const PT = { easy: 15, medium: 18, hard: 20 };    // điểm mỗi câu đúng
 const QUIZ_SIZE = 5;                              // mỗi lần làm rút ngẫu nhiên 5 câu từ nhóm
 const PASS_RATE = 0.8;                            // 4/5 câu đúng là qua nhóm
-const TIER_BONUS = 25;                            // thưởng khi qua nhóm Dễ hoặc Vừa (không có xu)
-const LEVEL_BONUS = { pts: 50, coins: 20 };       // thưởng khi qua nhóm Khó = lên cấp (A1→A2, A2→B1...)
 
-/* MEME: ảnh nằm trong assets/memes/. Bạn chỉ cần đổi tên file tải về cho khớp tên bên dưới
+/* MEME: ảnh nằm trong assets/study/. Bạn chỉ cần đổi tên file tải về cho khớp tên bên dưới
    (hoặc sửa tên/đuôi .gif/.jpg/.png trong danh sách). Ảnh nào chưa có thì ô đó tự ẩn. */
-const MEMES_DIR = 'assets/memes/';
+const MEMES_DIR = 'assets/study/';
 const MEMES = {
     corner: ['chopixel9.gif', 'meopixel9.gif', 'chopixel2.gif', 'meopixel1.gif'], // 4 góc màn hình lúc mở trang Study
     right: ['chopixel5.gif', 'chopixel3.jpg', 'meopixel3.gif', 'chopixel7.gif', 'meopixel2.gif', 'meopixel6.gif', 'chopixel6.gif'], // 5 meme khi trả lời ĐÚNG (mỗi lần rút 2)
@@ -25,13 +22,17 @@ const CAP = {
 };
 
 /* ===================== TIỆN ÍCH ===================== */
-let S = JSON.parse(localStorage.getItem(KEY) || '{"done":{},"pts":0,"coins":0}');
+let S = { done: {}, pts: 0, coins: 0 };
 let cur = null;      // bài đang làm: {l, t, qs, i, ok, gain, review, answered, build}
 let selLv = null;    // cấp đang chọn trên dây leo
+let studyLoaded = false;
+let studyBlocked = false;
+let studyTimer = null;
+let timerStarting = false;
+let timerBusy = false;
 const memeRequests = new WeakMap();
 
 const $ = id => document.getElementById(id);
-const save = () => localStorage.setItem(KEY, JSON.stringify(S));
 const pick = a => a[Math.floor(Math.random() * a.length)];
 
 const shuffle = a => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(x => x[1]);
@@ -41,6 +42,114 @@ function show(id) {
     ['tree', 'quiz', 'result'].forEach(s => $(s).classList.toggle('hidden', s !== id));
     $('stickers').classList.toggle('hidden', id !== 'tree');
 }
+
+function updateStudyState(state) {
+    if (state.state) state = state.state;
+    if (Array.isArray(state.completedStages)) {
+        S.done = {};
+        state.completedStages.forEach(stage => { S.done[stage] = 1; });
+    }
+    if (Number.isFinite(state.points)) S.pts = state.points;
+    if (Number.isFinite(state.coins)) S.coins = state.coins;
+    if (state.pet) S.pet = state.pet;
+    $('pts').textContent = '✦ ' + S.pts;
+    $('coins').textContent = '◎ ' + S.coins;
+}
+
+function showPetNeedsCare(pet) {
+    studyBlocked = true;
+    clearInterval(studyTimer);
+    studyTimer = null;
+    const messages = [];
+    if (pet.hunger < 10)
+        messages.push('Pet của bạn cảm thấy đói không thể chơi tiếp, hãy bổ sung năng lượng cho ẻm.');
+    if (pet.energy < 10)
+        messages.push('Pet của bạn đã hết năng lượng và cảm thấy mệt rồi, không thể chơi nữa.');
+    $('study-blocked-title').textContent = 'Pet needs care';
+    $('study-blocked-message').textContent = messages.join(' ');
+    document.body.classList.add('study-blocked');
+    $('study-blocked').classList.remove('hidden');
+}
+
+function showStudyUnavailable(message) {
+    studyBlocked = true;
+    clearInterval(studyTimer);
+    studyTimer = null;
+    $('study-blocked-title').textContent = 'Study is unavailable';
+    $('study-blocked-message').textContent = message;
+    document.body.classList.add('study-blocked');
+    $('study-blocked').classList.remove('hidden');
+}
+
+async function updateStudyTime(action, keepalive = false) {
+    const state = await window.api.studyTime(action, keepalive);
+    updateStudyState(state);
+    if (state.blocked) showPetNeedsCare(state.pet);
+    return state;
+}
+
+async function startVisibleStudyTime() {
+    if (!studyLoaded || studyBlocked || timerStarting || document.visibilityState === 'hidden') return;
+    timerStarting = true;
+    try {
+        const state = await updateStudyTime('start');
+        if (state.blocked || studyBlocked || document.visibilityState === 'hidden') {
+            if (!studyBlocked) await updateStudyTime('pause',true);
+            return;
+        }
+        clearInterval(studyTimer);
+        studyTimer = setInterval(async () => {
+            if (timerBusy || studyBlocked || document.visibilityState === 'hidden') return;
+            timerBusy = true;
+            try {
+                await updateStudyTime('heartbeat');
+            } catch (error) {
+                showStudyUnavailable(`Could not update Study time: ${error.message}`);
+            } finally {
+                timerBusy = false;
+            }
+        }, 20000);
+    } catch (error) {
+        showStudyUnavailable(error.status === 401
+            ? 'Please sign in from Home before starting Study.'
+            : `Could not load Study state: ${error.message}`);
+    } finally {
+        timerStarting = false;
+    }
+}
+
+function pauseVisibleStudyTime() {
+    clearInterval(studyTimer);
+    studyTimer = null;
+    if (!studyLoaded || studyBlocked) return;
+    window.api.studyTime('pause', true).then(state => {
+        updateStudyState(state);
+        if (state.blocked) showPetNeedsCare(state.pet);
+    }).catch(error => showStudyUnavailable(`Could not save Study time: ${error.message}`));
+}
+
+async function initializeStudy() {
+    try {
+        updateStudyState(await window.api.studyState());
+        studyLoaded = true;
+        if (S.pet && (S.pet.hunger < 10 || S.pet.energy < 10)) {
+            showPetNeedsCare(S.pet);
+            return;
+        }
+        renderTree();
+        await startVisibleStudyTime();
+    } catch (error) {
+        showStudyUnavailable(error.status === 401
+            ? 'Please sign in from Home before starting Study.'
+            : `Could not load Study state: ${error.message}`);
+    }
+}
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') pauseVisibleStudyTime();
+    else startVisibleStudyTime();
+});
+addEventListener('pagehide', pauseVisibleStudyTime);
 
 function fitStudyLayout() {
     const path = $('path');
@@ -82,13 +191,6 @@ function fitStudyLayout() {
     if (tree.offsetParent) {
         path.scrollLeft = activeNode.x * scale + nextOffset - pathWidth / 2;
     }
-}
-
-/* Điểm lưu riêng để phần Happiness đọc: 10 điểm study = 0.2% happiness (happiness += pts / 10 * 0.2) */
-function addPts(n) {
-    S.pts += n;
-    localStorage.setItem('petStudyPoints', S.pts);
-    save();
 }
 
 function unlocked(l, t) {
@@ -299,6 +401,7 @@ function startQuiz(l, t) {
 function showQ() {
     const q = cur.qs[cur.i];
     cur.answered = false;
+    $('next').disabled = false;
     cur.build = [];
     $('fbWrap').classList.add('hidden');
     $('next').classList.add('hidden');
@@ -371,19 +474,40 @@ function finish(correct, answer) {
     $('next').textContent = cur.i + 1 < cur.qs.length ? 'Continue →' : 'See results';
 }
 
-function endQuiz() {
-    const n = cur.qs.length, need = Math.ceil(n * PASS_RATE), pass = cur.ok >= need, li = LV.indexOf(cur.l);
+async function endQuiz() {
+    if (cur.finishing) return;
+    cur.finishing = true;
+    $('next').disabled = true;
+    const n = cur.qs.length, need = Math.ceil(n * PASS_RATE), li = LV.indexOf(cur.l);
+    let pass = cur.ok >= need;
     let msg = `${cur.ok}/${n} correct.`;
-    if (cur.review) msg += ' Review mode does not award points or coins.';
-    else if (!pass) msg += ` Get at least ${need} correct to pass. Your ${cur.gain} pending points have been returned. Try again!`;
-    else {
-        S.done[cur.l + '-' + cur.t] = 1;
-        const hard = cur.t === 'hard', bonus = hard ? LEVEL_BONUS.pts : TIER_BONUS;
-        if (hard) S.coins += LEVEL_BONUS.coins;
-        addPts(cur.gain + bonus); // lưu điểm + xu
-        msg += ` You earned ${cur.gain} points for the quiz + ${bonus} bonus points` + (hard
-            ? ` + ${LEVEL_BONUS.coins} coins. ${li < LV.length - 1 ? `Level ${cur.l} complete! ${LV[li + 1]} is now unlocked.` : 'You have completed the entire vine!'}`
-            : '. The next tier is now unlocked!');
+    try {
+        const result = await window.api.completeStudyStage(cur.l,cur.t,cur.ok);
+        updateStudyState(result.state);
+        pass = result.passed;
+        if (result.review) {
+            msg += ' Review mode does not award points or coins.';
+        } else if (!pass) {
+            msg += ` Get at least ${need} correct to pass. Your ${cur.gain} pending points have been returned. Try again!`;
+        } else {
+            const hard = cur.t === 'hard';
+            msg += ` You earned ${result.awardedPoints} points` + (hard
+                ? ` and ${result.awardedCoins} coins. ${li < LV.length - 1 ? `Level ${cur.l} complete! ${LV[li + 1]} is now unlocked.` : 'You have completed the entire vine!'}`
+                : '. The next tier is now unlocked!');
+        }
+    } catch (error) {
+        if (error.code === 'PET_NEEDS_CARE') {
+            try {
+                const state = await window.api.studyState();
+                updateStudyState(state);
+                showPetNeedsCare(state.pet);
+            } catch (stateError) {
+                showStudyUnavailable(`Could not load pet state: ${stateError.message}`);
+            }
+        } else {
+            showStudyUnavailable(`Could not save your Study result: ${error.message}`);
+        }
+        return;
     }
     $('pts').textContent = '✦ ' + S.pts;
     $('coins').textContent = '◎ ' + S.coins;
@@ -407,5 +531,5 @@ addEventListener('resize', () => {
     clearTimeout(layoutTimer);
     layoutTimer = setTimeout(fitStudyLayout, 120);
 });
-renderTree();
+initializeStudy();
 window.startStudyMusic?.();

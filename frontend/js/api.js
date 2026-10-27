@@ -1,5 +1,5 @@
 // API client for the same-origin C++ server. Authentication uses its HttpOnly session cookie.
-async function request(path, { method = 'GET', body } = {}) {
+async function request(path, { method = 'GET', body, keepalive = false } = {}) {
 	const headers = {};
 	if (body !== undefined) headers['Content-Type'] = 'application/json';
 
@@ -8,6 +8,7 @@ async function request(path, { method = 'GET', body } = {}) {
 		headers,
 		credentials: 'same-origin',
 		body: body === undefined ? undefined : JSON.stringify(body),
+		keepalive,
 		signal: AbortSignal.timeout(15000)
 	});
 	const text = await response.text();
@@ -127,6 +128,25 @@ const api = {
 
 	gameState() {
 		return request('/api/game/state');
+	},
+
+	studyState() {
+		return request('/api/study/state');
+	},
+
+	studyTime(action, keepalive = false) {
+		return request('/api/study/time', {
+			method: 'POST',
+			body: { action },
+			keepalive
+		});
+	},
+
+	completeStudyStage(level, tier, correctAnswers) {
+		return request('/api/study/complete', {
+			method: 'POST',
+			body: { level, tier, correctAnswers }
+		});
 	},
 
 	savePetProfile(name, species) {

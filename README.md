@@ -143,6 +143,8 @@ Generated build directories (`build/`, `backend/build/`), `.vscode/`, and local 
 
 Install CMake and a C++ toolchain, then open Command Prompt or PowerShell in the repository root.
 
+For a one-click build and launch, double-click `run.bat`. It builds the project, opens the web app in your browser, and starts the server on port 8080. If that port is already in use, run `run.bat 8083` from a terminal to use another port. Close the server window to stop the app.
+
 With the Visual Studio C++ tools installed:
 
 ```bat

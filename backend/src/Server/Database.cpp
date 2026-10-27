@@ -1,4 +1,5 @@
 #include "Database.h"
+#include "Exercise.h"
 #include "Submission.h"
 #include "Catalog.h"
 #include "Crypto.h"
@@ -70,6 +71,41 @@ ProgressRow progressRow(Statement& statement) {
     progress.attempts = static_cast<int>(statement.number(3));
     progress.completedAt = statement.text(4);
     return progress;
+}
+
+bool ensureStudyState(sqlite3* database, long long userId) {
+    Statement user(database, "SELECT 1 FROM users WHERE id=?;");
+    user.bind(1,userId);
+    if (!user.row()) return false;
+    Statement statement(database, "INSERT OR IGNORE INTO study_state(user_id) SELECT id FROM users WHERE id=?;");
+    statement.bind(1,userId);
+    statement.done();
+    return true;
+}
+
+bool petNeedsStudyCare(const StudyStateRow& state) {
+    return state.hunger < 10 || state.energy < 10;
+}
+
+bool loadStudyState(sqlite3* database, long long userId, StudyStateRow& state) {
+    Statement statement(database,
+        "SELECT s.total_points,u.coins,p.level,p.happiness,p.hunger,p.energy "
+        "FROM study_state s JOIN users u ON u.id=s.user_id "
+        "JOIN pets p ON p.user_id=s.user_id WHERE s.user_id=?;");
+    statement.bind(1,userId);
+    if (!statement.row()) return false;
+    state.points = statement.number(0);
+    state.coins = static_cast<int>(statement.number(1));
+    state.level = static_cast<int>(statement.number(2));
+    state.happiness = static_cast<int>(statement.number(3));
+    state.hunger = static_cast<int>(statement.number(4));
+    state.energy = static_cast<int>(statement.number(5));
+
+    state.completedStages.clear();
+    Statement completed(database, "SELECT stage FROM study_stage_progress WHERE user_id=? ORDER BY stage_order;");
+    completed.bind(1,userId);
+    while (completed.row()) state.completedStages.push_back(completed.text(0));
+    return true;
 }
 
 std::string normalizedAnswer(const std::string& answer) {
@@ -575,6 +611,144 @@ bool Database::recordSubmission(long long userId, long long exerciseId, const st
     transaction.commit(); return true;
 }
 
+bool Database::getStudyState(long long userId, StudyStateRow& outState) {
+    Transaction transaction(db_);
+    if (!ensureStudyState(db_,userId) || !loadStudyState(db_,userId,outState)) return false;
+    transaction.commit();
+    return true;
+}
+
+StudyOperationStatus Database::updateStudyActivity(long long userId, const std::string& action,
+                                                    long long nowUnix, StudyStateRow& outState) {
+    if (action != "start" && action != "heartbeat" && action != "pause")
+        return StudyOperationStatus::InvalidAction;
+
+    Transaction transaction(db_);
+    if (!ensureStudyState(db_,userId) || !loadStudyState(db_,userId,outState))
+        return StudyOperationStatus::UserNotFound;
+
+    bool active = false;
+    long long lastActivity = 0;
+    int remainder = 0;
+    {
+        Statement state(db_, "SELECT is_active,IFNULL(last_activity_at,0),elapsed_remainder_seconds "
+                             "FROM study_state WHERE user_id=?;");
+        state.bind(1,userId);
+        if (!state.row()) return StudyOperationStatus::UserNotFound;
+        active = state.number(0) != 0;
+        lastActivity = state.number(1);
+        remainder = static_cast<int>(state.number(2));
+    }
+
+    if (active && nowUnix > lastActivity) {
+        const long long elapsed = std::min<long long>(30,nowUnix-lastActivity);
+        const int accumulated = remainder+static_cast<int>(elapsed);
+        const int statLoss = accumulated/210;
+        remainder = accumulated%210;
+        if (statLoss > 0) {
+            Statement decay(db_, "UPDATE pets SET hunger=MAX(0,hunger-?),energy=MAX(0,energy-?) WHERE user_id=?;");
+            decay.bind(1,statLoss); decay.bind(2,statLoss); decay.bind(3,userId); decay.done();
+        }
+    }
+
+    if (action == "start") active = true;
+    if (action == "pause") active = false;
+    if (!loadStudyState(db_,userId,outState)) return StudyOperationStatus::UserNotFound;
+    if (petNeedsStudyCare(outState)) active = false;
+
+    Statement update(db_, "UPDATE study_state SET elapsed_remainder_seconds=?,is_active=?,"
+                          "last_activity_at=CASE WHEN ?=1 THEN ? ELSE NULL END WHERE user_id=?;");
+    update.bind(1,remainder);
+    update.bind(2,active ? 1 : 0);
+    update.bind(3,active ? 1 : 0);
+    update.bind(4,nowUnix);
+    update.bind(5,userId);
+    update.done();
+
+    if (!loadStudyState(db_,userId,outState)) return StudyOperationStatus::UserNotFound;
+    transaction.commit();
+    return petNeedsStudyCare(outState) ? StudyOperationStatus::PetNeedsCare : StudyOperationStatus::Success;
+}
+
+StudyOperationStatus Database::completeStudyStage(long long userId, const std::string& level,
+                                                   const std::string& tier, int correctAnswers,
+                                                   StudyStateRow& outState, bool& passed, bool& review,
+                                                   int& awardedPoints, int& awardedCoins) {
+    static const char* levels[] = {"A1","A2","B1","B2","C1","C2"};
+    static const char* tiers[] = {"easy","medium","hard"};
+    int levelIndex = -1, tierIndex = -1;
+    for (int i = 0; i < 6; ++i) if (level == levels[i]) levelIndex = i;
+    for (int i = 0; i < 3; ++i) if (tier == tiers[i]) tierIndex = i;
+    if (levelIndex < 0 || tierIndex < 0) return StudyOperationStatus::InvalidStage;
+    if (correctAnswers < 0 || correctAnswers > 5) return StudyOperationStatus::InvalidAnswerCount;
+
+    passed = studyStagePasses(correctAnswers);
+    review = false;
+    awardedPoints = 0;
+    awardedCoins = 0;
+
+    Transaction transaction(db_);
+    if (!ensureStudyState(db_,userId) || !loadStudyState(db_,userId,outState))
+        return StudyOperationStatus::UserNotFound;
+    if (petNeedsStudyCare(outState)) return StudyOperationStatus::PetNeedsCare;
+
+    const std::string stage = level+"-"+tier;
+    {
+        Statement existing(db_, "SELECT 1 FROM study_stage_progress WHERE user_id=? AND stage=?;");
+        existing.bind(1,userId); existing.bind(2,stage);
+        if (existing.row()) {
+            review = true;
+            transaction.commit();
+            return StudyOperationStatus::Success;
+        }
+    }
+
+    const int stageOrder = levelIndex*3+tierIndex;
+    if (stageOrder > 0) {
+        const char* previousLevel = levels[(stageOrder-1)/3];
+        const char* previousTier = tiers[(stageOrder-1)%3];
+        Statement previous(db_, "SELECT 1 FROM study_stage_progress WHERE user_id=? AND stage=?;");
+        previous.bind(1,userId);
+        previous.bind(2,std::string(previousLevel)+"-"+previousTier);
+        if (!previous.row()) return StudyOperationStatus::StageLocked;
+    }
+
+    if (!passed) {
+        transaction.commit();
+        return StudyOperationStatus::Success;
+    }
+
+    awardedPoints = correctAnswers*studyPointsPerCorrectAnswer(tier)+studyCompletionBonus(tier);
+    awardedCoins = studyCompletionCoins(tier);
+    Statement record(db_, "INSERT INTO study_stage_progress(user_id,stage,stage_order,points_awarded,coins_awarded) "
+                          "VALUES(?,?,?,?,?);");
+    record.bind(1,userId); record.bind(2,stage); record.bind(3,stageOrder);
+    record.bind(4,awardedPoints); record.bind(5,awardedCoins); record.done();
+
+    int happinessRemainder = 0;
+    {
+        Statement current(db_, "SELECT happiness_remainder_points FROM study_state WHERE user_id=?;");
+        current.bind(1,userId);
+        if (!current.row()) return StudyOperationStatus::UserNotFound;
+        happinessRemainder = static_cast<int>(current.number(0));
+    }
+    const int happinessTotal = happinessRemainder+awardedPoints;
+    const int happinessGain = happinessTotal/50;
+    Statement studyUpdate(db_, "UPDATE study_state SET total_points=total_points+?,"
+                               "happiness_remainder_points=? WHERE user_id=?;");
+    studyUpdate.bind(1,awardedPoints); studyUpdate.bind(2,happinessTotal%50); studyUpdate.bind(3,userId);
+    studyUpdate.done();
+
+    Statement petUpdate(db_, "UPDATE pets SET level=level+((happiness+?)/100),"
+                             "happiness=((happiness+?)%100) WHERE user_id=?;");
+    petUpdate.bind(1,happinessGain); petUpdate.bind(2,happinessGain); petUpdate.bind(3,userId); petUpdate.done();
+    Statement coinUpdate(db_, "UPDATE users SET coins=coins+? WHERE id=?;");
+    coinUpdate.bind(1,awardedCoins); coinUpdate.bind(2,userId); coinUpdate.done();
+
+    if (!loadStudyState(db_,userId,outState)) return StudyOperationStatus::UserNotFound;
+    transaction.commit();
+    return StudyOperationStatus::Success;
+}
 
 bool Database::createCodeSubmission(Submission& submission) {
     try {

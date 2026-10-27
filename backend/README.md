@@ -39,6 +39,8 @@ khởi động rồi tự bổ sung các cột mới cho database cũ.
 - Trạng thái/catalog: `/api/game/state`, `/api/shop`
 - Game: mua hàng, cho ăn, chơi, ngủ, tắm, trang trí
 - Profile/settings: đổi tên/loài pet, lưu tùy chọn âm thanh
+- Study: `/api/study/state`, `/api/study/time`, `/api/study/complete`; điểm, xu, màn đã qua,
+  happiness và thời gian tiêu hao hunger/energy được lưu theo tài khoản trong SQLite.
 - Bài tập: `GET /api/exercises` và `POST /api/exercises/{id}/submissions` dành cho luồng học tập riêng.
   Điểm, số lần thử và tiến độ được lưu trong SQLite.
 
@@ -47,12 +49,24 @@ trình duyệt. Một lần đăng nhập, các giá trị profile/âm thanh cũ
 được nhập vào SQLite. `frontend/js/demo.js` là demo cũ, không được `index.html`
 nạp trong luồng chạy hiện tại.
 
+Trang Study yêu cầu đăng nhập. Study chỉ tính thời gian khi trang đang hiển thị;
+heartbeat gửi mỗi 20 giây và server giới hạn mỗi nhịp tối đa 30 giây. Khi hunger
+hoặc energy dưới 10, Study bị khóa cho đến khi người chơi về Home và chăm pet.
+`backend/src/Exercise/Exercise.cpp` chứa quy tắc điểm riêng cho Study; luồng này
+không dùng `Submission.cpp` hay evaluator chấm code. Hiện front-end vẫn tự kiểm
+tra câu trả lời và gửi số câu đúng; server tính thưởng, khóa màn và ngăn cộng
+thưởng lặp. Nếu cần chống sửa kết quả từ trình duyệt, cần chuyển đáp án chuẩn
+sang backend để server tự chấm từng câu.
+
 ## Kiểm thử
 
 ```powershell
 .\backend\tests\api_integration.ps1
+.\backend\tests\study_integration.ps1
 ```
 
 Bộ test dùng database riêng trong thư mục tạm, bao gồm cookie auth, API game,
 persistence sau restart và migration từ schema cũ; không thay đổi database người
 chơi mặc định.
+Study integration test cũng dùng database tạm và kiểm tra phần thưởng, review,
+shop, quy đổi happiness, bộ đếm thời gian và điều kiện khóa pet.
