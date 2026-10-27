@@ -254,7 +254,7 @@ bool Database::createUser(const std::string& username, const std::string& email,
     std::string salt = crypto::randomHex(16);
     std::string hash = crypto::passwordHash(password, salt);
     Transaction transaction(db_);
-    Statement statement(db_, "INSERT INTO users(username,email,password_salt,password_hash,email_verified) VALUES(?,?,?,?,0);");
+    Statement statement(db_, "INSERT INTO users(username,email,password_salt,password_hash,email_verified) VALUES(?,?,?,?,1);");
     statement.bind(1,username.empty() ? "pending_"+crypto::randomHex(8) : username);
     statement.bind(2,email); statement.bind(3,salt); statement.bind(4,hash); statement.done();
     user.id = sqlite3_last_insert_rowid(db_);
