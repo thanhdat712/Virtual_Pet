@@ -101,9 +101,9 @@ try {
 
     $null = Sql "UPDATE pets SET hunger=30,energy=30 WHERE user_id=$userId;"
     $null = Call POST '/api/practice/time' @{action='start'} $cookie
-    $null = Sql "UPDATE practice_state SET is_active=1,last_activity_at=CAST(strftime('%s','now') AS INTEGER)-30,elapsed_remainder_seconds=180 WHERE user_id=$userId;"
+    $null = Sql "UPDATE practice_state SET is_active=1,last_activity_at=CAST(strftime('%s','now') AS INTEGER)-30,elapsed_remainder_seconds=75 WHERE user_id=$userId;"
     $tick = Call POST '/api/practice/time' @{action='heartbeat'} $cookie
-    Check ($tick.Body.pet.hunger -eq 29 -and $tick.Body.pet.energy -eq 29) '210 seconds on the Practice page reduce hunger and energy by one'
+    Check ($tick.Body.pet.hunger -eq 29 -and $tick.Body.pet.energy -eq 29) '105 seconds on the Practice page reduce hunger and energy by one'
 
     $firstGame = [Guid]::NewGuid().ToString()
     $null = Call POST '/api/practice/game/start' @{gameId=$firstGame} $cookie

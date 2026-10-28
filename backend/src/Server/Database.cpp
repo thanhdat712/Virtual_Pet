@@ -985,8 +985,8 @@ StudyOperationStatus Database::updateStudyActivity(long long userId, const std::
     {
         const long long elapsed = std::min<long long>(30, nowUnix - lastActivity);
         const int accumulated = remainder + static_cast<int>(elapsed);
-        const int statLoss = accumulated / 210;
-        remainder = accumulated % 210;
+        const int statLoss = accumulated / 105;
+        remainder = accumulated % 105;
         if (statLoss > 0)
         {
             Statement decay(db_, "UPDATE pets SET hunger=MAX(0,hunger-?),energy=MAX(0,energy-?) WHERE user_id=?;");
