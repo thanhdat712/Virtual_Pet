@@ -41,7 +41,6 @@ g++ -std=c++17 -O2 -Wall -Wextra `
     backend/src/Server/HttpServer.cpp `
     backend/src/Server/Crypto.cpp `
     backend/src/Server/Catalog.cpp `
-    backend/src/Exercise/Submission.cpp `
     $sqliteObj `
     -o (Join-Path $resolvedBuildDir 'server.exe') -lws2_32
 if ($LASTEXITCODE -ne 0) { throw 'Bien dich server that bai' }
