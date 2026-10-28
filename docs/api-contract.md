@@ -83,7 +83,7 @@ Study points add one happiness point; the remainder is retained, so the 0.2%
 conversion per 10 points is not lost to integer rounding. Happiness continues
 to use the game's existing level-up behavior.
 
-While Study is visible, each 210 accounted seconds subtracts one point from both
+While Study is visible, each 105 accounted seconds subtracts one point from both
 hunger and energy. The server caps each heartbeat interval at 30 seconds; the
 page sends a heartbeat every 20 seconds and pauses on `visibilitychange`. Study
 is blocked when either stat is below 10, and the page offers only a Home link.
@@ -116,7 +116,7 @@ earns 15 coins at game over.
 | `POST` | `/api/practice/finish` | `{ "gameId": "<uuid>", "eaten": 12 }` | Commit the game's points and eligible coins once |
 
 The timer counts while the Practice page is open, including its menus and paused
-screen. Each 210 accounted seconds subtracts one from hunger and energy. The
+screen. Each 105 accounted seconds subtracts one from hunger and energy. The
 server caps each heartbeat interval at 30 seconds; the page sends a heartbeat
 every 20 seconds and pauses when it is closed or navigated away. Repeated finish
 requests are idempotent. Leaving the page or starting a replacement game

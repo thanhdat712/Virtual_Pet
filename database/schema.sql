@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS study_state (
     user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     total_points INTEGER NOT NULL DEFAULT 0 CHECK (total_points >= 0),
     happiness_remainder_points INTEGER NOT NULL DEFAULT 0 CHECK (happiness_remainder_points BETWEEN 0 AND 49),
-    elapsed_remainder_seconds INTEGER NOT NULL DEFAULT 0 CHECK (elapsed_remainder_seconds BETWEEN 0 AND 209),
+    elapsed_remainder_seconds INTEGER NOT NULL DEFAULT 0 CHECK (elapsed_remainder_seconds BETWEEN 0 AND 104),
     is_active INTEGER NOT NULL DEFAULT 0 CHECK (is_active IN (0, 1)),
     last_activity_at INTEGER
 );
@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS practice_state (
     total_points INTEGER NOT NULL DEFAULT 0 CHECK (total_points >= 0),
     happiness_remainder_points INTEGER NOT NULL DEFAULT 0 CHECK (happiness_remainder_points BETWEEN 0 AND 19),
     best_score INTEGER NOT NULL DEFAULT 0 CHECK (best_score >= 0),
-    elapsed_remainder_seconds INTEGER NOT NULL DEFAULT 0 CHECK (elapsed_remainder_seconds BETWEEN 0 AND 209),
+    elapsed_remainder_seconds INTEGER NOT NULL DEFAULT 0 CHECK (elapsed_remainder_seconds BETWEEN 0 AND 104),
     is_active INTEGER NOT NULL DEFAULT 0 CHECK (is_active IN (0, 1)),
     last_activity_at INTEGER,
     active_game_id TEXT NOT NULL DEFAULT ''
