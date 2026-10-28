@@ -9,7 +9,7 @@
     let COLS = 15, ROWS = 9;
     let SW = (COLS + 2) * T, SH = (ROWS + 2) * T;
     let CX = COLS >> 1, CY = ROWS >> 1;
-    const SPEED = { easy: { start: 4, max: 9 }, hard: { start: 6, max: 13 } };   // bước/giây; +0.25 mỗi 5 con
+    const SPEED = { easy: { start: 4, max: 9 }, hard: { start: 5, max: 11 } };
     const COUNTDOWN_MS = 5000;
     const DIRS = { up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } };
     const OPP = { up: 'down', down: 'up', left: 'right', right: 'left' };
@@ -348,7 +348,8 @@
     /* ---------- Vòng đời game ---------- */
     function calcInterval() {
         const c = SPEED[S.mode];
-        return 1000 / Math.min(c.max, c.start + 0.25 * Math.floor(S.eaten / 5));
+        const points = Math.floor(S.eaten / 5) * 15;
+        return 1000 / Math.min(c.max, c.start + 0.25 * Math.floor(points / 5));
     }
     function resetGame() {
         abandonCurrentGame();
