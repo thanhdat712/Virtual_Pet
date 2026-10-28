@@ -7,6 +7,8 @@
 	let studyMusicRequested = false;
 	const studyMusic = document.querySelector('#study-background-music');
 	const studyMusicButton = document.querySelector('#study-music-toggle');
+	const arcadeMusic = document.body.dataset.musicStyle === 'arcade';
+	let arcadeMusicTimer = null;
 	const volumeSlider = document.querySelector('#settings-sound-volume');
 	const volumeLabel = document.querySelector('#settings-sound-volume-value');
 	let volume = 70;
@@ -62,15 +64,48 @@
 
 	function haltStudyMusic() {
 		if (studyMusic) studyMusic.pause();
+		if (arcadeMusicTimer !== null) {
+			window.clearInterval(arcadeMusicTimer);
+			arcadeMusicTimer = null;
+		}
+		updateStudyMusicButton();
 	}
 	function updateStudyMusicButton(label) {
 		if (!studyMusicButton) return;
-		studyMusicButton.textContent = label || (studyMusic && !studyMusic.paused ? '♫ Pause music' : '♫ Play music');
-		studyMusicButton.setAttribute('aria-pressed', String(Boolean(studyMusic && !studyMusic.paused)));
+		const playing = arcadeMusic ? arcadeMusicTimer !== null : Boolean(studyMusic && !studyMusic.paused);
+		studyMusicButton.textContent = label || (playing ? '♫ Pause music' : '♫ Play music');
+		studyMusicButton.setAttribute('aria-pressed', String(playing));
+	}
+
+	function startArcadeMusic() {
+		if (!enabled || arcadeMusicTimer !== null || !prepareAudio()) return;
+		const melody = [72, 76, 79, 76, 81, 79, 76, 72, 65, 69, 72, 69, 67, 71, 74, 71,
+			72, 76, 79, 84, 83, 79, 76, 79, 69, 72, 76, 81, 79, 76, 74, 71];
+		const bass = [48, 48, 53, 53, 55, 55, 50, 50];
+		let step = 0;
+		const playStep = () => {
+			if (!enabled || !studyMusicRequested || document.hidden) return;
+			const frequency = midi => 440 * Math.pow(2, (midi - 69) / 12);
+			tone(frequency(melody[step]), 0, 0.115, 'square', 0.035);
+			if (step % 4 === 0) tone(frequency(bass[Math.floor(step / 4) % bass.length]), 0, 0.32, 'triangle', 0.045);
+			step = (step + 1) % melody.length;
+		};
+		const begin = () => {
+			if (!enabled || !studyMusicRequested || document.hidden || arcadeMusicTimer !== null) return;
+			playStep();
+			arcadeMusicTimer = window.setInterval(playStep, 150);
+			updateStudyMusicButton();
+		};
+		if (context.state === 'suspended') context.resume().then(begin).catch(() => {});
+		else begin();
 	}
 
 	function startStudyMusic() {
 		studyMusicRequested = true;
+		if (arcadeMusic) {
+			startArcadeMusic();
+			return;
+		}
 		if (!enabled || !studyMusic) return;
 		updateStudyMusicVolume();
 		studyMusic.play().catch((error) => {
@@ -105,7 +140,7 @@
 	window.startStudyMusic = startStudyMusic;
 	window.stopStudyMusic = stopStudyMusic;
 	studyMusicButton?.addEventListener('click', () => {
-		if (studyMusic?.paused) startStudyMusic();
+		if (arcadeMusic ? arcadeMusicTimer === null : studyMusic?.paused) startStudyMusic();
 		else stopStudyMusic();
 	});
 	studyMusic?.addEventListener('play', () => updateStudyMusicButton());
