@@ -1,6 +1,6 @@
 #include "Database.h"
 #include "Exercise.h"
-#include "Submission.h"
+#include "../Exercise/Submission.h"
 #include "Catalog.h"
 #include "Crypto.h"
 #include "Pet.h"
