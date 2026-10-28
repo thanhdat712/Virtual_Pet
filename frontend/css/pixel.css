@@ -580,7 +580,7 @@ img { image-rendering: pixelated; }
 
 .win-art img { max-width: calc(var(--u) * 5.2); max-height: calc(var(--u) * 5.2); object-fit: contain; }
 .art-fallback { font-size: calc(var(--u) * 3.4); line-height: 1; }
-.art-default { background: #efd0a9 url('../assets/backgrounds/room1.png') center / cover no-repeat; }
+.art-default { background: #efd0a9 url('../assets/backgrounds/room.png') center / cover no-repeat; }
 
 .win-empty { grid-column: 1 / -1; margin: 0; padding: calc(var(--u) * 3.6) calc(var(--u) * 1.2); text-align: center; }
 .win-empty strong { display: block; margin-bottom: calc(var(--u) * .6); font-size: calc(var(--u) * 2.2); }

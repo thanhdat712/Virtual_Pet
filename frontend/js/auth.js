@@ -556,10 +556,9 @@ entryForm.addEventListener('submit', async (event) => {
 		return;
 	}
 	try {
-		if (authMode === 'register') {
-			await api.register(username, email, password);
-		}
-		const result = await api.login(email, password);
+		const result = authMode === 'register'
+			? await api.register(username, email, password)
+			: await api.login(email, password);
 		signedInUser = result.user;
 		entryForm.reset();
 		if (!await window.initializeAccount()) throw new Error('Could not load your saved game.');

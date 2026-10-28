@@ -330,7 +330,7 @@ function openPurchaseDialog(item) {
 		quantityInput.readOnly = true;
 		quantityInput.setAttribute('aria-label', 'Quantity');
 		quantityInput.setAttribute('aria-live', 'polite');
-		quantityInput.dataset.max = String(Math.max(1, Math.floor(coins / item.price)));
+		quantityInput.dataset.max = String(Math.min(1000, Math.max(1, Math.floor(coins / item.price))));
 		quantityInput.value = '1';
 		quantityInput.inputMode = 'numeric';
 		quantityInput.autocomplete = 'off';

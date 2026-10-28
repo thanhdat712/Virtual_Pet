@@ -240,7 +240,7 @@ bool Database::seedExercisesIfEmpty() {
 }
 
 bool Database::emailExists(const std::string& email) {
-    Statement statement(db_, "SELECT 1 FROM users WHERE email=?;"); statement.bind(1,email); return statement.row();
+    Statement statement(db_, "SELECT 1 FROM users WHERE email=? COLLATE NOCASE;"); statement.bind(1,email); return statement.row();
 }
 
 bool Database::issueEmailVerification(const std::string& email, const std::string& tokenHash, long long expiresAt) {
@@ -333,7 +333,7 @@ bool Database::createUser(const std::string& username, const std::string& email,
 bool Database::verifyLogin(const std::string& email, const std::string& password, UserRow& user) {
     std::string salt, hash;
     {
-        Statement statement(db_, "SELECT id,username,coins,sound_enabled,password_salt,password_hash,email_verified FROM users WHERE email=?;");
+        Statement statement(db_, "SELECT id,username,coins,sound_enabled,password_salt,password_hash,email_verified FROM users WHERE email=? COLLATE NOCASE;");
         statement.bind(1,email);
         if (statement.row()) {
             user.id = statement.number(0); user.username = statement.text(1);

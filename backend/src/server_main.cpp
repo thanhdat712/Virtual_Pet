@@ -155,6 +155,17 @@ std::string stringField(const Value& fields, const char* name, size_t maximum) {
     return value;
 }
 
+std::string normalizeEmail(std::string email) {
+    const auto first = std::find_if_not(email.begin(),email.end(),[](unsigned char ch) { return std::isspace(ch); });
+    const auto last = std::find_if_not(email.rbegin(),email.rend(),[](unsigned char ch) { return std::isspace(ch); }).base();
+    if (first >= last) return {};
+    email = std::string(first,last);
+    std::transform(email.begin(),email.end(),email.begin(),[](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return email;
+}
+
 int integerField(const Value& fields, const char* name, int maximum) {
     if (!fields.count(name) || !fields[name].is_number_integer() || fields[name] < 1 || fields[name] > maximum)
         throw std::invalid_argument("Expected positive bounded integer");
@@ -221,7 +232,7 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
     }
     if (request.method == "POST" && request.path == "/api/auth/email-verification/request") {
         const auto fields = json::object(request.body);
-        const std::string email = stringField(fields,"email",254);
+        const std::string email = normalizeEmail(stringField(fields,"email",254));
         if (email.find('@') == std::string::npos)
             return apiError(400,"INVALID_ARGUMENT","Enter a valid email address.");
         Value verificationCode = nullptr;
@@ -234,7 +245,7 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
     }
     if (request.method == "POST" && request.path == "/api/auth/email-verification/confirm") {
         const auto fields = json::object(request.body);
-        const std::string email = stringField(fields,"email",254);
+        const std::string email = normalizeEmail(stringField(fields,"email",254));
         const std::string verificationCode = stringField(fields,"verificationCode",64);
         if (email.find('@') == std::string::npos || verificationCode.size() != 64 ||
             verificationCode.find_first_not_of("0123456789abcdef") != std::string::npos)
@@ -245,7 +256,7 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
     }
     if (request.method == "POST" && request.path == "/api/auth/password-reset/request") {
         const auto fields = json::object(request.body);
-        const std::string email = stringField(fields,"email",254);
+        const std::string email = normalizeEmail(stringField(fields,"email",254));
         if (email.find('@') == std::string::npos)
             return apiError(400,"INVALID_ARGUMENT","Enter a valid email address.");
 
@@ -273,7 +284,7 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
     const bool loginPath = request.path == "/api/login" || request.path == "/api/auth/login";
     if (request.method == "POST" && (registerPath || loginPath)) {
         auto fields = json::object(request.body);
-        auto email = stringField(fields,"email",254);
+        auto email = normalizeEmail(stringField(fields,"email",254));
         auto password = stringField(fields,"password",1024);
         UserRow user;
         if (registerPath) {
@@ -289,9 +300,14 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
                 : error(409,"Email already registered");
             if (modern && db.usernameExists(username)) return apiError(409,"USERNAME_TAKEN","This username is already taken.");
             db.createUser(username,email,password,user);
-            if (modern) return response(201,{{"success",true},{"code","REGISTERED"},
-                {"message","Account created successfully."},
-                {"user",{{"id",user.id},{"username",user.username}}}});
+            if (modern) {
+                const std::string token = db.createSession(user.id);
+                auto result = response(201,{{"success",true},{"code","REGISTERED"},
+                    {"message","Account created successfully."},
+                    {"user",{{"id",user.id},{"username",user.username}}}});
+                result.extraHeaders["Set-Cookie"] = "vp_session="+token+"; Path=/; HttpOnly; SameSite=Strict; Max-Age=604800";
+                return result;
+            }
             return response(201,{{"success",true},{"message","Account created successfully."}});
         } else {
             int retry = authFailures.retryAfter();
@@ -354,7 +370,7 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
     if (request.method == "POST" && request.path == "/api/account/email/request") {
         const auto fields = json::object(request.body);
         const std::string currentPassword = stringField(fields,"currentPassword",128);
-        const std::string newEmail = stringField(fields,"newEmail",254);
+        const std::string newEmail = normalizeEmail(stringField(fields,"newEmail",254));
         if (fields.size() != 2 || newEmail.find('@') == std::string::npos)
             return apiError(400,"INVALID_ARGUMENT","Enter a valid new email address.");
         UserRow account, verifiedAccount;
@@ -372,7 +388,7 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
     }
     if (request.method == "POST" && request.path == "/api/account/email/confirm") {
         const auto fields = json::object(request.body);
-        const std::string email = stringField(fields,"email",254);
+        const std::string email = normalizeEmail(stringField(fields,"email",254));
         const std::string verificationCode = stringField(fields,"verificationCode",64);
         if (fields.size() != 2 || email.find('@') == std::string::npos || verificationCode.size() != 64 ||
             verificationCode.find_first_not_of("0123456789abcdef") != std::string::npos)

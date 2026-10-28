@@ -33,7 +33,7 @@ button {
     min-height: 620px;
     overflow: hidden;
     isolation: isolate;
-    background: #efd0a9 url('../assets/backgrounds/room1.png') center / cover no-repeat;
+    background: #efd0a9 url('../assets/backgrounds/room.png') center / cover no-repeat;
 }
 
 .landscape-notice {
