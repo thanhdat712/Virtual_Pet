@@ -112,6 +112,12 @@ Value studyStateJson(const StudyStateRow& state) {
             {"hunger",state.hunger},{"energy",state.energy}}}};
 }
 
+Value practiceStateJson(const PracticeStateRow& state) {
+    return {{"success",true},{"points",state.points},{"bestScore",state.bestScore},{"coins",state.coins},
+        {"pet",{{"level",state.level},{"happiness",state.happiness},
+            {"hunger",state.hunger},{"energy",state.energy}}}};
+}
+
 Value inventoryJson(Database& db, long long userId) {
     Value result = Value::array();
     for (const auto& item : db.listInventory(userId)) result.push_back({{"itemId",item.id},{"quantity",item.quantity}});
@@ -426,6 +432,68 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
             {"correctAnswers",fields["correctAnswers"]},{"awardedPoints",awardedPoints},
             {"awardedCoins",awardedCoins},{"state",studyStateJson(state)}};
         return response(200,result);
+    }
+    if (request.method == "GET" && request.path == "/api/practice/state") {
+        PracticeStateRow state;
+        if (!db.getPracticeState(userId,state))
+            return apiError(404,"PRACTICE_STATE_NOT_FOUND","Practice state not found.");
+        return response(200,practiceStateJson(state));
+    }
+    if (request.method == "POST" && request.path == "/api/practice/time") {
+        const auto fields = json::object(request.body);
+        if (fields.size() != 1 || !fields.count("action") || !fields["action"].is_string())
+            return apiError(400,"INVALID_ARGUMENT","Expected a Practice time action.");
+        PracticeStateRow state;
+        const auto status = db.updatePracticeActivity(userId,fields["action"].get<std::string>(),
+                                                       static_cast<long long>(std::time(nullptr)),state);
+        if (status == PracticeOperationStatus::InvalidAction)
+            return apiError(400,"INVALID_ARGUMENT","Unknown Practice time action.");
+        if (status == PracticeOperationStatus::UserNotFound)
+            return apiError(404,"PRACTICE_STATE_NOT_FOUND","Practice state not found.");
+        return response(200,practiceStateJson(state));
+    }
+    if (request.method == "POST" && request.path == "/api/practice/game/start") {
+        const auto fields = json::object(request.body);
+        if (fields.size() != 1 || !fields.count("gameId") || !fields["gameId"].is_string())
+            return apiError(400,"INVALID_ARGUMENT","Expected a Practice game ID.");
+        const std::string gameId = fields["gameId"].get<std::string>();
+        if (gameId.size() != 36 || gameId.find_first_not_of("0123456789abcdef-") != std::string::npos)
+            return apiError(400,"INVALID_ARGUMENT","Invalid Practice game ID.");
+        if (!db.startPracticeGame(userId,gameId))
+            return apiError(404,"PRACTICE_STATE_NOT_FOUND","Practice state not found.");
+        return response(200,{{"success",true}});
+    }
+    if (request.method == "POST" && request.path == "/api/practice/game/abandon") {
+        const auto fields = json::object(request.body);
+        if (fields.size() != 1 || !fields.count("gameId") || !fields["gameId"].is_string())
+            return apiError(400,"INVALID_ARGUMENT","Expected a Practice game ID.");
+        const std::string gameId = fields["gameId"].get<std::string>();
+        if (gameId.size() != 36 || gameId.find_first_not_of("0123456789abcdef-") != std::string::npos)
+            return apiError(400,"INVALID_ARGUMENT","Invalid Practice game ID.");
+        if (!db.abandonPracticeGame(userId,gameId))
+            return apiError(404,"PRACTICE_STATE_NOT_FOUND","Practice state not found.");
+        return response(200,{{"success",true}});
+    }
+    if (request.method == "POST" && request.path == "/api/practice/finish") {
+        const auto fields = json::object(request.body);
+        if (fields.size() != 2 || !fields.count("gameId") || !fields["gameId"].is_string() ||
+            !fields.count("eaten") || !fields["eaten"].is_number_integer() ||
+            fields["eaten"] < 0 || fields["eaten"] > 1000000)
+            return apiError(400,"INVALID_ARGUMENT","Expected a Practice game ID and eaten count.");
+        const std::string gameId = fields["gameId"].get<std::string>();
+        if (gameId.size() != 36 || gameId.find_first_not_of("0123456789abcdef-") != std::string::npos)
+            return apiError(400,"INVALID_ARGUMENT","Invalid Practice game ID.");
+        PracticeStateRow state;
+        int awardedPoints = 0, awardedCoins = 0;
+        bool duplicate = false;
+        const auto status = db.finishPracticeGame(userId,gameId,fields["eaten"].get<int>(),
+                                                   state,awardedPoints,awardedCoins,duplicate);
+        if (status == PracticeOperationStatus::GameNotActive)
+            return apiError(409,"PRACTICE_GAME_NOT_ACTIVE","This Practice game is no longer active.");
+        if (status == PracticeOperationStatus::UserNotFound)
+            return apiError(404,"PRACTICE_STATE_NOT_FOUND","Practice state not found.");
+        return response(200,{{"success",true},{"awardedPoints",awardedPoints},
+            {"awardedCoins",awardedCoins},{"duplicate",duplicate},{"state",practiceStateJson(state)}});
     }
     if (request.method == "GET" && request.path == "/api/me") {
         UserRow user; PetRow pet;

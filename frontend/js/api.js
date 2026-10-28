@@ -149,6 +149,40 @@ const api = {
 		});
 	},
 
+	practiceState() {
+		return request('/api/practice/state');
+	},
+
+	practiceTime(action, keepalive = false) {
+		return request('/api/practice/time', {
+			method: 'POST',
+			body: { action },
+			keepalive
+		});
+	},
+
+	startPracticeGame(gameId) {
+		return request('/api/practice/game/start', {
+			method: 'POST',
+			body: { gameId }
+		});
+	},
+
+	abandonPracticeGame(gameId, keepalive = false) {
+		return request('/api/practice/game/abandon', {
+			method: 'POST',
+			body: { gameId },
+			keepalive
+		});
+	},
+
+	finishPracticeGame(gameId, eaten) {
+		return request('/api/practice/finish', {
+			method: 'POST',
+			body: { gameId, eaten }
+		});
+	},
+
 	savePetProfile(name, species) {
 		return action('/api/pet', { name, species }, 'PUT');
 	},

@@ -103,6 +103,27 @@ CREATE TABLE IF NOT EXISTS study_stage_progress (
     UNIQUE (user_id, stage_order)
 );
 
+CREATE TABLE IF NOT EXISTS practice_state (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    total_points INTEGER NOT NULL DEFAULT 0 CHECK (total_points >= 0),
+    happiness_remainder_points INTEGER NOT NULL DEFAULT 0 CHECK (happiness_remainder_points BETWEEN 0 AND 19),
+    best_score INTEGER NOT NULL DEFAULT 0 CHECK (best_score >= 0),
+    elapsed_remainder_seconds INTEGER NOT NULL DEFAULT 0 CHECK (elapsed_remainder_seconds BETWEEN 0 AND 209),
+    is_active INTEGER NOT NULL DEFAULT 0 CHECK (is_active IN (0, 1)),
+    last_activity_at INTEGER,
+    active_game_id TEXT NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS practice_game_rewards (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    game_id TEXT NOT NULL,
+    eaten INTEGER NOT NULL CHECK (eaten >= 0),
+    points_awarded INTEGER NOT NULL CHECK (points_awarded >= 0),
+    coins_awarded INTEGER NOT NULL CHECK (coins_awarded >= 0),
+    completed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    PRIMARY KEY (user_id, game_id)
+);
+
 CREATE TABLE IF NOT EXISTS inventory (
     user_id INTEGER NOT NULL REFERENCES users(id),
     item_id INTEGER NOT NULL CHECK (item_id BETWEEN 1 AND 13),

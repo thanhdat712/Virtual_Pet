@@ -55,6 +55,16 @@ struct StudyStateRow {
     std::vector<std::string> completedStages;
 };
 
+struct PracticeStateRow {
+    long long points = 0;
+    int bestScore = 0;
+    int coins = 0;
+    int level = 1;
+    int happiness = 0;
+    int hunger = 50;
+    int energy = 50;
+};
+
 enum class StudyOperationStatus {
     Success,
     PetNeedsCare,
@@ -62,6 +72,13 @@ enum class StudyOperationStatus {
     InvalidStage,
     InvalidAnswerCount,
     InvalidAction,
+    UserNotFound
+};
+
+enum class PracticeOperationStatus {
+    Success,
+    InvalidAction,
+    GameNotActive,
     UserNotFound
 };
 
@@ -145,6 +162,17 @@ public:
                                              const std::string& tier, int correctAnswers,
                                              StudyStateRow& outState, bool& passed, bool& review,
                                              int& awardedPoints, int& awardedCoins);
+
+    // --- Practice mini-game rewards, account record, and page-time stat decay ---
+    bool getPracticeState(long long userId, PracticeStateRow& outState);
+    PracticeOperationStatus updatePracticeActivity(long long userId, const std::string& action,
+                                                    long long nowUnix, PracticeStateRow& outState);
+    bool startPracticeGame(long long userId, const std::string& gameId);
+    bool abandonPracticeGame(long long userId, const std::string& gameId);
+    PracticeOperationStatus finishPracticeGame(long long userId, const std::string& gameId,
+                                                int eaten, PracticeStateRow& outState,
+                                                int& awardedPoints, int& awardedCoins,
+                                                bool& duplicate);
 
     // --- Bài nộp mã nguồn (SUB) ---
     bool createCodeSubmission(Submission& submission);

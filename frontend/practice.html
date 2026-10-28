@@ -27,7 +27,7 @@
         <section class="stats" aria-label="Stats">
             <div class="px stat"><span>Score</span><b id="st-score">0</b></div>
             <div class="px stat"><span id="lb-eaten">Fish</span><b id="st-eaten">0</b></div>
-            <div class="px stat"><span>Best</span><b id="st-best">0</b></div>
+            <div class="px stat"><span id="lb-best">Best</span><b id="st-best">0</b></div>
             <div class="px stat"><span>Time</span><b id="st-time">00:00</b></div>
         </section>
 
@@ -35,6 +35,7 @@
             <canvas id="board" aria-label="Game board"></canvas>
             <p class="toast px" id="toast" hidden></p>
         </div>
+        <p class="practice-status px" id="practice-status" role="status" hidden></p>
         <section class="bottom-actions" id="bottom-actions" hidden aria-label="Game options">
             <div class="btn-row" data-bottom-actions="ready" hidden>
                 <button type="button" class="px-btn big" data-action="start">Start</button>
@@ -162,6 +163,7 @@
                 <li><span>Time</span><b id="rs-time">00:00</b></li>
             </ul>
             <p class="record" id="rs-record" hidden>NEW RECORD!</p>
+            <button type="button" class="px-btn" id="reward-retry" data-action="retry-reward" hidden>Retry saving rewards</button>
             <div class="btn-row">
                 <button type="button" class="px-btn big" data-action="again">Play again</button>
                 <button type="button" class="px-btn" data-action="menu">Change pet</button>
@@ -170,7 +172,8 @@
         </section>
     </div>
 
-    <script src="js/practice.js?v=hidden-tab-pause-v4-20261027"></script>
+    <script src="js/api.js"></script>
+    <script src="js/practice.js?v=account-rewards-v1"></script>
 </body>
 
 </html>
