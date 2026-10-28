@@ -24,9 +24,9 @@ struct PetRow {
     bool speciesChosen = false;
     int level = 1;
     int experience = 0;
-    int happiness = 85;
-    int hunger = 30;
-    int energy = 70;
+    int happiness = 0;
+int hunger = 50;
+int energy = 50;
     int sleepRemainingSeconds = 0;
 };
 
@@ -130,10 +130,6 @@ public:
                         const std::string& password, UserRow& outUser);
     // Kiểm tra đăng nhập; true nếu đúng mật khẩu, điền outUser.
     bool verifyLogin(const std::string& email, const std::string& password, UserRow& outUser);
-    bool createPasswordReset(const std::string& email, const std::string& tokenHash, long long expiresAt);
-    bool resetPassword(const std::string& tokenHash, const std::string& salt, const std::string& passwordHash);
-    bool changePassword(long long userId, const std::string& currentPassword,
-                        const std::string& newPassword, const std::string& currentSessionHash);
     bool touchLastLogin(long long userId);
 
     std::string createSession(long long userId);
