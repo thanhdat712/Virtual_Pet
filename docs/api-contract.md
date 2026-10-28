@@ -62,6 +62,67 @@ Yêu cầu đăng nhập. Trả trạng thái user, pet, inventory, equipment v�
 }
 ```
 
+### Study
+
+The Study page requires login and uses account-scoped SQLite progress instead of
+browser storage. `GET /api/study/state` returns total Study points, the shared
+coin balance, completed stage IDs, and current pet stats.
+
+| Method | Route | Body | Purpose |
+|---|---|---|---|
+| `GET` | `/api/study/state` | Không có | Load Study totals, completed stages and pet stats |
+| `POST` | `/api/study/time` | `{ "action": "start" }` | Start/resume visible Study time |
+| `POST` | `/api/study/time` | `{ "action": "heartbeat" }` | Account for visible time; sent every 20 seconds |
+| `POST` | `/api/study/time` | `{ "action": "pause" }` | Stop counting while the page is hidden |
+| `POST` | `/api/study/complete` | `{ "level": "A1", "tier": "easy", "correctAnswers": 4 }` | Submit a finished five-question stage |
+
+A stage requires 4 of 5 correct answers. Easy and medium award 15/18 points per
+correct answer plus 25 points; hard awards 20 per correct answer plus 50 points
+and 20 coins. A completed stage is review-only and cannot award twice. Every 50
+Study points add one happiness point; the remainder is retained, so the 0.2%
+conversion per 10 points is not lost to integer rounding. Happiness continues
+to use the game's existing level-up behavior.
+
+While Study is visible, each 105 accounted seconds subtracts one point from both
+hunger and energy. The server caps each heartbeat interval at 30 seconds; the
+page sends a heartbeat every 20 seconds and pauses on `visibilitychange`. Study
+is blocked when either stat is below 10, and the page offers only a Home link.
+
+The existing question bank and answer checks remain in `frontend/js/study-data.js`
+and `frontend/js/study.js`; the completion API receives the resulting correct
+answer count. The server owns reward calculations, unlock order, and one-time
+completion records, but does not independently re-grade each answer. A
+competitive/public deployment should move answer-key validation to the server.
+
+### Practice
+
+Practice progress and the personal best are scoped to the logged-in account.
+During a game, a new best is provisional in the browser; the account's official
+best remains unchanged until game over. Ending the game commits the new best
+alongside its points and any eligible record coins. Abandoning the game or
+starting another one discards that provisional best and reward. Every five
+foods award 15 points; each 20 accumulated points add one happiness point (the
+0.5% per 10 points fraction is retained). Beating a non-zero previous record
+earns 15 coins at game over.
+
+| Method | Route | Body | Purpose |
+|---|---|---|---|
+| `GET` | `/api/practice/state` | Không có | Load best score, lifetime points, coins and pet stats |
+| `POST` | `/api/practice/time` | `{ "action": "start" }` | Begin counting time on the Practice page |
+| `POST` | `/api/practice/time` | `{ "action": "heartbeat" }` | Account for page time; sent every 20 seconds |
+| `POST` | `/api/practice/time` | `{ "action": "pause" }` | Stop counting when leaving the page |
+| `POST` | `/api/practice/game/start` | `{ "gameId": "<uuid>" }` | Begin a game and clear any uncommitted prior reward |
+| `POST` | `/api/practice/game/abandon` | `{ "gameId": "<uuid>" }` | Abandon an unfinished game without changing the official record |
+| `POST` | `/api/practice/finish` | `{ "gameId": "<uuid>", "eaten": 12 }` | Commit the game's points and eligible coins once |
+
+The timer counts while the Practice page is open, including its menus and paused
+screen. Each 105 accounted seconds subtracts one from hunger and energy. The
+server caps each heartbeat interval at 30 seconds; the page sends a heartbeat
+every 20 seconds and pauses when it is closed or navigated away. Repeated finish
+requests are idempotent. Leaving the page or starting a replacement game
+abandons the active game. The client submits the eaten count, so game score
+validation is not authoritative against a modified browser.
+
 ### Các thao tác yêu cầu đăng nhập
 
 | Method | Route | Body |

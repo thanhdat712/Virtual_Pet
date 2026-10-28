@@ -1,5 +1,5 @@
 // API client for the same-origin C++ server. Authentication uses its HttpOnly session cookie.
-async function request(path, { method = 'GET', body } = {}) {
+async function request(path, { method = 'GET', body, keepalive = false } = {}) {
 	const headers = {};
 	if (body !== undefined) headers['Content-Type'] = 'application/json';
 
@@ -8,6 +8,7 @@ async function request(path, { method = 'GET', body } = {}) {
 		headers,
 		credentials: 'same-origin',
 		body: body === undefined ? undefined : JSON.stringify(body),
+		keepalive,
 		signal: AbortSignal.timeout(15000)
 	});
 	const text = await response.text();
@@ -44,10 +45,63 @@ const api = {
 		});
 	},
 
+	requestEmailVerification(email) {
+		return request('/api/auth/email-verification/request', {
+			method: 'POST',
+			body: { email }
+		});
+	},
+
+	verifyEmail(email, verificationCode) {
+		return request('/api/auth/email-verification/confirm', {
+			method: 'POST',
+			body: { email, verificationCode }
+		});
+	},
+
 	async login(email, password) {
 		return request('/api/auth/login', {
 			method: 'POST',
 			body: { email, password }
+		});
+	},
+
+	requestPasswordReset(email) {
+		return request('/api/auth/password-reset/request', {
+			method: 'POST',
+			body: { email }
+		});
+	},
+
+	resetPassword(resetCode, password) {
+		return request('/api/auth/password-reset/confirm', {
+			method: 'POST',
+			body: { resetCode, password }
+		});
+	},
+
+	accountProfile() {
+		return request('/api/account/profile');
+	},
+
+	changePassword(currentPassword, newPassword) {
+		return request('/api/account/password', {
+			method: 'PUT',
+			body: { currentPassword, newPassword }
+		});
+	},
+
+	requestEmailChange(currentPassword, newEmail) {
+		return request('/api/account/email/request', {
+			method: 'POST',
+			body: { currentPassword, newEmail }
+		});
+	},
+
+	confirmEmailChange(email, verificationCode) {
+		return request('/api/account/email/confirm', {
+			method: 'POST',
+			body: { email, verificationCode }
 		});
 	},
 
@@ -74,6 +128,59 @@ const api = {
 
 	gameState() {
 		return request('/api/game/state');
+	},
+
+	studyState() {
+		return request('/api/study/state');
+	},
+
+	studyTime(action, keepalive = false) {
+		return request('/api/study/time', {
+			method: 'POST',
+			body: { action },
+			keepalive
+		});
+	},
+
+	completeStudyStage(level, tier, correctAnswers) {
+		return request('/api/study/complete', {
+			method: 'POST',
+			body: { level, tier, correctAnswers }
+		});
+	},
+
+	practiceState() {
+		return request('/api/practice/state');
+	},
+
+	practiceTime(action, keepalive = false) {
+		return request('/api/practice/time', {
+			method: 'POST',
+			body: { action },
+			keepalive
+		});
+	},
+
+	startPracticeGame(gameId) {
+		return request('/api/practice/game/start', {
+			method: 'POST',
+			body: { gameId }
+		});
+	},
+
+	abandonPracticeGame(gameId, keepalive = false) {
+		return request('/api/practice/game/abandon', {
+			method: 'POST',
+			body: { gameId },
+			keepalive
+		});
+	},
+
+	finishPracticeGame(gameId, eaten) {
+		return request('/api/practice/finish', {
+			method: 'POST',
+			body: { gameId, eaten }
+		});
 	},
 
 	savePetProfile(name, species) {

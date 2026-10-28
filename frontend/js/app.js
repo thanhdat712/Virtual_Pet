@@ -9,6 +9,7 @@ const inventoryCount = document.querySelector('#inventory-count');
 const openInventoryButton = document.querySelector('#open-inventory');
 const closeInventoryButton = document.querySelector('#close-inventory');
 const studyButton = document.querySelector('#study-btn');
+const practiceButton = document.querySelector('#practice-btn');
 const inventoryTabs = document.querySelectorAll('#inventory-panel [data-filter]');
 const inventoryDetail = document.querySelector('#inventory-detail');
 let activeFilter = 'all';
@@ -37,6 +38,42 @@ const lobbyScene = document.querySelector('#lobby-scene');
 const lobbyFloor = document.querySelector('#lobby-floor');
 const petGame = document.querySelector('.pet-game');
 const petImage = document.querySelector('.pet-image');
+
+const compactViewportNotice = document.createElement('div');
+compactViewportNotice.className = 'compact-viewport-notice';
+compactViewportNotice.setAttribute('role', 'status');
+compactViewportNotice.setAttribute('aria-live', 'polite');
+compactViewportNotice.textContent = 'Please enlarge the game window for a better gaming experience.';
+compactViewportNotice.hidden = true;
+const compactViewportStyles = document.createElement('style');
+compactViewportStyles.textContent = `
+	.compact-viewport-notice {
+		position: fixed;
+		z-index: 2000;
+		top: 12px;
+		left: 50%;
+		width: max-content;
+		max-width: calc(100vw - 24px);
+		padding: 10px 16px;
+		transform: translateX(-50%);
+		border: 2px solid #174c3e;
+		background: #dff5e9;
+		box-shadow: 4px 4px 0 rgba(23, 76, 62, .8);
+		color: #174c3e;
+		font: 700 14px/1.4 Nunito, Arial, sans-serif;
+		text-align: center;
+	}
+	.compact-viewport-notice[hidden] { display: none !important; }
+`;
+document.head.append(compactViewportStyles);
+document.body.append(compactViewportNotice);
+
+const compactViewport = window.matchMedia('(max-width: 900px), (max-height: 620px)');
+function updateCompactViewportNotice() {
+	compactViewportNotice.hidden = !compactViewport.matches;
+}
+window.addEventListener('resize', () => window.requestAnimationFrame(updateCompactViewportNotice), { passive: true });
+updateCompactViewportNotice();
 
 window.getCurrentPetName = function () {
 	const profileName = window.currentPetProfile?.name;
@@ -271,20 +308,38 @@ function openPurchaseDialog(item) {
 
 	let quantityInput = null;
 	let quantityLabel = null;
+	let quantityControl = null;
+	let decreaseQuantityButton = null;
+	let increaseQuantityButton = null;
 	if (isFood) {
 		quantityLabel = document.createElement('label');
 		quantityLabel.className = 'purchase-quantity-label';
 		quantityLabel.htmlFor = 'purchase-quantity';
 		quantityLabel.textContent = 'Quantity';
+		quantityControl = document.createElement('div');
+		quantityControl.className = 'purchase-quantity-control';
+		decreaseQuantityButton = document.createElement('button');
+		decreaseQuantityButton.type = 'button';
+		decreaseQuantityButton.className = 'purchase-quantity-step';
+		decreaseQuantityButton.setAttribute('aria-label', 'Decrease quantity');
+		decreaseQuantityButton.textContent = '−';
 		quantityInput = document.createElement('input');
 		quantityInput.className = 'purchase-quantity-input';
 		quantityInput.id = 'purchase-quantity';
-		quantityInput.type = 'number';
-		quantityInput.min = '1';
-		quantityInput.max = String(Math.max(1, Math.floor(coins / item.price)));
+		quantityInput.type = 'text';
+		quantityInput.readOnly = true;
+		quantityInput.setAttribute('aria-label', 'Quantity');
+		quantityInput.setAttribute('aria-live', 'polite');
+		quantityInput.dataset.max = String(Math.min(1000, Math.max(1, Math.floor(coins / item.price))));
 		quantityInput.value = '1';
 		quantityInput.inputMode = 'numeric';
 		quantityInput.autocomplete = 'off';
+		increaseQuantityButton = document.createElement('button');
+		increaseQuantityButton.type = 'button';
+		increaseQuantityButton.className = 'purchase-quantity-step';
+		increaseQuantityButton.setAttribute('aria-label', 'Increase quantity');
+		increaseQuantityButton.textContent = '+';
+		quantityControl.append(decreaseQuantityButton, quantityInput, increaseQuantityButton);
 	}
 
 	const total = document.createElement('p');
@@ -310,8 +365,8 @@ function openPurchaseDialog(item) {
 	confirmButton.textContent = 'Confirm purchase';
 	confirmButton.addEventListener('click', async () => {
 		const quantity = quantityInput ? Number.parseInt(quantityInput.value, 10) : 1;
-		if (quantityInput && (!Number.isInteger(quantity) || quantity < 1 || quantity > Number(quantityInput.max))) {
-			error.textContent = `Choose a quantity from 1 to ${quantityInput.max}.`;
+		if (quantityInput && (!Number.isInteger(quantity) || quantity < 1 || quantity > Number(quantityInput.dataset.max))) {
+			error.textContent = `Choose a quantity from 1 to ${quantityInput.dataset.max}.`;
 			return;
 		}
 
@@ -338,23 +393,23 @@ function openPurchaseDialog(item) {
 	});
 	actions.append(cancelButton, confirmButton);
 
-	quantityInput?.addEventListener('input', () => {
-		const maxQuantity = Number(quantityInput.max);
-		let quantity = Number.parseInt(quantityInput.value, 10);
-		if (Number.isInteger(quantity) && quantity > maxQuantity) {
-			quantity = maxQuantity;
-			quantityInput.value = String(quantity);
-		}
-		if (!Number.isInteger(quantity) || quantity < 1) {
-			quantity = 1;
-		}
+	const updateQuantity = (amount) => {
+		if (!quantityInput) return;
+		const maxQuantity = Number(quantityInput.dataset.max);
+		const quantity = Math.min(maxQuantity, Math.max(1, Number(quantityInput.value) + amount));
+		quantityInput.value = String(quantity);
 		total.textContent = `Total: ${item.price * quantity} coins`;
+		decreaseQuantityButton.disabled = quantity <= 1;
+		increaseQuantityButton.disabled = quantity >= maxQuantity;
 		error.textContent = '';
-	});
+	};
+	decreaseQuantityButton?.addEventListener('click', () => updateQuantity(-1));
+	increaseQuantityButton?.addEventListener('click', () => updateQuantity(1));
+	updateQuantity(0);
 
 	dialog.append(header, itemName, unitPrice);
 	if (isFood) {
-		dialog.append(quantityLabel, quantityInput);
+		dialog.append(quantityLabel, quantityControl);
 	}
 	dialog.append(total, error, actions);
 	backdrop.append(dialog);
@@ -396,7 +451,13 @@ function closeShop() {
 openInventoryButton.addEventListener('click', openInventory);
 closeInventoryButton.addEventListener('click', closeInventory);
 studyButton.addEventListener('click', () => {
+	if (window.currentPetProfile) {
+		try { sessionStorage.setItem('virtual-pet-returning-from-study', 'true'); } catch { /* Navigation still works without session storage. */ }
+	}
 	window.location.href = 'study.html';
+});
+practiceButton.addEventListener('click', () => {
+	window.location.href = 'practice.html';
 });
 openShopButton.addEventListener('click', openShop);
 closeShopButton.addEventListener('click', closeShop);

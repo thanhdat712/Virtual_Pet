@@ -14,18 +14,20 @@ struct UserRow {
     std::string email;
     int coins = 0;
         bool soundEnabled = true;
-        bool emailVerified = false;
+    bool emailVerified = false;
 };
 
 struct PetRow {
     long long userId = 0;
     std::string name = "UIA";
         std::string species = "cat";
+    bool speciesChosen = false;
     int level = 1;
     int experience = 0;
     int happiness = 85;
     int hunger = 30;
     int energy = 70;
+    int sleepRemainingSeconds = 0;
 };
 
 struct ExerciseRow {
@@ -42,6 +44,43 @@ struct ProgressRow {
     int bestScore = 0;
     int attempts = 0;
     std::string completedAt;
+};
+
+struct StudyStateRow {
+    long long points = 0;
+    int coins = 0;
+    int level = 1;
+    int happiness = 0;
+    int hunger = 50;
+    int energy = 50;
+    std::vector<std::string> completedStages;
+};
+
+struct PracticeStateRow {
+    long long points = 0;
+    int bestScore = 0;
+    int coins = 0;
+    int level = 1;
+    int happiness = 0;
+    int hunger = 50;
+    int energy = 50;
+};
+
+enum class StudyOperationStatus {
+    Success,
+    PetNeedsCare,
+    StageLocked,
+    InvalidStage,
+    InvalidAnswerCount,
+    InvalidAction,
+    UserNotFound
+};
+
+enum class PracticeOperationStatus {
+    Success,
+    InvalidAction,
+    GameNotActive,
+    UserNotFound
 };
 
 struct InventoryRow {
@@ -72,18 +111,18 @@ public:
     // --- Người dùng & phiên đăng nhập ---
     bool emailExists(const std::string& email);
     bool issueEmailVerification(const std::string& email, const std::string& tokenHash, long long expiresAt);
-bool verifyEmail(const std::string& email, const std::string& tokenHash);
+    bool verifyEmail(const std::string& email, const std::string& tokenHash);
 
-bool createPendingEmailChange(long long userId, const std::string& email,
-                              const std::string& tokenHash, long long expiresAt);
-bool confirmEmailChange(long long userId, const std::string& email,
-                        const std::string& tokenHash);
+    bool createPendingEmailChange(long long userId, const std::string& email,
+                                  const std::string& tokenHash, long long expiresAt);
+    bool confirmEmailChange(long long userId, const std::string& email,
+                            const std::string& tokenHash);
 
-bool createPasswordReset(const std::string& email, const std::string& tokenHash, long long expiresAt);
-bool resetPassword(const std::string& tokenHash, const std::string& salt,
-                   const std::string& passwordHash);
-bool changePassword(long long userId, const std::string& currentPassword,
-                    const std::string& newPassword, const std::string& currentSessionHash);
+    bool createPasswordReset(const std::string& email, const std::string& tokenHash, long long expiresAt);
+    bool resetPassword(const std::string& tokenHash, const std::string& salt,
+                       const std::string& passwordHash);
+    bool changePassword(long long userId, const std::string& currentPassword,
+                        const std::string& newPassword, const std::string& currentSessionHash);
         bool usernameExists(const std::string& username);
     // Tạo user + pet mặc định. Trả về true và điền outUser nếu thành công.
     bool createUser(const std::string& email, const std::string& password, UserRow& outUser);
@@ -91,6 +130,10 @@ bool changePassword(long long userId, const std::string& currentPassword,
                         const std::string& password, UserRow& outUser);
     // Kiểm tra đăng nhập; true nếu đúng mật khẩu, điền outUser.
     bool verifyLogin(const std::string& email, const std::string& password, UserRow& outUser);
+    bool createPasswordReset(const std::string& email, const std::string& tokenHash, long long expiresAt);
+    bool resetPassword(const std::string& tokenHash, const std::string& salt, const std::string& passwordHash);
+    bool changePassword(long long userId, const std::string& currentPassword,
+                        const std::string& newPassword, const std::string& currentSessionHash);
     bool touchLastLogin(long long userId);
 
     std::string createSession(long long userId);
@@ -119,6 +162,26 @@ bool changePassword(long long userId, const std::string& currentPassword,
     // Ghi một lần nộp bài và cập nhật tiến độ (best_score, attempts, status).
     bool recordSubmission(long long userId, long long exerciseId, const std::string& answer,
                           int& score, ProgressRow& outProgress);
+
+    // --- Study quiz progression and visible-time stat decay ---
+    bool getStudyState(long long userId, StudyStateRow& outState);
+    StudyOperationStatus updateStudyActivity(long long userId, const std::string& action,
+                                              long long nowUnix, StudyStateRow& outState);
+    StudyOperationStatus completeStudyStage(long long userId, const std::string& level,
+                                             const std::string& tier, int correctAnswers,
+                                             StudyStateRow& outState, bool& passed, bool& review,
+                                             int& awardedPoints, int& awardedCoins);
+
+    // --- Practice mini-game rewards, account record, and page-time stat decay ---
+    bool getPracticeState(long long userId, PracticeStateRow& outState);
+    PracticeOperationStatus updatePracticeActivity(long long userId, const std::string& action,
+                                                    long long nowUnix, PracticeStateRow& outState);
+    bool startPracticeGame(long long userId, const std::string& gameId);
+    bool abandonPracticeGame(long long userId, const std::string& gameId);
+    PracticeOperationStatus finishPracticeGame(long long userId, const std::string& gameId,
+                                                int eaten, PracticeStateRow& outState,
+                                                int& awardedPoints, int& awardedCoins,
+                                                bool& duplicate);
 
     // --- Bài nộp mã nguồn (SUB) ---
     bool createCodeSubmission(Submission& submission);

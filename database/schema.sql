@@ -17,11 +17,13 @@ CREATE TABLE IF NOT EXISTS pets (
     user_id INTEGER PRIMARY KEY REFERENCES users(id),
     name TEXT NOT NULL DEFAULT 'UIA',
     species TEXT NOT NULL DEFAULT 'cat' CHECK (species IN ('cat', 'dog')),
+    species_chosen INTEGER NOT NULL DEFAULT 0 CHECK (species_chosen IN (0, 1)),
     level INTEGER NOT NULL DEFAULT 1 CHECK (level >= 1),
     experience INTEGER NOT NULL DEFAULT 0 CHECK (experience >= 0),
     happiness INTEGER NOT NULL DEFAULT 0 CHECK (happiness BETWEEN 0 AND 100),
     hunger INTEGER NOT NULL DEFAULT 50 CHECK (hunger BETWEEN 0 AND 100),
-    energy INTEGER NOT NULL DEFAULT 50 CHECK (energy BETWEEN 0 AND 100)
+    energy INTEGER NOT NULL DEFAULT 50 CHECK (energy BETWEEN 0 AND 100),
+    sleep_until INTEGER NOT NULL DEFAULT 0 CHECK (sleep_until >= 0)
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -76,6 +78,51 @@ CREATE TABLE IF NOT EXISTS user_exercise_progress (
     attempts INTEGER NOT NULL DEFAULT 0,
     completed_at TEXT,
     PRIMARY KEY (user_id, exercise_id)
+);
+
+CREATE TABLE IF NOT EXISTS study_state (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    total_points INTEGER NOT NULL DEFAULT 0 CHECK (total_points >= 0),
+    happiness_remainder_points INTEGER NOT NULL DEFAULT 0 CHECK (happiness_remainder_points BETWEEN 0 AND 49),
+    elapsed_remainder_seconds INTEGER NOT NULL DEFAULT 0 CHECK (elapsed_remainder_seconds BETWEEN 0 AND 104),
+    is_active INTEGER NOT NULL DEFAULT 0 CHECK (is_active IN (0, 1)),
+    last_activity_at INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS study_stage_progress (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    stage TEXT NOT NULL CHECK (stage IN (
+        'A1-easy','A1-medium','A1-hard','A2-easy','A2-medium','A2-hard',
+        'B1-easy','B1-medium','B1-hard','B2-easy','B2-medium','B2-hard',
+        'C1-easy','C1-medium','C1-hard','C2-easy','C2-medium','C2-hard'
+    )),
+    stage_order INTEGER NOT NULL CHECK (stage_order BETWEEN 0 AND 17),
+    points_awarded INTEGER NOT NULL CHECK (points_awarded > 0),
+    coins_awarded INTEGER NOT NULL DEFAULT 0 CHECK (coins_awarded >= 0),
+    completed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    PRIMARY KEY (user_id, stage),
+    UNIQUE (user_id, stage_order)
+);
+
+CREATE TABLE IF NOT EXISTS practice_state (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    total_points INTEGER NOT NULL DEFAULT 0 CHECK (total_points >= 0),
+    happiness_remainder_points INTEGER NOT NULL DEFAULT 0 CHECK (happiness_remainder_points BETWEEN 0 AND 19),
+    best_score INTEGER NOT NULL DEFAULT 0 CHECK (best_score >= 0),
+    elapsed_remainder_seconds INTEGER NOT NULL DEFAULT 0 CHECK (elapsed_remainder_seconds BETWEEN 0 AND 104),
+    is_active INTEGER NOT NULL DEFAULT 0 CHECK (is_active IN (0, 1)),
+    last_activity_at INTEGER,
+    active_game_id TEXT NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS practice_game_rewards (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    game_id TEXT NOT NULL,
+    eaten INTEGER NOT NULL CHECK (eaten >= 0),
+    points_awarded INTEGER NOT NULL CHECK (points_awarded >= 0),
+    coins_awarded INTEGER NOT NULL CHECK (coins_awarded >= 0),
+    completed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    PRIMARY KEY (user_id, game_id)
 );
 
 CREATE TABLE IF NOT EXISTS inventory (

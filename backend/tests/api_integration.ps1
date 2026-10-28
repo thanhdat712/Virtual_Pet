@@ -54,6 +54,20 @@ function Call([string]$Method, [string]$Path, $Body = $null, [string]$Token = ''
     } finally { $reply.Dispose() }
 }
 
+function RegisterAndLogin([string]$Email, [string]$Password) {
+    $registration = Call POST '/api/register' @{email=$Email;password=$Password}
+    if ($registration.Status -ne 201 -or -not $registration.Body.verificationCode) {
+        throw "Could not register test account $Email"
+    }
+    $verification = Call POST '/api/auth/email-verification/confirm' @{
+        email=$Email;verificationCode=$registration.Body.verificationCode
+    }
+    if ($verification.Status -ne 200) { throw "Could not verify test account $Email" }
+    $login = Call POST '/api/login' @{email=$Email;password=$Password}
+    if ($login.Status -ne 200 -or -not $login.Body.token) { throw "Could not log in test account $Email" }
+    return $login.Body
+}
+
 function Start-TestServer {
     $listener = New-Object Net.Sockets.TcpListener([Net.IPAddress]::Loopback,0)
     $listener.Start()
@@ -100,6 +114,12 @@ try {
     Start-TestServer
     $catalog = (Call GET '/api/shop').Body
     Check ($catalog.Count -eq 13 -and $catalog[0].price -eq 5 -and $catalog[0].icon) '13-item catalog with frontend fields'
+    foreach ($item in $catalog | Where-Object { $_.category -eq 'decoration' }) {
+        Check ((Call GET ('/' + $item.image)).Status -eq 200) "Decoration image is served for item $($item.id)"
+    }
+    foreach ($item in $catalog | Where-Object { $_.filter -eq 'headwear' }) {
+        Check ($item.petImage -and (Call GET ('/' + $item.petImage)).Status -eq 200) "Cat headwear sprite is served for item $($item.id)"
+    }
     Check ((Call GET '/').Status -eq 200) 'Same-origin index served'
     Check ((Call GET '/js/api.js').Status -eq 200) 'Same-origin JavaScript served'
     Check ((Call GET '/%2e%2e/backend/build/token.txt').Status -eq 403) 'Encoded traversal rejected'
@@ -112,8 +132,8 @@ try {
     Check ((Call GET '/api/me').Status -eq 401) 'Anonymous profile rejected'
     Check ((Call POST '/api/shop/purchases' @{itemId=1;quantity=1}).Status -eq 401) 'Anonymous purchase rejected'
     Check ((Call POST '/api/pet/feed' @{itemId=1}).Status -eq 401) 'Anonymous feeding rejected'
-    $alice = (Call POST '/api/register' @{email='alice@test.local';password='test-secret-123'}).Body
-    $bob = (Call POST '/api/register' @{email='bob@test.local';password='test-secret-123'}).Body
+    $alice = RegisterAndLogin 'alice@test.local' 'test-secret-123'
+    $bob = RegisterAndLogin 'bob@test.local' 'test-secret-123'
     Check ($alice.token.Length -eq 64 -and $alice.user.coins -eq 100) 'Register creates local session and initial balance'
     Check ((Call POST '/api/register' @{email='alice@test.local';password='test-secret-123'}).Status -eq 409) 'Duplicate registration rejected'
     Check ((Call POST '/api/login' @{email='alice@test.local';password='wrong-password'}).Status -eq 401) 'Wrong password rejected'
@@ -153,7 +173,7 @@ try {
     Check ((Call POST '/api/pet/feed' @{itemId=999} $alice.token).Status -eq 404) 'Unknown feeding item rejected'
     Check ((Call POST '/api/pet/feed' @{itemId=2} $alice.token).Status -eq 409) 'Unowned food rejected'
     Check ((Call POST '/api/pet/feed' @{itemId=1;userId=$alice.user.id} $bob.token).Status -eq 409) 'Another user cannot consume owned food'
-    $feeder = (Call POST '/api/register' @{email='feeder@test.local';password='test-secret-123'}).Body
+    $feeder = RegisterAndLogin 'feeder@test.local' 'test-secret-123'
     $restores = @(@(30,0),@(20,5),@(40,15),@(10,20),@(5,25))
     for ($index=0; $index -lt 5; $index++) {
         $itemId = $index + 1
@@ -277,12 +297,13 @@ try {
     $frontendAccount = Call POST '/api/auth/register' @{username='frontend_01';email='frontend@test.local';password='frontend-secret-123'}
     Check ($frontendAccount.Status -eq 201 -and $frontendAccount.Body.success -and $frontendAccount.Body.user.username -eq 'frontend_01') 'Frontend registration contract works'
     Check ((Call POST '/api/auth/register' @{username='frontend_01';email='other@test.local';password='frontend-secret-123'}).Status -eq 409) 'Frontend duplicate username rejected'
+    Check ((Call POST '/api/auth/email-verification/confirm' @{email='frontend@test.local';verificationCode=$frontendAccount.Body.verificationCode}).Status -eq 200) 'Frontend email verification succeeds'
     $frontendLogin = Call POST '/api/auth/login' @{email='frontend@test.local';password='frontend-secret-123'}
     $frontendCookie = ($frontendLogin.Headers['Set-Cookie'] -split ';')[0]
     Check ($frontendLogin.Status -eq 200 -and $frontendLogin.Body.success -and $frontendLogin.Body.user.username -eq 'frontend_01' -and $frontendCookie.StartsWith('vp_session=')) 'Frontend login sets HttpOnly session cookie'
     Check ((Call GET '/api/auth/session' $null '' '' $frontendCookie).Body.authenticated) 'Frontend cookie restores login session'
     $frontendState = (Call GET '/api/game/state' $null '' '' $frontendCookie).Body
-    Check ($frontendState.user.username -eq 'frontend_01' -and $frontendState.pet.species -eq 'cat' -and $frontendState.inventory.Count -eq 0) 'Frontend game state loads from database'
+    Check ($frontendState.user.username -eq 'frontend_01' -and $frontendState.pet.species -eq 'cat' -and -not $frontendState.pet.speciesChosen -and $frontendState.inventory.Count -eq 0) 'New account starts with pet selection pending'
     Check ((Call GET '/api/exercises').Body.Count -eq 5) 'Exercise API returns catalog'
     $frontendSubmission = Call POST '/api/exercises/1/submissions' @{answer='Hello World!'} '' '' $frontendCookie
     Check ($frontendSubmission.Status -eq 201 -and $frontendSubmission.Body.score -eq 100) 'Exercise API grades and stores submissions'
@@ -294,8 +315,12 @@ try {
     Check ($frontendFeed.Body.success -and $frontendFeed.Body.state.pet.hunger -eq 60 -and $frontendFeed.Body.state.inventory.Count -eq 1 -and $frontendFeed.Body.state.inventory[0].itemId -eq 8) 'Frontend feeding consumes food and keeps owned decoration'
     $frontendEquip = Call POST '/api/pet/decorate' @{itemId=8} '' '' $frontendCookie
     Check ($frontendEquip.Body.success -and $frontendEquip.Body.state.equipment.background -eq 8) 'Frontend decoration equipment persists'
+    $frontendPurchase = Call POST '/api/shop/purchases' @{itemId=10;quantity=1} '' '' $frontendCookie
+    Check ($frontendPurchase.Body.success -and (@($frontendPurchase.Body.state.inventory | Where-Object { $_.itemId -eq 10 }).Count -eq 1)) 'Frontend floor purchase updates database inventory'
+    $frontendEquip = Call POST '/api/pet/decorate' @{itemId=10} '' '' $frontendCookie
+    Check ($frontendEquip.Body.success -and $frontendEquip.Body.state.equipment.floor -eq 10) 'Frontend floor equipment persists'
     $frontendProfile = Call PUT '/api/pet' @{name='Mochi';species='dog'} '' '' $frontendCookie
-    Check ($frontendProfile.Body.state.pet.name -eq 'Mochi' -and $frontendProfile.Body.state.pet.species -eq 'dog') 'Pet name and species are saved in SQLite'
+    Check ($frontendProfile.Body.state.pet.name -eq 'Mochi' -and $frontendProfile.Body.state.pet.species -eq 'dog' -and $frontendProfile.Body.state.pet.speciesChosen) 'Pet choice and profile are saved in SQLite'
     $frontendSettings = Call PUT '/api/settings' @{soundEnabled=$false} '' '' $frontendCookie
     Check (-not $frontendSettings.Body.settings.soundEnabled) 'Sound preference is saved in SQLite'
     $frontendPlay = Call POST '/api/pet/play' $null '' '' $frontendCookie
@@ -308,7 +333,7 @@ try {
     Stop-TestServer
     Start-TestServer
     $frontendPersisted = (Call GET '/api/game/state' $null '' '' $frontendCookie).Body
-    Check ($frontendPersisted.pet.name -eq 'Mochi' -and $frontendPersisted.pet.species -eq 'dog' -and $frontendPersisted.pet.level -eq 2 -and $frontendPersisted.settings.soundEnabled -eq $false -and $frontendPersisted.equipment.background -eq $null) 'Frontend profile, settings, actions and equipment persist across restart'
+    Check ($frontendPersisted.pet.name -eq 'Mochi' -and $frontendPersisted.pet.species -eq 'dog' -and $frontendPersisted.pet.speciesChosen -and $frontendPersisted.pet.level -eq 2 -and $frontendPersisted.settings.soundEnabled -eq $false -and $null -eq $frontendPersisted.equipment.background -and $frontendPersisted.equipment.floor -eq 10) 'Pet choice, profile, settings, actions and equipment persist across restart'
     Check ((Call POST '/api/auth/logout' @{} '' '' $frontendCookie).Body.success) 'Frontend logout revokes cookie session'
     Check (-not (Call GET '/api/auth/session' $null '' '' $frontendCookie).Body.authenticated) 'Frontend logout prevents session reuse'
 
@@ -323,7 +348,7 @@ try {
     $database = $legacyDatabase
     Start-TestServer
     Check ((Sql 'SELECT username,coins,sound_enabled FROM users WHERE id=7;') -eq 'player_7|77|1') 'Legacy user data migrates without losing coins'
-    Check ((Sql 'SELECT name,species,level,happiness,hunger,energy FROM pets WHERE user_id=7;') -eq 'Old Pet|cat|3|42|55|66') 'Legacy pet data migrates without losing stats'
+    Check ((Sql 'SELECT name,species,species_chosen,level,happiness,hunger,energy FROM pets WHERE user_id=7;') -eq 'Old Pet|cat|1|3|42|55|66') 'Legacy pet data migrates without losing stats or prompting again'
     Write-Host "API integration: $script:checks checks passed"
 } catch {
     if ($script:server) {

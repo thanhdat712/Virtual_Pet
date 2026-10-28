@@ -52,8 +52,12 @@ int main() {
     Cat sleeping(5, "meomeo", 1, 100, 20, 50, 20);
     auto sleepResult = sleeping.sleep();
     check("sleep succeeds when energy is not full", sleepResult.ok());
-    check("sleep restores energy with upper clamp", sleeping.getEnergy() == 60);
+    check("sleep restores one energy", sleeping.getEnergy() == 21);
     check("sleep consumes fullness", sleeping.getHunger() == 45);
+
+    Cat almostFull(7, "meomeo", 1, 100, 20, 50, 99);
+    check("sleep succeeds near full energy", almostFull.sleep().ok());
+    check("sleep energy is clamped to 100", almostFull.getEnergy() == 100);
 
     Cat bathing(6, "meomeo", 1, 100, 20, 50, 50);
     auto bathResult = bathing.bath();
