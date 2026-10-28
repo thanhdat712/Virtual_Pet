@@ -128,8 +128,8 @@ int main() {
         check("play tang vui / len cap", g.getPet().getHappiness() != vui || g.getPet().getLevel() > 1);
         check("play ton nang luong", g.getPet().getEnergy() == 70 - Pet::PLAY_ENERGY_COST);
         check("sleep OK", g.sleep().ok());
-        check("sleep hoi nang luong", g.getPet().getEnergy() == 70 - Pet::PLAY_ENERGY_COST + Pet::SLEEP_ENERGY_GAIN);
-        g.sleep(); g.sleep();
+        check("sleep hoi 1 diem nang luong", g.getPet().getEnergy() == 70 - Pet::PLAY_ENERGY_COST + Pet::SLEEP_ENERGY_GAIN);
+        for (int i = 0; i < 44; ++i) g.sleep();
         check("nang luong day -> sleep bao ENERGY_FULL", is(g.sleep(), ActionCode::ENERGY_FULL));
         check("bath OK", g.bath().ok());
 
