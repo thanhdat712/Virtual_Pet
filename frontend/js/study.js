@@ -249,6 +249,7 @@ function growVine() { // vẽ một lần: 1 ô pixel = 4px màn hình
     document.body.appendChild(svg);
     const [m, m2] = svg.querySelectorAll('path');
     const U = 4, cv = $('vc'), c = cv.getContext('2d'), r = seeded(11), L = m.getTotalLength();
+    c.translate(-VINE_START / U, 0);
     const dot = (x, y, w, col) => { c.fillStyle = col; c.fillRect(Math.round(x / U - w / 2), Math.round(y / U - w / 2), w, w); };
     const trace = (path, dx, dy, w, col) => { const n = path.getTotalLength(); for (let s = 0; s <= n; s += 2) { const p = path.getPointAtLength(s); dot(p.x + dx, p.y + dy, w, col); } };
     const LEAF = [['#d4f3dc', '#8fd1a3', '#5fae7c'], ['#e3f6c9', '#b5dc8f', '#86bb62'], ['#bfe9d3', '#7cc4a0', '#4f9d7e'], ['#d4f3dc', '#8fd1a3', '#5fae7c'], ['#fde0ec', '#f3a9c8', '#d17fa6']]; // lá chủ yếu xanh lá pastel, thỉnh thoảng lá hồng

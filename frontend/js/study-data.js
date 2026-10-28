@@ -19,7 +19,7 @@ const D = {
             M('He ___ a teacher.', ['is', 'am', 'are'], 'He đi với "is".'),
             M('We ___ friends.', ['are', 'is', 'am'], 'We/You/They đi với "are".'),
             M('I have ___ orange.', ['an', 'a', 'the'], 'orange bắt đầu bằng nguyên âm nên dùng "an".'),
-            M('Which English word means "cat"?', ['cat', 'dog', 'bird'], 'cat = con mèo, dog = con chó, bird = con chim.'),
+            M('Which English word means "con mèo"?', ['cat', 'dog', 'bird'], 'cat = con mèo, dog = con chó, bird = con chim.'),
             M('How ___ are you?', ['old', 'many', 'much'], 'Hỏi tuổi: How old are you?'),
             M('My mother ___ in a bank.', ['works', 'work', 'working'], 'Ngôi thứ ba số ít thêm -s: works.'),
             M('Monday comes after ___.', ['Sunday', 'Tuesday', 'Friday'], 'Thứ Hai (Monday) đứng sau Chủ nhật (Sunday).'),
