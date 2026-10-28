@@ -3,7 +3,7 @@
 
 #include <string>
 #include <vector>
-#include "Submission.h"
+#include "../Exercise/Submission.h"
 
 struct sqlite3;
 
@@ -14,7 +14,7 @@ struct UserRow {
     std::string email;
     int coins = 0;
         bool soundEnabled = true;
-    bool emailVerified = true;
+    bool emailVerified = false;
 };
 
 struct PetRow {
@@ -112,9 +112,17 @@ public:
     bool emailExists(const std::string& email);
     bool issueEmailVerification(const std::string& email, const std::string& tokenHash, long long expiresAt);
     bool verifyEmail(const std::string& email, const std::string& tokenHash);
+
     bool createPendingEmailChange(long long userId, const std::string& email,
                                   const std::string& tokenHash, long long expiresAt);
-    bool confirmEmailChange(long long userId, const std::string& email, const std::string& tokenHash);
+    bool confirmEmailChange(long long userId, const std::string& email,
+                            const std::string& tokenHash);
+
+    bool createPasswordReset(const std::string& email, const std::string& tokenHash, long long expiresAt);
+    bool resetPassword(const std::string& tokenHash, const std::string& salt,
+                       const std::string& passwordHash);
+    bool changePassword(long long userId, const std::string& currentPassword,
+                        const std::string& newPassword, const std::string& currentSessionHash);
         bool usernameExists(const std::string& username);
     // Tạo user + pet mặc định. Trả về true và điền outUser nếu thành công.
     bool createUser(const std::string& email, const std::string& password, UserRow& outUser);

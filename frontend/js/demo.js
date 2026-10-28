@@ -18,7 +18,7 @@
 	const copy = (value) => JSON.parse(JSON.stringify(value));
 	const initialState = () => ({
 		user: { id: 1, coins: 100 },
-		pet: { name: 'UIA', level: 1, exp: 0, happiness: 0, hunger: 50, energy: 50, sleepUntil: 0 },
+pet: { name: 'UIA', level: 1, exp: 0, happiness: 0, hunger: 50, energy: 50, sleepUntil: 0 },
 		inventory: [{ id: 1, quantity: 3 }, { id: 2, quantity: 2 }],
 		decor: { background: null, floor: null, headwear: null }
 	});
