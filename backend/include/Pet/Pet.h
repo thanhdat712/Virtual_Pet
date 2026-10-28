@@ -41,7 +41,7 @@ public:
 static constexpr int PLAY_HAPPINESS_GAIN = 15;
 static constexpr int PLAY_ENERGY_COST = 15;
 static constexpr int PLAY_HUNGER_COST = 10;
-static constexpr int SLEEP_ENERGY_GAIN = 40;
+static constexpr int SLEEP_ENERGY_GAIN = 1;
 static constexpr int SLEEP_HUNGER_COST = 5;
 static constexpr int BATH_HAPPINESS_GAIN = 5;
 static constexpr int BATH_ENERGY_COST = 5;

@@ -10,6 +10,7 @@
 #include <iterator>
 #include <sstream>
 #include <stdexcept>
+#include <ctime>
 
 namespace
 {
@@ -254,6 +255,8 @@ bool Database::runSchema()
             execute(db_, "ALTER TABLE pets ADD COLUMN species_chosen INTEGER NOT NULL DEFAULT 0;");
             execute(db_, "UPDATE pets SET species_chosen=1;");
         }
+        if (!hasColumn(db_, "pets", "sleep_until"))
+            execute(db_, "ALTER TABLE pets ADD COLUMN sleep_until INTEGER NOT NULL DEFAULT 0;");
         execute(db_, "UPDATE users SET username='player_'||id WHERE username IS NULL OR username='';"
                      "CREATE UNIQUE INDEX IF NOT EXISTS users_username_unique ON users(username COLLATE NOCASE);");
         if (!hasColumn(db_, "sessions", "expires_at"))
@@ -644,7 +647,14 @@ bool Database::setSoundEnabled(long long userId, bool enabled)
 
 bool Database::getPet(long long userId, PetRow &pet)
 {
-    Statement statement(db_, "SELECT user_id,name,species,species_chosen,level,experience,happiness,hunger,energy FROM pets WHERE user_id=?;");
+    Statement wake(db_, "UPDATE pets SET energy=MIN(100,energy+?),hunger=MAX(0,hunger-?),sleep_until=0 "
+                         "WHERE user_id=? AND sleep_until>0 AND sleep_until<=CAST(strftime('%s','now') AS INTEGER);");
+    wake.bind(1, Pet::SLEEP_ENERGY_GAIN);
+    wake.bind(2, Pet::SLEEP_HUNGER_COST);
+    wake.bind(3, userId);
+    wake.done();
+    Statement statement(db_, "SELECT user_id,name,species,species_chosen,level,experience,happiness,hunger,energy,"
+                             "MAX(0,sleep_until-CAST(strftime('%s','now') AS INTEGER)) FROM pets WHERE user_id=?;");
     statement.bind(1, userId);
     if (!statement.row())
         return false;
@@ -657,6 +667,7 @@ bool Database::getPet(long long userId, PetRow &pet)
     pet.happiness = static_cast<int>(statement.number(6));
     pet.hunger = static_cast<int>(statement.number(7));
     pet.energy = static_cast<int>(statement.number(8));
+    pet.sleepRemainingSeconds = static_cast<int>(statement.number(9));
     return true;
 }
 
@@ -755,6 +766,10 @@ int Database::feed(long long userId, int itemId)
     if ((*item)["category"] != "food")
         return 400;
     Transaction transaction(db_);
+    Statement sleeping(db_, "SELECT sleep_until FROM pets WHERE user_id=?;");
+    sleeping.bind(1,userId);
+    if (!sleeping.row()) return 404;
+    if (sleeping.number(0) > static_cast<long long>(std::time(nullptr))) return 423;
     long long quantity = 0;
     {
         Statement owned(db_, "SELECT quantity FROM inventory WHERE user_id=? AND item_id=?;");
@@ -787,16 +802,23 @@ int Database::feed(long long userId, int itemId)
 int Database::performPetAction(long long userId, const std::string &action, int &levelsGained)
 {
     Transaction transaction(db_);
+    Statement wake(db_, "UPDATE pets SET energy=MIN(100,energy+?),hunger=MAX(0,hunger-?),sleep_until=0 "
+        "WHERE user_id=? AND sleep_until>0 AND sleep_until<=CAST(strftime('%s','now') AS INTEGER);");
+    wake.bind(1,Pet::SLEEP_ENERGY_GAIN); wake.bind(2,Pet::SLEEP_HUNGER_COST); wake.bind(3,userId); wake.done();
     int happiness = 0, hunger = 0, energy = 0;
+    long long sleepUntil = 0;
     {
-        Statement pet(db_, "SELECT level,happiness,hunger,energy FROM pets WHERE user_id=?;");
+        Statement pet(db_, "SELECT level,happiness,hunger,energy,sleep_until FROM pets WHERE user_id=?;");
         pet.bind(1, userId);
         if (!pet.row())
             return 404;
         happiness = static_cast<int>(pet.number(1));
         hunger = static_cast<int>(pet.number(2));
         energy = static_cast<int>(pet.number(3));
+        sleepUntil = pet.number(4);
     }
+    const long long now = static_cast<long long>(std::time(nullptr));
+    if (sleepUntil > now) return 423;
     int happinessGain = 0;
     if (action == "play")
     {
@@ -810,8 +832,14 @@ int Database::performPetAction(long long userId, const std::string &action, int 
     {
         if (energy >= Pet::MAX_STAT)
             return 409;
-        energy = std::min(Pet::MAX_STAT, energy + Pet::SLEEP_ENERGY_GAIN);
-        hunger = std::max(0, hunger - Pet::SLEEP_HUNGER_COST);
+        Statement startSleep(db_, "UPDATE pets SET sleep_until=CAST(strftime('%s','now') AS INTEGER)+1800 WHERE user_id=?;");
+        startSleep.bind(1, userId);
+        startSleep.done();
+        if (sqlite3_changes(db_) != 1)
+            return 404;
+        levelsGained = 0;
+        transaction.commit();
+        return 200;
     }
     else if (action == "bath")
     {

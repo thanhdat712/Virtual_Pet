@@ -1,4 +1,11 @@
 let petLevel = 0;
+const petStage = document.querySelector('.pet-stage');
+const sleepingGameScene = document.querySelector('.pet-game');
+const sleepButton = document.querySelector('#sleep-pet');
+const feedingStatus = document.querySelector('#feeding-status');
+let feedingStatusTimeout;
+let sleepCountdownTimer;
+let petSleeping = false;
 
 function applyAccountState(state) {
 	coins = state.user.coins;
@@ -29,6 +36,7 @@ function applyAccountState(state) {
 			stat.querySelector('.hud-stat-value').textContent = `${state.pet[name]} / 100`;
 			stat.querySelector('.px-bar i').style.width = `${state.pet[name]}%`;
 		});
+		syncSleepState(state.pet.sleepRemainingSeconds);
 	}
 	const equipment = state.equipment ?? state.decor;
 	if (equipment) {
@@ -68,20 +76,6 @@ document.querySelector('#open-food').addEventListener('click', () => {
 
 let feeding = false;
 let selectedFood = null;
-const petStage = document.querySelector('.pet-stage');
-const feedingStatus = document.querySelector('#feeding-status');
-let feedingStatusTimeout;
-let sleepVisualTimeout;
-
-function showSleepingScene() {
-	window.clearTimeout(sleepVisualTimeout);
-	petStage.classList.add('is-sleeping');
-	document.querySelector('.pet-game').classList.add('is-sleeping');
-	sleepVisualTimeout = window.setTimeout(() => {
-		petStage.classList.remove('is-sleeping');
-		document.querySelector('.pet-game').classList.remove('is-sleeping');
-	}, 4200);
-}
 
 function setFeedingStatus(message, duration = 0) {
 	clearTimeout(feedingStatusTimeout);
@@ -93,6 +87,36 @@ function setFeedingStatus(message, duration = 0) {
 			feedingStatusTimeout = null;
 		}, duration);
 	}
+}
+
+function syncSleepState(remainingSeconds = 0) {
+	window.clearInterval(sleepCountdownTimer);
+	sleepCountdownTimer = null;
+	const remaining = Math.max(0, Math.floor(Number(remainingSeconds) || 0));
+	petSleeping = remaining > 0;
+	petStage.classList.toggle('is-sleeping', petSleeping);
+	sleepingGameScene.classList.toggle('is-sleeping', petSleeping);
+	sleepButton.disabled = petSleeping;
+	if (!petSleeping) return;
+	setFeedingStatus('');
+
+	const wakeAt = Date.now() + remaining * 1000;
+	const updateCountdown = () => {
+		const secondsLeft = Math.max(0, Math.ceil((wakeAt - Date.now()) / 1000));
+		if (secondsLeft === 0) {
+			window.clearInterval(sleepCountdownTimer);
+			sleepCountdownTimer = null;
+			loadAccount().then(() => {
+				if (!petSleeping) setFeedingStatus(`${window.getCurrentPetName()} woke up! Energy increased by 1.`);
+			}).catch(() => {
+				setFeedingStatus('Could not refresh your pet after sleep. Reconnecting...');
+				syncSleepState(1);
+			});
+			return;
+		}
+	};
+	updateCountdown();
+	sleepCountdownTimer = window.setInterval(updateCountdown, 1000);
 }
 
 petStage.tabIndex = 0;
@@ -209,13 +233,11 @@ document.querySelector('#sleep-pet').addEventListener('click', async (event) => 
 	try {
 		applyAccountState(await api.sleepPet());
 		window.playGameSound?.('sleep');
-		showSleepingScene();
-		setFeedingStatus(`${window.getCurrentPetName()} took a nap and feels rested!`);
 	} catch (failure) {
 		const message = reportFailure(failure);
 		setFeedingStatus(message, message.includes('not sleepy right now') ? 5000 : 0);
 	} finally {
-		button.disabled = false;
+		button.disabled = petSleeping;
 	}
 });
 

@@ -96,7 +96,8 @@ Value userJson(const UserRow& user) {
 Value petJson(const PetRow& pet) {
     return {{"name",pet.name},{"species",pet.species},{"speciesChosen",pet.speciesChosen},
         {"level",pet.level},{"experience",pet.experience},
-        {"happiness",pet.happiness},{"hunger",pet.hunger},{"energy",pet.energy}};
+        {"happiness",pet.happiness},{"hunger",pet.hunger},{"energy",pet.energy},
+        {"sleepRemainingSeconds",pet.sleepRemainingSeconds},{"sleeping",pet.sleepRemainingSeconds > 0}};
 }
 
 Value progressJson(const ProgressRow& progress) {
@@ -531,6 +532,7 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
         auto fields = json::object(request.body);
         int itemId = integerField(fields,"itemId",2147483647);
         int status = db.feed(userId,itemId);
+        if (status == 423) return apiError(423,"PET_SLEEPING","Your pet is asleep. Let it rest for 30 minutes.");
         if (status != 200) return apiError(status,status == 400 ? "NOT_FOOD" : status == 409 ? "NOT_OWNED" : "ITEM_NOT_FOUND",
             status == 400 ? "Item is not food." : status == 409 ? "Food not owned." : "Item or pet not found.");
         return actionResponse(db,userId,"Food eaten.");
@@ -561,9 +563,10 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
         const std::string action = request.path.substr(std::string("/api/pet/").size());
         int levelsGained = 0;
         const int status = db.performPetAction(userId,action,levelsGained);
+        if (status == 423) return apiError(423,"PET_SLEEPING","Your pet is asleep. It will wake after 30 minutes.");
         if (status != 200) return apiError(status,status == 409 ? (action == "sleep" ? "ENERGY_FULL" : "PET_TOO_TIRED") : "PET_NOT_FOUND",
             status == 409 ? (action == "sleep" ? "Your pet is not sleepy." : "Your pet is too tired to play.") : "Pet not found.");
-        const std::string message = action == "sleep" ? "Your pet slept well." : action == "play" ? "Your pet had fun!" : "Squeaky clean!";
+        const std::string message = action == "sleep" ? "Your pet is sleeping for 30 minutes." : action == "play" ? "Your pet had fun!" : "Squeaky clean!";
         return actionResponse(db,userId,message,levelsGained);
     }
     if (request.method == "POST" && request.path == "/api/pet/decorate") {
