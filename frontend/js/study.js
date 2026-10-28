@@ -11,8 +11,8 @@ const PASS_RATE = 0.8;                            // 4/5 câu đúng là qua nh�
 const MEMES_DIR = 'assets/study/';
 const MEMES = {
     corner: ['chopixel9.gif', 'meopixel9.gif', 'chopixel2.gif', 'meopixel1.gif'], // 4 góc màn hình lúc mở trang Study
-    right: ['chopixel5.gif', 'chopixel3.jpg', 'meopixel3.gif', 'chopixel7.gif', 'meopixel2.gif', 'meopixel6.gif', 'chopixel6.gif'], // 5 meme khi trả lời ĐÚNG (mỗi lần rút 2)
-    wrong: ['chopixel2.gif', 'meopixel9.gif', 'meopixel4.jpg', 'chopixel8.jpg', 'chopixel1.jpg', 'meopixel7.jpg']       // 5 meme khi trả lời SAI (mỗi lần rút 2)
+    right: ['chopixel4.jpg', 'chopixel10.jpg', 'meopixel1.gif', 'meopixel11.jpg', 'meopixel15.jpg', 'meopixel19.jpg', 'meopixel20.jpg', 'meopixel21.jpg', 'chopixel5.gif', 'chopixel3.jpg', 'meopixel3.gif', 'chopixel7.gif', 'meopixel2.gif', 'meopixel6.gif', 'chopixel6.gif'], // 5 meme khi trả lời ĐÚNG (mỗi lần rút 2)
+    wrong: ['chopixel2.gif', 'chopixel9.gif', 'chopixel11.jpg', 'chopixel12.jpg', 'chopixel13.jpg', 'chopixel15.jpg', 'duo1.jpg', 'meopixel12.jpg', 'meopixel13.jpg', 'meopixel14.jpg', 'meopixel16.jpg', 'meopixel17.jpg', 'meopixel9.gif', 'meopixel4.jpg', 'chopixel8.jpg', 'chopixel1.jpg', 'meopixel7.jpg', 'meopixel18.jpg']       // 5 meme khi trả lời SAI (mỗi lần rút 2)
 };
 const CAP = {
     right: ['Bá Khí! ', 'Hay Lắm, human! ', 'Bá đạo trên từng hạt gạo. ', 'Mèo Méo Meo Mèo Meo. ',

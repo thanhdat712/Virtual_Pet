@@ -14,8 +14,9 @@
     const DIRS = { up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } };
     const OPP = { up: 'down', down: 'up', left: 'right', right: 'left' };
     const KEYMAP = { arrowup: 'up', arrowdown: 'down', arrowleft: 'left', arrowright: 'right', w: 'up', s: 'down', a: 'left', d: 'right' };
-    const MEME_READY = ['meopixel2.gif', 'meopixel6.gif', 'meopixel1.gif', 'meopixel6.gif', 'meopixel3.gif'];
-    const MEME_GAME_OVER = ['meopixel2.gif', 'meopixel9.gif', 'meopixel4.jpg', 'meopixel6.gif', 'meopixel3.gif'];
+    const MEME_READY = ['meopixel2.gif', 'meopixel6.gif', 'meopixel1.gif', 'meopixel3.gif', 'chopixel3.jpg', 'chopixel4.jpg', 'chopixel5.gif', 'chopixel6.gif', 'chopixel7.gif', 'meopixel11.jpg', 'meopixel15.jpg', 'meopixel21.jpg'];
+    const MEME_GAME_OVER = ['meopixel2.gif', 'chopixel1.jpg', 'chopixel2.gif', 'chopixel3.jpg', 'chopixel4.jpg', 'chopixel5.gif', 'chopixel6.gif', 'chopixel7.gif', 'chopixel8.jpg', 'chopixel9.gif', 'chopixel10.jpg', 'chopixel11.jpg', 'chopixel12.jpg', 'chopixel13.jpg', 'chopixel15.jpg',
+        'meopixel1.gif', 'meopixel7.jpg', 'meopixel11.jpg', 'meopixel12.jpg', 'meopixel13.jpg', 'meopixel14.jpg', 'meopixel15.jpg', 'meopixel16.jpg', 'meopixel17.jpg', 'meopixel18.jpg', 'meopixel19.jpg', 'meopixel20.jpg', 'meopixel21.jpg', 'meopixel9.gif', 'meopixel4.jpg', 'meopixel6.gif', 'meopixel3.gif'];
     const SPR = {
         cat: 'assets/study/meo.png',    // Ảnh mèo: dùng trên sân, nút đổi thú và màn hình chọn thú.
         dog: 'assets/study/cho.png',    // Ảnh chó: dùng trên sân và màn hình chọn thú.
