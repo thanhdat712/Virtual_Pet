@@ -33,12 +33,13 @@ if (-not (Test-Path $sqliteObj)) {
 # 2) Bien dich + link server.
 Write-Host 'Bien dich server...'
 g++ -std=c++17 -O2 -Wall -Wextra `
-    -I backend/include/Server -I backend/include/Pet -I backend/third_party/sqlite `
+        -I backend/include/Server -I backend/include/Pet -I backend/include/Exercise -I backend/third_party/sqlite `
     backend/src/server_main.cpp `
     backend/src/Server/Database.cpp `
     backend/src/Server/HttpServer.cpp `
     backend/src/Server/Crypto.cpp `
     backend/src/Server/Catalog.cpp `
+    backend/src/Exercise/Submission.cpp `
     $sqliteObj `
     -o (Join-Path $resolvedBuildDir 'server.exe') -lws2_32
 if ($LASTEXITCODE -ne 0) { throw 'Bien dich server that bai' }
