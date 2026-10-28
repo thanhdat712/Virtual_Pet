@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="css/practice.css?v=mobile-bottom-controls-v3-20261027">
 </head>
 
-<body data-species="none" data-state="idle">
+<body data-species="none" data-state="idle" data-music-style="arcade">
     <canvas id="bg" aria-hidden="true"></canvas>
 
     <main class="game" aria-label="Pet Snack Run">
@@ -21,6 +21,7 @@
                     <path d="M3 0h2v1h1v1h1v1h1v1H7v4H5V5H3v3H1V4H0V3h1V2h1V1h1z" />
                 </svg><span>Home</span></a>
             <h1 class="px title">Pet Run</h1>
+            <button class="px-btn small" id="study-music-toggle" type="button" aria-pressed="false">♫ Play music</button>
             <button class="px-btn small" id="pause-btn" type="button" data-action="pause" disabled>Pause</button>
         </header>
 
@@ -173,6 +174,7 @@
     </div>
 
     <script src="js/api.js"></script>
+    <script src="js/sound.js?v=practice-music-20261028"></script>
     <script src="js/practice.js?v=account-rewards-v1"></script>
 </body>
 

@@ -757,6 +757,7 @@
     resetGame();
     fit(); initBg();
     showScreen('species');
+    window.startStudyMusic?.();
     scheduleFrame();
     initializePractice();
 })();
