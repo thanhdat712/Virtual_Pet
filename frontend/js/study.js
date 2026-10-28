@@ -218,15 +218,17 @@ function setMeme(el, file) { // chỉ hiện khi ảnh tải được
 
 /* ===================== DÂY LEO PIXEL ===================== */
 const W = 3800; // chiều dài dây leo (px), khớp .path-in trong CSS
+const VINE_START = -800;
+const VINE_END = W + 800;
 const NODE = [[520, 190], [1060, 100], [1620, 235], [2140, 120], [2700, 220], [3260, 105]].map(([x, y]) => ({ x, y })); // 6 nút A1..C2
 const VP = (() => { // các điểm dây đi qua: lệch ngẫu nhiên nhưng cố định, luôn qua các nút
-    const r = seeded(5), P = [[-140, 210]]; let px = -140;
+    const r = seeded(5), P = [[VINE_START, 210]]; let px = VINE_START;
     NODE.forEach(n => {
         const gap = n.x - px;
         P.push([px + gap * (.30 + r() * .1), 70 + r() * 200], [px + gap * (.66 + r() * .1), 70 + r() * 200], [n.x, n.y]);
         px = n.x;
     });
-    P.push([px + 200, 120 + r() * 120], [px + 420, 80 + r() * 160], [W + 140, 190]);
+    P.push([px + 200, 120 + r() * 120], [px + 420, 80 + r() * 160], [VINE_END, 190]);
     return P;
 })();
 
