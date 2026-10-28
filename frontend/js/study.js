@@ -15,10 +15,10 @@ const MEMES = {
     wrong: ['chopixel2.gif', 'meopixel9.gif', 'meopixel4.jpg', 'chopixel8.jpg', 'chopixel1.jpg', 'meopixel7.jpg']       // 5 meme khi trả lời SAI (mỗi lần rút 2)
 };
 const CAP = {
-    right: ['Chính xác! ', 'Giỏi lắm! ', 'Tốt lắm! ', 'Bạn làm tốt lắm! ',
-        'Quá tuyệt! ', 'Đỉnh quá! ', 'Pet tự hào về bạn! '],
-    wrong: ['Không sao, thử lại nhé! ', 'Chưa đúng rồi! ', 'Gần đúng rồi, cố lên! ', 'Pet tin bạn làm được! ',
-        'Sai một chút thôi! ', 'Đừng lo, thử câu tiếp theo nhé! ', 'Cố lên nào! ']
+    right: ['Bá Khí! ', 'Hay Lắm, human! ', 'Bá đạo trên từng hạt gạo. ', 'Mèo Méo Meo Mèo Meo. ',
+        'Cook tiếp đi đầu bếp 👨‍🍳🍳. ', 'Cổ điển, tôn trọng. ', '  Trên cái đất Thủ Đức này tui nể mỗi bạn. '],
+    wrong: ['Hồi chiều...hồi chiều làm sai câu TA. ', 'Cạn Phước. ', 'Chắc kiếp trước tặng chùa máy sấy tóc. ', 'Mong Tôn Hoa Sen thấy và làm ngơ. ', 'Thông báo: Pet của bạn đã gửi đơn xin đổi chủ. ',
+        'Pet 7 vọng về bạn. ', 'Tui nói này bạn đừng buồn nha. ', 'Pet nước mình vất vả. ', 'Lên núi khỉ còn đuổi xuống. ']
 };
 
 /* ===================== TIỆN ÍCH ===================== */
@@ -94,7 +94,7 @@ async function startVisibleStudyTime() {
     try {
         const state = await updateStudyTime('start');
         if (state.blocked || studyBlocked || document.visibilityState === 'hidden') {
-            if (!studyBlocked) await updateStudyTime('pause',true);
+            if (!studyBlocked) await updateStudyTime('pause', true);
             return;
         }
         clearInterval(studyTimer);
@@ -482,7 +482,7 @@ async function endQuiz() {
     let pass = cur.ok >= need;
     let msg = `${cur.ok}/${n} correct.`;
     try {
-        const result = await window.api.completeStudyStage(cur.l,cur.t,cur.ok);
+        const result = await window.api.completeStudyStage(cur.l, cur.t, cur.ok);
         updateStudyState(result.state);
         pass = result.passed;
         if (result.review) {

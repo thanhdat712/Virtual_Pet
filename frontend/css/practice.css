@@ -90,6 +90,8 @@ canvas { image-rendering: pixelated; }
 .board-wrap { position: relative; padding: clamp(4px, .56vw, 8px); background: var(--cream); box-shadow: var(--frame); }
 #board { display: block; touch-action: none; }
 .toast { position: absolute; left: 50%; top: 16px; transform: translateX(-50%); padding: 8px 10px; font-size: 8px; white-space: nowrap; background: var(--accent); }
+.practice-status { width: var(--bw); max-width: 100%; padding: 8px 10px; font-size: 8px; overflow-wrap: anywhere; }
+.practice-status[data-error="true"] { color: #8b2635; background: #ffe2e6; }
 .bottom-actions { display: flex; justify-content: center; width: var(--bw); max-width: 100%; }
 
 /* ===== vòng tròn điều khiển ===== */

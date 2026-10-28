@@ -108,6 +108,33 @@ bool loadStudyState(sqlite3* database, long long userId, StudyStateRow& state) {
     return true;
 }
 
+bool ensurePracticeState(sqlite3* database, long long userId) {
+    Statement user(database, "SELECT 1 FROM users WHERE id=?;");
+    user.bind(1,userId);
+    if (!user.row()) return false;
+    Statement statement(database, "INSERT OR IGNORE INTO practice_state(user_id) SELECT id FROM users WHERE id=?;");
+    statement.bind(1,userId);
+    statement.done();
+    return true;
+}
+
+bool loadPracticeState(sqlite3* database, long long userId, PracticeStateRow& state) {
+    Statement statement(database,
+        "SELECT s.total_points,s.best_score,u.coins,p.level,p.happiness,p.hunger,p.energy "
+        "FROM practice_state s JOIN users u ON u.id=s.user_id "
+        "JOIN pets p ON p.user_id=s.user_id WHERE s.user_id=?;");
+    statement.bind(1,userId);
+    if (!statement.row()) return false;
+    state.points = statement.number(0);
+    state.bestScore = static_cast<int>(statement.number(1));
+    state.coins = static_cast<int>(statement.number(2));
+    state.level = static_cast<int>(statement.number(3));
+    state.happiness = static_cast<int>(statement.number(4));
+    state.hunger = static_cast<int>(statement.number(5));
+    state.energy = static_cast<int>(statement.number(6));
+    return true;
+}
+
 std::string normalizedAnswer(const std::string& answer) {
     std::istringstream input(answer);
     std::string word, result;
@@ -748,6 +775,149 @@ StudyOperationStatus Database::completeStudyStage(long long userId, const std::s
     if (!loadStudyState(db_,userId,outState)) return StudyOperationStatus::UserNotFound;
     transaction.commit();
     return StudyOperationStatus::Success;
+}
+
+bool Database::getPracticeState(long long userId, PracticeStateRow& outState) {
+    Transaction transaction(db_);
+    if (!ensurePracticeState(db_,userId) || !loadPracticeState(db_,userId,outState)) return false;
+    transaction.commit();
+    return true;
+}
+
+PracticeOperationStatus Database::updatePracticeActivity(long long userId, const std::string& action,
+                                                          long long nowUnix, PracticeStateRow& outState) {
+    if (action != "start" && action != "heartbeat" && action != "pause")
+        return PracticeOperationStatus::InvalidAction;
+
+    Transaction transaction(db_);
+    if (!ensurePracticeState(db_,userId) || !loadPracticeState(db_,userId,outState))
+        return PracticeOperationStatus::UserNotFound;
+
+    bool active = false;
+    long long lastActivity = 0;
+    int remainder = 0;
+    {
+        Statement state(db_, "SELECT is_active,IFNULL(last_activity_at,0),elapsed_remainder_seconds "
+                             "FROM practice_state WHERE user_id=?;");
+        state.bind(1,userId);
+        if (!state.row()) return PracticeOperationStatus::UserNotFound;
+        active = state.number(0) != 0;
+        lastActivity = state.number(1);
+        remainder = static_cast<int>(state.number(2));
+    }
+
+    if (active && nowUnix > lastActivity) {
+        const long long elapsed = std::min<long long>(30,nowUnix-lastActivity);
+        const int accumulated = remainder+static_cast<int>(elapsed);
+        const int statLoss = accumulated/210;
+        remainder = accumulated%210;
+        if (statLoss > 0) {
+            Statement decay(db_, "UPDATE pets SET hunger=MAX(0,hunger-?),energy=MAX(0,energy-?) WHERE user_id=?;");
+            decay.bind(1,statLoss); decay.bind(2,statLoss); decay.bind(3,userId); decay.done();
+        }
+    }
+
+    if (action == "start") active = true;
+    if (action == "pause") active = false;
+    Statement update(db_, "UPDATE practice_state SET elapsed_remainder_seconds=?,is_active=?,"
+                          "last_activity_at=CASE WHEN ?=1 THEN ? ELSE NULL END WHERE user_id=?;");
+    update.bind(1,remainder);
+    update.bind(2,active ? 1 : 0);
+    update.bind(3,active ? 1 : 0);
+    update.bind(4,nowUnix);
+    update.bind(5,userId);
+    update.done();
+
+    if (!loadPracticeState(db_,userId,outState)) return PracticeOperationStatus::UserNotFound;
+    transaction.commit();
+    return PracticeOperationStatus::Success;
+}
+
+bool Database::startPracticeGame(long long userId, const std::string& gameId) {
+    Transaction transaction(db_);
+    if (!ensurePracticeState(db_,userId)) return false;
+    Statement update(db_, "UPDATE practice_state SET active_game_id=? WHERE user_id=?;");
+    update.bind(1,gameId); update.bind(2,userId); update.done();
+    transaction.commit();
+    return true;
+}
+
+bool Database::abandonPracticeGame(long long userId, const std::string& gameId) {
+    Transaction transaction(db_);
+    if (!ensurePracticeState(db_,userId)) return false;
+    Statement update(db_, "UPDATE practice_state SET active_game_id='' "
+                          "WHERE user_id=? AND active_game_id=?;");
+    update.bind(1,userId); update.bind(2,gameId); update.done();
+    transaction.commit();
+    return true;
+}
+
+PracticeOperationStatus Database::finishPracticeGame(long long userId, const std::string& gameId,
+                                                      int eaten, PracticeStateRow& outState,
+                                                      int& awardedPoints, int& awardedCoins,
+                                                      bool& duplicate) {
+    awardedPoints = 0;
+    awardedCoins = 0;
+    duplicate = false;
+    Transaction transaction(db_);
+    if (!ensurePracticeState(db_,userId) || !loadPracticeState(db_,userId,outState))
+        return PracticeOperationStatus::UserNotFound;
+
+    {
+        Statement previous(db_, "SELECT points_awarded,coins_awarded FROM practice_game_rewards "
+                                "WHERE user_id=? AND game_id=?;");
+        previous.bind(1,userId); previous.bind(2,gameId);
+        if (previous.row()) {
+            awardedPoints = static_cast<int>(previous.number(0));
+            awardedCoins = static_cast<int>(previous.number(1));
+            duplicate = true;
+            if (!loadPracticeState(db_,userId,outState)) return PracticeOperationStatus::UserNotFound;
+            transaction.commit();
+            return PracticeOperationStatus::Success;
+        }
+    }
+
+    std::string activeGameId;
+    int happinessRemainder = 0;
+    int previousBest = 0;
+    {
+        Statement state(db_, "SELECT active_game_id,happiness_remainder_points,best_score "
+                             "FROM practice_state WHERE user_id=?;");
+        state.bind(1,userId);
+        if (!state.row()) return PracticeOperationStatus::UserNotFound;
+        activeGameId = state.text(0);
+        happinessRemainder = static_cast<int>(state.number(1));
+        previousBest = static_cast<int>(state.number(2));
+    }
+    if (activeGameId != gameId) return PracticeOperationStatus::GameNotActive;
+
+    awardedPoints = (eaten/5)*15;
+    awardedCoins = previousBest > 0 && eaten > previousBest ? 15 : 0;
+    const int happinessTotal = happinessRemainder+awardedPoints;
+    const int happinessGain = happinessTotal/20;
+
+    Statement record(db_, "INSERT INTO practice_game_rewards(user_id,game_id,eaten,points_awarded,coins_awarded) "
+                          "VALUES(?,?,?,?,?);");
+    record.bind(1,userId); record.bind(2,gameId); record.bind(3,eaten);
+    record.bind(4,awardedPoints); record.bind(5,awardedCoins); record.done();
+
+    Statement stateUpdate(db_, "UPDATE practice_state SET total_points=total_points+?,"
+                               "happiness_remainder_points=?,best_score=MAX(best_score,?),"
+                               "active_game_id='' "
+                               "WHERE user_id=?;");
+    stateUpdate.bind(1,awardedPoints); stateUpdate.bind(2,happinessTotal%20);
+    stateUpdate.bind(3,eaten); stateUpdate.bind(4,userId);
+    stateUpdate.done();
+
+    Statement petUpdate(db_, "UPDATE pets SET level=level+((happiness+?)/100),"
+                             "happiness=((happiness+?)%100) WHERE user_id=?;");
+    petUpdate.bind(1,happinessGain); petUpdate.bind(2,happinessGain); petUpdate.bind(3,userId); petUpdate.done();
+    Statement coinUpdate(db_, "UPDATE users SET coins=coins+? WHERE id=?;");
+    coinUpdate.bind(1,awardedCoins); coinUpdate.bind(2,userId); coinUpdate.done();
+
+    if (!loadPracticeState(db_,userId,outState)) return PracticeOperationStatus::UserNotFound;
+    transaction.commit();
+    return PracticeOperationStatus::Success;
 }
 
 bool Database::createCodeSubmission(Submission& submission) {

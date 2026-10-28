@@ -9,6 +9,7 @@ const inventoryCount = document.querySelector('#inventory-count');
 const openInventoryButton = document.querySelector('#open-inventory');
 const closeInventoryButton = document.querySelector('#close-inventory');
 const studyButton = document.querySelector('#study-btn');
+const practiceButton = document.querySelector('#practice-btn');
 const inventoryTabs = document.querySelectorAll('#inventory-panel [data-filter]');
 const inventoryDetail = document.querySelector('#inventory-detail');
 let activeFilter = 'all';
@@ -454,6 +455,9 @@ studyButton.addEventListener('click', () => {
 		try { sessionStorage.setItem('virtual-pet-returning-from-study', 'true'); } catch { /* Navigation still works without session storage. */ }
 	}
 	window.location.href = 'study.html';
+});
+practiceButton.addEventListener('click', () => {
+	window.location.href = 'practice.html';
 });
 openShopButton.addEventListener('click', openShop);
 closeShopButton.addEventListener('click', closeShop);

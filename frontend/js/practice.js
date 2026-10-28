@@ -14,7 +14,6 @@
     const DIRS = { up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } };
     const OPP = { up: 'down', down: 'up', left: 'right', right: 'left' };
     const KEYMAP = { arrowup: 'up', arrowdown: 'down', arrowleft: 'left', arrowright: 'right', w: 'up', s: 'down', a: 'left', d: 'right' };
-    const KEY_BEST = 'petPractice.best', KEY_PENDING = 'petPractice.pending';
     const MEME_READY = ['meopixel2.gif', 'meopixel6.gif', 'meopixel1.gif', 'meopixel6.gif', 'meopixel3.gif'];
     const MEME_GAME_OVER = ['meopixel2.gif', 'meopixel9.gif', 'meopixel4.jpg', 'meopixel6.gif', 'meopixel3.gif'];
     const SPR = {
@@ -44,10 +43,6 @@
     const fmtTime = ms => {
         const s = Math.floor(ms / 1000);
         return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
-    };
-    const store = {
-        get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
-        set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* bỏ qua */ } }
     };
     const makeCanvas = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 
@@ -87,7 +82,8 @@
         snake: [], dir: 'right', queue: [], food: null,
         walls: new Set(), portH: new Map(), portV: new Map(), portalTiles: [],
         eaten: 0, interval: 250, acc: 0, time: 0, cd: 0, cdShown: 5,
-        best: Number(store.get(KEY_BEST, 0)) || 0, prevBest: 0, coinsGiven: false, newRecord: false
+        best: 0, pendingBest: 0, prevBest: 0, coinsGiven: false, newRecord: false,
+        gameId: null, practiceReady: false, starting: false, leavingPractice: false
     };
 
     /* ---------- DOM (lấy 1 lần) ---------- */
@@ -95,9 +91,9 @@
     board.width = SW; board.height = SH;
     bctx.imageSmoothingEnabled = false;
     const overlay = $('#overlay'), toastEl = $('#toast'), cdNum = $('#cd-num'), pauseBtn = $('#pause-btn');
-    const bottomActions = $('#bottom-actions');
+    const bottomActions = $('#bottom-actions'), practiceStatus = $('#practice-status');
     const switchesEl = $('#switches'), swSp = $('#sw-species'), swMode = $('#sw-mode');
-    const hud = { score: $('#st-score'), eaten: $('#st-eaten'), best: $('#st-best'), time: $('#st-time'), label: $('#lb-eaten') };
+    const hud = { score: $('#st-score'), eaten: $('#st-eaten'), best: $('#st-best'), bestLabel: $('#lb-best'), time: $('#st-time'), label: $('#lb-eaten') };
     let lastTimeText = '';
 
     function setState(s) {
@@ -105,6 +101,14 @@
         document.body.dataset.state = s;
         pauseBtn.disabled = !(s === 'playing' || s === 'paused');
         pauseBtn.textContent = s === 'paused' ? 'Resume' : 'Pause';
+    }
+    function abandonCurrentGame(keepalive = false) {
+        if (!S.gameId || S.state === 'over') return Promise.resolve();
+        const gameId = S.gameId;
+        S.gameId = null;
+        return window.api.abandonPracticeGame(gameId, keepalive).catch(error => {
+            console.error('Unfinished Practice game could not be abandoned:', error);
+        });
     }
     function showScreen(name) {
         $$('.screen', overlay).forEach(el => { el.hidden = el.dataset.screen !== name; });
@@ -123,10 +127,81 @@
         clearTimeout(toast.t);
         toast.t = setTimeout(() => { toastEl.hidden = true; }, 1800);
     }
+    function showPracticeStatus(message, isError = false) {
+        practiceStatus.textContent = message;
+        practiceStatus.dataset.error = String(isError);
+        practiceStatus.hidden = !message;
+    }
+    function createGameId() {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function')
+            return window.crypto.randomUUID();
+        const bytes = new Uint8Array(16);
+        if (window.crypto && typeof window.crypto.getRandomValues === 'function')
+            window.crypto.getRandomValues(bytes);
+        else
+            bytes.forEach((_, index) => { bytes[index] = Math.floor(Math.random() * 256); });
+        const hex = Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
+        return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-${((parseInt(hex[16], 16) & 3) | 8).toString(16)}${hex.slice(17, 20)}-${hex.slice(20)}`;
+    }
+    function setGameOverActionsDisabled(disabled) {
+        $$('button[data-action="again"], button[data-action="menu"]').forEach(button => {
+            button.disabled = disabled;
+        });
+    }
+    async function saveGameRewards() {
+        if (S.state !== 'over' || !S.gameId || S.rewardSaving) return;
+        S.rewardSaving = true;
+        setGameOverActionsDisabled(true);
+        $('#reward-retry').hidden = true;
+        showPracticeStatus('Saving Practice rewards...');
+        try {
+            const saved = await window.api.finishPracticeGame(S.gameId, S.eaten);
+            const result = window.PracticeAPI.lastResult;
+            result.points = saved.awardedPoints;
+            result.happinessPercent = saved.awardedPoints * 0.05;
+            result.coins = saved.awardedCoins;
+            S.best = saved.state.bestScore;
+            S.pendingBest = S.best;
+            updateHud();
+            $('#rs-score').textContent = saved.awardedPoints;
+            $('#rs-happy').textContent = '+' + result.happinessPercent.toFixed(2) + '%';
+            $('#rs-coins').textContent = '+' + saved.awardedCoins;
+            S.rewardSaving = false;
+            setGameOverActionsDisabled(false);
+            $('#reward-retry').hidden = true;
+            showPracticeStatus(saved.duplicate ? 'These rewards were already saved.' : 'Practice rewards saved to your account.');
+        } catch (error) {
+            S.rewardSaving = false;
+            console.error('Practice rewards could not be saved:', error);
+            showPracticeStatus(`Could not save Practice rewards: ${error.message} Retry before starting another game.`, true);
+            $('#reward-retry').hidden = false;
+        }
+    }
+    async function initializePractice() {
+        try {
+            const state = await window.api.practiceState();
+            S.best = state.bestScore;
+            S.pendingBest = S.best;
+            updateHud();
+            await window.api.practiceTime('start');
+            S.practiceReady = true;
+            S.practiceHeartbeat = setInterval(() => {
+                window.api.practiceTime('heartbeat').catch(error => {
+                    console.error('Practice timer heartbeat failed:', error);
+                    showPracticeStatus(`Could not update Practice time: ${error.message}`, true);
+                });
+            }, 20000);
+            showPracticeStatus('');
+        } catch (error) {
+            console.error('Practice account state could not be loaded:', error);
+            showPracticeStatus(`Practice rewards require an active login: ${error.message}`, true);
+        }
+    }
     function updateHud() {
         hud.score.textContent = Math.floor(S.eaten / 5) * 15;
         hud.eaten.textContent = S.eaten;
-        hud.best.textContent = S.best;
+        hud.best.textContent = Math.max(S.best, S.pendingBest);
+        hud.bestLabel.textContent = S.pendingBest > S.best ? 'Best*' : 'Best';
     }
     function updateTimeHud() {
         const t = fmtTime(S.time);
@@ -275,10 +350,12 @@
         return 1000 / Math.min(c.max, c.start + 0.25 * Math.floor(S.eaten / 5));
     }
     function resetGame() {
+        abandonCurrentGame();
         S.snake = [{ x: CX, y: CY }, { x: CX - 1, y: CY }, { x: CX - 2, y: CY }];
         S.dir = 'right'; S.queue = [];
         S.eaten = 0; S.interval = calcInterval(); S.acc = 0; S.time = 0;
         S.prevBest = S.best; S.coinsGiven = false; S.newRecord = false;
+        S.gameId = null; S.pendingBest = S.best;
         genPortals();
         S.walls = S.mode === 'hard' ? genWalls() : new Set();
         buildBase();
@@ -287,8 +364,28 @@
         toastEl.hidden = true;
         updateHud(); updateTimeHud();
     }
-    function startGame() {                       // đếm ngược 5 giây rồi mới chạy
-        if (S.state !== 'idle') return;
+    async function startGame() {                 // đếm ngược 5 giây rồi mới chạy
+        if (S.state !== 'idle' || S.starting) return;
+        if (!S.practiceReady) {
+            toast('Practice is unavailable until your account state loads.');
+            return;
+        }
+        const gameId = createGameId();
+        S.starting = true;
+        try {
+            await window.api.startPracticeGame(gameId);
+        } catch (error) {
+            console.error('Practice game could not start:', error);
+            showPracticeStatus(`Could not start Practice: ${error.message}`, true);
+            return;
+        } finally {
+            S.starting = false;
+        }
+        S.gameId = gameId;
+        S.prevBest = S.best;
+        S.pendingBest = S.best;
+        S.coinsGiven = false;
+        S.newRecord = false;
         S.cd = COUNTDOWN_MS; S.cdShown = 5;
         cdNum.textContent = '5';
         setState('countdown');
@@ -309,15 +406,9 @@
         if (S.state !== 'playing') return;
         setState('over');
         const points = Math.floor(S.eaten / 5) * 15;
-        const happy = points / 10 * 0.5;                  // 10 điểm = 0.5% happiness
+        const happy = points * 0.05;                       // 10 điểm = 0.5% happiness
         const coins = S.coinsGiven ? 15 : 0;
         const result = { species: S.species, mode: S.mode, eaten: S.eaten, points, happinessPercent: happy, coins, seconds: Math.floor(S.time / 1000), newRecord: S.newRecord, win: !!win };
-        const pend = store.get(KEY_PENDING, { points: 0, happinessPercent: 0, coins: 0 });
-        store.set(KEY_PENDING, {
-            points: pend.points + points,
-            happinessPercent: Math.round((pend.happinessPercent + happy) * 100) / 100,
-            coins: pend.coins + coins
-        });
         window.PracticeAPI.lastResult = result;
         window.dispatchEvent(new CustomEvent('practice:gameover', { detail: result }));
         $('#over-title').textContent = win ? 'You filled the field!' : 'Game over';
@@ -328,7 +419,10 @@
         $('#rs-coins').textContent = '+' + coins;
         $('#rs-time').textContent = fmtTime(S.time);
         $('#rs-record').hidden = !S.newRecord;
+        $('#reward-retry').hidden = true;
+        setGameOverActionsDisabled(true);
         showScreen('over');
+        saveGameRewards();
     }
     function step() {
         const head = S.snake[0];
@@ -350,10 +444,9 @@
         S.eaten++;
         S.interval = calcInterval();
         if (S.eaten > S.best) {
-            S.best = S.eaten;
-            store.set(KEY_BEST, S.best);
+            S.pendingBest = S.eaten;
             S.newRecord = true;
-            if (S.prevBest > 0 && !S.coinsGiven) { S.coinsGiven = true; toast('NEW RECORD! +15 coins'); }
+            if (S.prevBest > 0 && !S.coinsGiven) { S.coinsGiven = true; toast('NEW RECORD - finish game to save!'); }
         }
         updateHud();
         if (!spawnFood()) gameOver(true);                         // kín sân = thắng, không lặp vô hạn
@@ -536,6 +629,7 @@
             case 'pause': S.state === 'paused' ? resumeGame() : pauseGame(); break;
             case 'resume': resumeGame(); break;
             case 'restart': case 'again': restartGame(); break;
+            case 'retry-reward': saveGameRewards(); break;
             case 'menu': switchesEl.hidden = true; resetGame(); showScreen('species'); break;
             case 'swap-species': setSpecies(S.species === 'cat' ? 'dog' : 'cat'); showScreen('ready'); break;
             case 'swap-mode': setMode(S.mode === 'easy' ? 'hard' : 'easy'); showScreen('ready'); break;
@@ -594,6 +688,44 @@
             scheduleFrame();
         }
     });
+    window.addEventListener('pagehide', () => {
+        if (!S.practiceReady) return;
+        clearInterval(S.practiceHeartbeat);
+        window.api.practiceTime('pause', true).catch(error => {
+            console.error('Practice timer could not be paused:', error);
+        });
+        abandonCurrentGame(true);
+    });
+    document.addEventListener('click', async event => {
+        const link = event.target.closest('a[href="index.html"]');
+        if (!link || !S.practiceReady || event.button !== 0 ||
+            event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || link.target === '_blank') return;
+        event.preventDefault();
+        if (S.leavingPractice) return;
+        S.leavingPractice = true;
+        clearInterval(S.practiceHeartbeat);
+        try {
+            await window.api.practiceTime('pause');
+            await abandonCurrentGame();
+        } catch (error) {
+            console.error('Practice session could not be closed cleanly before returning Home:', error);
+        }
+        window.location.assign(link.href);
+    });
+    window.addEventListener('pageshow', event => {
+        if (!event.persisted || !S.practiceReady) return;
+        window.api.practiceTime('start').then(() => {
+            S.practiceHeartbeat = setInterval(() => {
+                window.api.practiceTime('heartbeat').catch(error => {
+                    console.error('Practice timer heartbeat failed:', error);
+                    showPracticeStatus(`Could not update Practice time: ${error.message}`, true);
+                });
+            }, 20000);
+        }).catch(error => {
+            console.error('Practice timer could not resume:', error);
+            showPracticeStatus(`Could not resume Practice time: ${error.message}`, true);
+        });
+    });
     window.addEventListener('blur', pauseGame);
     let resizeTimer = 0;
     window.addEventListener('resize', () => {
@@ -611,11 +743,9 @@
     });
 
     /* ---------- Khởi tạo ---------- */
-    window.PracticeAPI = {                       // để phần C++/backend đọc điểm thưởng sau này
+    window.PracticeAPI = {
         lastResult: null,
-        getBest: () => S.best,
-        getPending: () => store.get(KEY_PENDING, { points: 0, happinessPercent: 0, coins: 0 }),
-        clearPending: () => store.set(KEY_PENDING, { points: 0, happinessPercent: 0, coins: 0 })
+        getBest: () => S.best
     };
     $$('canvas[data-icon]').forEach(c => {
         const k = c.dataset.icon;
@@ -626,4 +756,5 @@
     fit(); initBg();
     showScreen('species');
     scheduleFrame();
+    initializePractice();
 })();

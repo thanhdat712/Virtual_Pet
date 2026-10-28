@@ -94,6 +94,35 @@ answer count. The server owns reward calculations, unlock order, and one-time
 completion records, but does not independently re-grade each answer. A
 competitive/public deployment should move answer-key validation to the server.
 
+### Practice
+
+Practice progress and the personal best are scoped to the logged-in account.
+During a game, a new best is provisional in the browser; the account's official
+best remains unchanged until game over. Ending the game commits the new best
+alongside its points and any eligible record coins. Abandoning the game or
+starting another one discards that provisional best and reward. Every five
+foods award 15 points; each 20 accumulated points add one happiness point (the
+0.5% per 10 points fraction is retained). Beating a non-zero previous record
+earns 15 coins at game over.
+
+| Method | Route | Body | Purpose |
+|---|---|---|---|
+| `GET` | `/api/practice/state` | Không có | Load best score, lifetime points, coins and pet stats |
+| `POST` | `/api/practice/time` | `{ "action": "start" }` | Begin counting time on the Practice page |
+| `POST` | `/api/practice/time` | `{ "action": "heartbeat" }` | Account for page time; sent every 20 seconds |
+| `POST` | `/api/practice/time` | `{ "action": "pause" }` | Stop counting when leaving the page |
+| `POST` | `/api/practice/game/start` | `{ "gameId": "<uuid>" }` | Begin a game and clear any uncommitted prior reward |
+| `POST` | `/api/practice/game/abandon` | `{ "gameId": "<uuid>" }` | Abandon an unfinished game without changing the official record |
+| `POST` | `/api/practice/finish` | `{ "gameId": "<uuid>", "eaten": 12 }` | Commit the game's points and eligible coins once |
+
+The timer counts while the Practice page is open, including its menus and paused
+screen. Each 210 accounted seconds subtracts one from hunger and energy. The
+server caps each heartbeat interval at 30 seconds; the page sends a heartbeat
+every 20 seconds and pauses when it is closed or navigated away. Repeated finish
+requests are idempotent. Leaving the page or starting a replacement game
+abandons the active game. The client submits the eaten count, so game score
+validation is not authoritative against a modified browser.
+
 ### Các thao tác yêu cầu đăng nhập
 
 | Method | Route | Body |
