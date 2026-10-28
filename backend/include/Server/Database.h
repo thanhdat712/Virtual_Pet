@@ -27,6 +27,7 @@ struct PetRow {
     int happiness = 85;
     int hunger = 30;
     int energy = 70;
+    int sleepRemainingSeconds = 0;
 };
 
 struct ExerciseRow {
