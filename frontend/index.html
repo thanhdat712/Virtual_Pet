@@ -188,6 +188,7 @@
                     <div class="win-tabs" role="group" aria-label="Choose decoration slot">
                         <button class="win-tab is-active" type="button" data-decor-slot="background" aria-pressed="true">Background</button>
                         <button class="win-tab" type="button" data-decor-slot="floor" aria-pressed="false">Floor</button>
+                        <button class="win-tab" type="button" data-decor-slot="headwear" aria-pressed="false">Headwear</button>
                     </div>
                     <div class="win-body"><div class="bag-grid" id="decorate-grid"></div></div>
                     <footer class="win-foot">
@@ -256,7 +257,11 @@
             <button class="entry-back" id="cancel-rename" type="button">Cancel</button>
         </form>
     </section>
-    <script src="js/sound.js?v=study-music-louder-20261027" defer></script>
+    <audio id="game-background-music" src="assets/songDefault.mp3" loop preload="auto" aria-hidden="true"></audio>
+    <audio id="buy-now-sound" src="assets/Buynow.wav" preload="auto" aria-hidden="true"></audio>
+    <audio id="level-up-sound" src="assets/levelUp.wav" preload="auto" aria-hidden="true"></audio>
+    <audio id="eating-sound" src="assets/minecraft-eating-sound.mp3" preload="auto" aria-hidden="true"></audio>
+    <script src="js/sound.js?v=game-audio-assets-20261029" defer></script>
     <script src="js/pixel.js" defer></script>
     <script src="js/api.js?v=immediate-pet-wake-20261029" defer></script>
     <script src="js/app.js?v=purchase-quantity-controls-20261027" defer></script>
