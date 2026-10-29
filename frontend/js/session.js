@@ -6,6 +6,7 @@ const feedingStatus = document.querySelector('#feeding-status');
 let feedingStatusTimeout;
 let sleepCountdownTimer;
 let petSleeping = false;
+let petActionPending = false;
 
 function applyAccountState(state) {
 	coins = state.user.coins;
@@ -108,7 +109,9 @@ function syncSleepState(remainingSeconds = 0) {
 	petSleeping = remaining > 0;
 	petStage.classList.toggle('is-sleeping', petSleeping);
 	sleepingGameScene.classList.toggle('is-sleeping', petSleeping);
-	sleepButton.disabled = petSleeping;
+	sleepButton.disabled = false;
+	document.querySelector('#sleep-action-label').textContent = petSleeping ? 'Wake up' : 'Sleep';
+	sleepButton.setAttribute('aria-label', petSleeping ? 'Wake pet up now' : 'Put pet to sleep');
 	if (!petSleeping) return;
 	setFeedingStatus('');
 
@@ -236,17 +239,24 @@ petStage.addEventListener('keydown', (event) => {
 });
 
 document.querySelector('#sleep-pet').addEventListener('click', async (event) => {
-	if (!accountReady) return;
+	if (!accountReady || petActionPending) return;
 	const button = event.currentTarget;
-	button.disabled = true;
+	const waking = petSleeping;
+	petActionPending = true;
+	button.setAttribute('aria-busy', 'true');
 	try {
-		applyAccountState(await api.sleepPet());
-		window.playGameSound?.('sleep');
+		applyAccountState(await (waking ? api.wakePet() : api.sleepPet()));
+		if (waking) {
+			setFeedingStatus(`${window.getCurrentPetName()} woke up.`);
+		} else {
+			window.playGameSound?.('sleep');
+		}
 	} catch (failure) {
 		const message = reportFailure(failure);
 		setFeedingStatus(message, message.includes('not sleepy right now') ? 5000 : 0);
 	} finally {
-		button.disabled = petSleeping;
+		petActionPending = false;
+		button.removeAttribute('aria-busy');
 	}
 });
 

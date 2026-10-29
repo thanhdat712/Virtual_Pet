@@ -828,6 +828,18 @@ int Database::performPetAction(long long userId, const std::string &action, int 
         sleepUntil = pet.number(4);
     }
     const long long now = static_cast<long long>(std::time(nullptr));
+    if (action == "wake")
+    {
+        if (sleepUntil > now)
+        {
+            Statement wakeNow(db_, "UPDATE pets SET sleep_until=0 WHERE user_id=?;");
+            wakeNow.bind(1, userId);
+            wakeNow.done();
+        }
+        levelsGained = 0;
+        transaction.commit();
+        return 200;
+    }
     if (sleepUntil > now) return 423;
     int happinessGain = 0;
     if (action == "play")
