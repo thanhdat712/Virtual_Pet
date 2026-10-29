@@ -395,8 +395,18 @@ function decor() { // hạt bay: ít phần tử để nhẹ máy
 
 /* ===================== LÀM BÀI ===================== */
 function startQuiz(l, t) {
-    // review: nhóm đã hoàn thành trước đó -> chế độ ôn tập, không cộng điểm/xu
-    cur = { l, t, qs: shuffle(D[l][t]).slice(0, QUIZ_SIZE), i: 0, ok: 0, gain: 0, review: !!S.done[l + '-' + t] };
+    // Bài đã hoàn thành chỉ dùng để ôn tập
+    cur = {
+        l,
+        t,
+        qs: shuffle(D[l][t]).slice(0, QUIZ_SIZE),
+        i: 0,
+        ok: 0,
+        gain: 0,
+        review: !!S.done[l + '-' + t],
+        finishing: false
+    };
+
     window.playGameSound?.('study-start');
     show('quiz');
     showQ();
@@ -478,26 +488,45 @@ function finish(correct, answer) {
     $('next').textContent = cur.i + 1 < cur.qs.length ? 'Continue →' : 'See results';
 }
 
+
 async function endQuiz() {
     if (cur.finishing) return;
+
     cur.finishing = true;
     $('next').disabled = true;
-    const n = cur.qs.length, need = Math.ceil(n * PASS_RATE), li = LV.indexOf(cur.l);
+
+    const n = cur.qs.length;
+    const need = Math.ceil(n * PASS_RATE);
+    const li = LV.indexOf(cur.l);
     let pass = cur.ok >= need;
     let msg = `${cur.ok}/${n} correct.`;
+
     try {
         const result = await window.api.completeStudyStage(cur.l, cur.t, cur.ok);
         updateStudyState(result.state);
         pass = result.passed;
+
         if (result.review) {
             msg += ' Review mode does not award points or coins.';
         } else if (!pass) {
             msg += ` Get at least ${need} correct to pass. Your ${cur.gain} pending points have been returned. Try again!`;
         } else {
             const hard = cur.t === 'hard';
-            msg += ` You earned ${result.awardedPoints} points` + (hard
-                ? ` and ${result.awardedCoins} coins. ${li < LV.length - 1 ? `Level ${cur.l} complete! ${LV[li + 1]} is now unlocked.` : 'You have completed the entire vine!'}`
-                : '. The next tier is now unlocked!');
+            const pet = result.state.pet;
+
+            msg += ` You earned ${result.awardedPoints} points` + (
+                hard
+                    ? ` and ${result.awardedCoins} coins. ${li < LV.length - 1
+                        ? `Level ${cur.l} complete! ${LV[li + 1]} is now unlocked.`
+                        : 'You have completed the entire vine!'}`
+                    : '. The next tier is now unlocked!'
+            );
+
+            if (pet) {
+                const level = Math.max(1, Number(pet.level) || 1);
+                const exp = Math.max(0, Number(pet.experience) || 0);
+                msg += ` Pet Level: ${level}, EXP: ${exp}/${level * 100}, Happiness: ${pet.happiness}.`;
+            }
         }
     } catch (error) {
         if (error.code === 'PET_NEEDS_CARE') {
@@ -513,12 +542,15 @@ async function endQuiz() {
         }
         return;
     }
+
     $('pts').textContent = '✦ ' + S.pts;
     $('coins').textContent = '◎ ' + S.coins;
     $('resTitle').textContent = pass ? 'Excellent work!' : 'Keep going!';
     $('resText').textContent = msg;
     setMeme($('resMeme'), pick(MEMES[pass ? 'right' : 'wrong']));
+
     if (pass) window.playGameSound?.('study-complete');
+
     show('result');
 }
 

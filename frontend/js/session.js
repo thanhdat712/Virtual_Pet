@@ -25,12 +25,24 @@ function applyAccountState(state) {
 		document.querySelector('.pet-stage .pet-image').src = petImage;
 		document.querySelector('.pet-stage .pet-image').alt = `${species === 'dog' ? 'Dog' : 'Cat'}, ${petName}`;
 		document.querySelector('.hud-avatar img').src = petImage;
-		document.querySelector('#pet-level').textContent = state.pet.level;
-		petLevel = state.pet.level;
-		const exp = state.pet.exp ?? state.pet.experience ?? 0;
-		const expMax = state.pet.level * 100;
-		document.querySelector('#exp-text').textContent = `EXP ${exp} / ${expMax}`;
-		document.querySelector('#exp-fill').style.width = `${Math.min(100, exp / expMax * 100)}%`;
+const level = Math.max(1, Number(state.pet.level) || 1);
+const exp = Math.max(0, Number(state.pet.experience ?? state.pet.exp) || 0);
+const expMax = level * 100;
+
+petLevel = level;
+document.querySelector('#pet-level').textContent = level;
+
+const expText = document.querySelector('#exp-text');
+const expFill = document.querySelector('#exp-fill');
+
+if (expText) {
+    expText.textContent = `EXP ${exp} / ${expMax}`;
+}
+
+if (expFill) {
+    expFill.style.width = `${Math.min(100, exp / expMax * 100)}%`;
+}
+
 		['happiness', 'hunger', 'energy'].forEach((name) => {
 			const stat = document.querySelector(`[data-stat="${name}"]`);
 			stat.querySelector('.hud-stat-value').textContent = `${state.pet[name]} / 100`;
@@ -193,7 +205,6 @@ async function feedFood(item) {
 	setFeedingStatus('');
 	renderFood();
 	try {
-		const previousLevel = petLevel;
 		const fed = await api.feedPet(item.id);
 		window.playGameSound?.('eat');
 		applyAccountState(fed);
@@ -206,9 +217,7 @@ async function feedFood(item) {
 		bite.className = 'eating-food';
 		petStage.append(bite);
 		bite.addEventListener('animationend', () => bite.remove(), { once: true });
-		setFeedingStatus(fed.pet.level > previousLevel
-			? `${item.name} eaten! Level up! ${window.getCurrentPetName()} is now level ${fed.pet.level}`
-			: `${item.name} eaten!`);
+		setFeedingStatus(`${item.name} eaten!`);
 	} catch (failure) {
 		setFeedingStatus(reportFailure(failure));
 	} finally {

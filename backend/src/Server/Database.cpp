@@ -11,7 +11,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <ctime>
-
+#include <algorithm>
 namespace
 {
     class Statement
@@ -122,28 +122,39 @@ namespace
     }
 
     bool loadStudyState(sqlite3 *database, long long userId, StudyStateRow &state)
-    {
-        Statement statement(database,
-                            "SELECT s.total_points,u.coins,p.level,p.happiness,p.hunger,p.energy "
-                            "FROM study_state s JOIN users u ON u.id=s.user_id "
-                            "JOIN pets p ON p.user_id=s.user_id WHERE s.user_id=?;");
-        statement.bind(1, userId);
-        if (!statement.row())
-            return false;
-        state.points = statement.number(0);
-        state.coins = static_cast<int>(statement.number(1));
-        state.level = static_cast<int>(statement.number(2));
-        state.happiness = static_cast<int>(statement.number(3));
-        state.hunger = static_cast<int>(statement.number(4));
-        state.energy = static_cast<int>(statement.number(5));
+{
+    Statement statement(database,
+        "SELECT s.total_points,u.coins,p.level,p.experience,"
+        "p.happiness,p.hunger,p.energy "
+        "FROM study_state s JOIN users u ON u.id=s.user_id "
+        "JOIN pets p ON p.user_id=s.user_id WHERE s.user_id=?;");
 
-        state.completedStages.clear();
-        Statement completed(database, "SELECT stage FROM study_stage_progress WHERE user_id=? ORDER BY stage_order;");
-        completed.bind(1, userId);
-        while (completed.row())
-            state.completedStages.push_back(completed.text(0));
-        return true;
-    }
+    statement.bind(1, userId);
+
+    if (!statement.row())
+        return false;
+
+    state.points = statement.number(0);
+    state.coins = static_cast<int>(statement.number(1));
+    state.level = static_cast<int>(statement.number(2));
+    state.experience = static_cast<int>(statement.number(3));
+    state.happiness = static_cast<int>(statement.number(4));
+    state.hunger = static_cast<int>(statement.number(5));
+    state.energy = static_cast<int>(statement.number(6));
+
+    state.completedStages.clear();
+
+    Statement completed(database,
+        "SELECT stage FROM study_stage_progress "
+        "WHERE user_id=? ORDER BY stage_order;");
+
+    completed.bind(1, userId);
+
+    while (completed.row())
+        state.completedStages.push_back(completed.text(0));
+
+    return true;
+}
 
     bool ensurePracticeState(sqlite3 *database, long long userId)
     {
@@ -786,13 +797,12 @@ int Database::feed(long long userId, int itemId)
     consume.bind(1, userId);
     consume.bind(2, itemId);
     consume.done();
-    Statement pet(db_, "UPDATE pets SET hunger=MAX(0,MIN(100,hunger+?)),"
-                       "level=level+((happiness+?)/100),happiness=((happiness+?)%100) WHERE user_id=?;");
-    pet.bind(1, (*item)["hungerRestore"].get<int>());
-    pet.bind(2, (*item)["happinessRestore"].get<int>());
-    pet.bind(3, (*item)["happinessRestore"].get<int>());
-    pet.bind(4, userId);
-    pet.done();
+   Statement pet(db_, "UPDATE pets SET hunger=MAX(0,MIN(100,hunger+?)),"
+                   "happiness=MIN(100,happiness+?) WHERE user_id=?;");
+pet.bind(1, (*item)["hungerRestore"].get<int>());
+pet.bind(2, (*item)["happinessRestore"].get<int>());
+pet.bind(3, userId);
+pet.done();
     if (sqlite3_changes(db_) != 1)
         return 404;
     transaction.commit();
@@ -850,16 +860,15 @@ int Database::performPetAction(long long userId, const std::string &action, int 
     {
         return 400;
     }
-    const int happinessTotal = happiness + happinessGain;
-    levelsGained = happinessTotal / 100;
-    happiness = happinessTotal % 100;
-    Statement update(db_, "UPDATE pets SET level=level+?,happiness=?,hunger=?,energy=? WHERE user_id=?;");
-    update.bind(1, levelsGained);
-    update.bind(2, happiness);
-    update.bind(3, hunger);
-    update.bind(4, energy);
-    update.bind(5, userId);
-    update.done();
+    happiness = std::min(Pet::MAX_STAT, happiness + happinessGain);
+levelsGained = 0;
+
+Statement update(db_, "UPDATE pets SET happiness=?,hunger=?,energy=? WHERE user_id=?;");
+update.bind(1, happiness);
+update.bind(2, hunger);
+update.bind(3, energy);
+update.bind(4, userId);
+update.done();
     if (sqlite3_changes(db_) != 1)
         return 404;
     transaction.commit();
@@ -1121,28 +1130,41 @@ StudyOperationStatus Database::completeStudyStage(long long userId, const std::s
     record.bind(5, awardedCoins);
     record.done();
 
-    int happinessRemainder = 0;
-    {
-        Statement current(db_, "SELECT happiness_remainder_points FROM study_state WHERE user_id=?;");
-        current.bind(1, userId);
-        if (!current.row())
-            return StudyOperationStatus::UserNotFound;
-        happinessRemainder = static_cast<int>(current.number(0));
-    }
-    const int happinessTotal = happinessRemainder + awardedPoints;
-    const int happinessGain = happinessTotal / 50;
-    Statement studyUpdate(db_, "UPDATE study_state SET total_points=total_points+?,"
-                               "happiness_remainder_points=? WHERE user_id=?;");
+       Statement studyUpdate(db_, "UPDATE study_state SET total_points=total_points+? WHERE user_id=?;");
     studyUpdate.bind(1, awardedPoints);
-    studyUpdate.bind(2, happinessTotal % 50);
-    studyUpdate.bind(3, userId);
+    studyUpdate.bind(2, userId);
     studyUpdate.done();
 
-    Statement petUpdate(db_, "UPDATE pets SET level=level+((happiness+?)/100),"
-                             "happiness=((happiness+?)%100) WHERE user_id=?;");
-    petUpdate.bind(1, happinessGain);
-    petUpdate.bind(2, happinessGain);
-    petUpdate.bind(3, userId);
+    int petLevel = 1;
+    int experience = 0;
+    int happiness = 0;
+
+    {
+        Statement current(db_, "SELECT level,experience,happiness FROM pets WHERE user_id=?;");
+        current.bind(1, userId);
+
+        if (!current.row())
+            return StudyOperationStatus::UserNotFound;
+
+        petLevel = std::max(1, static_cast<int>(current.number(0)));
+        experience = std::max(0, static_cast<int>(current.number(1)));
+        happiness = static_cast<int>(current.number(2));
+    }
+
+    experience += 10 * petLevel;
+    happiness = std::min(Pet::MAX_STAT, happiness + 5 * petLevel);
+
+    while (experience >= petLevel * 100)
+    {
+        experience -= petLevel * 100;
+        ++petLevel;
+    }
+
+    Statement petUpdate(db_, "UPDATE pets SET level=?,experience=?,happiness=? WHERE user_id=?;");
+    petUpdate.bind(1, petLevel);
+    petUpdate.bind(2, experience);
+    petUpdate.bind(3, happiness);
+    petUpdate.bind(4, userId);
     petUpdate.done();
     Statement coinUpdate(db_, "UPDATE users SET coins=coins+? WHERE id=?;");
     coinUpdate.bind(1, awardedCoins);
@@ -1318,13 +1340,10 @@ PracticeOperationStatus Database::finishPracticeGame(long long userId, const std
     stateUpdate.bind(3, eaten);
     stateUpdate.bind(4, userId);
     stateUpdate.done();
-
-    Statement petUpdate(db_, "UPDATE pets SET level=level+((happiness+?)/100),"
-                             "happiness=((happiness+?)%100) WHERE user_id=?;");
-    petUpdate.bind(1, happinessGain);
-    petUpdate.bind(2, happinessGain);
-    petUpdate.bind(3, userId);
-    petUpdate.done();
+Statement petUpdate(db_, "UPDATE pets SET happiness=MIN(100,happiness+?) WHERE user_id=?;");
+petUpdate.bind(1, happinessGain);
+petUpdate.bind(2, userId);
+petUpdate.done();
     Statement coinUpdate(db_, "UPDATE users SET coins=coins+? WHERE id=?;");
     coinUpdate.bind(1, awardedCoins);
     coinUpdate.bind(2, userId);
