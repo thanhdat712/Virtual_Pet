@@ -572,7 +572,8 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
         return actionResponse(db,userId,"Settings saved.");
     }
     if (request.method == "POST" && (request.path == "/api/pet/play" ||
-        request.path == "/api/pet/sleep" || request.path == "/api/pet/bath")) {
+        request.path == "/api/pet/sleep" || request.path == "/api/pet/wake" ||
+        request.path == "/api/pet/bath")) {
         if (!request.body.empty()) return apiError(400,"INVALID_ARGUMENT","This action does not accept a body.");
         const std::string action = request.path.substr(std::string("/api/pet/").size());
         int levelsGained = 0;
@@ -580,7 +581,9 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
         if (status == 423) return apiError(423,"PET_SLEEPING","Your pet is asleep. It will wake after 30 minutes.");
         if (status != 200) return apiError(status,status == 409 ? (action == "sleep" ? "ENERGY_FULL" : "PET_TOO_TIRED") : "PET_NOT_FOUND",
             status == 409 ? (action == "sleep" ? "Your pet is not sleepy." : "Your pet is too tired to play.") : "Pet not found.");
-        const std::string message = action == "sleep" ? "Your pet is sleeping for 30 minutes." : action == "play" ? "Your pet had fun!" : "Squeaky clean!";
+        const std::string message = action == "sleep" ? "Your pet is sleeping for 30 minutes." :
+            action == "wake" ? "Your pet woke up." :
+            action == "play" ? "Your pet had fun!" : "Squeaky clean!";
         return actionResponse(db,userId,message,levelsGained);
     }
     if (request.method == "POST" && request.path == "/api/pet/decorate") {

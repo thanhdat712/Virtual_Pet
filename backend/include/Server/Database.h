@@ -148,7 +148,7 @@ public:
     bool renamePet(long long userId, const std::string& name);
         bool savePetProfile(long long userId, const std::string& name, const std::string& species);
     int feed(long long userId, int itemId);
-        int performPetAction(long long userId, const std::string& action, int& levelsGained);
+    int performPetAction(long long userId, const std::string& action, int& levelsGained);
         int equipDecoration(long long userId, int itemId);
         bool unequipDecoration(long long userId, const std::string& slot);
 
