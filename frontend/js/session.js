@@ -94,7 +94,7 @@ document.querySelector('#open-food').addEventListener('click', () => {
 let feeding = false;
 let selectedFood = null;
 
-function setFeedingStatus(message, duration = 0) {
+function setFeedingStatus(message, duration = 3000) {
 	clearTimeout(feedingStatusTimeout);
 	feedingStatusTimeout = null;
 	feedingStatus.textContent = message;
@@ -257,7 +257,7 @@ document.querySelector('#sleep-pet').addEventListener('click', async (event) => 
 		}
 	} catch (failure) {
 		const message = reportFailure(failure);
-		setFeedingStatus(message, message.includes('not sleepy right now') ? 5000 : 0);
+		setFeedingStatus(message, 5000);
 	} finally {
 		petActionPending = false;
 		button.removeAttribute('aria-busy');
