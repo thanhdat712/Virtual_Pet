@@ -104,13 +104,27 @@ Value progressJson(const ProgressRow& progress) {
     return {{"exerciseId",progress.exerciseId},{"status",progress.status},{"bestScore",progress.bestScore},
         {"attempts",progress.attempts},{"completedAt",progress.completedAt}};
 }
-
+    
 Value studyStateJson(const StudyStateRow& state) {
     Value completed = Value::array();
-    for (const auto& stage : state.completedStages) completed.push_back(stage);
-    return {{"success",true},{"points",state.points},{"coins",state.coins},{"completedStages",completed},
-        {"pet",{{"level",state.level},{"happiness",state.happiness},
-            {"hunger",state.hunger},{"energy",state.energy}}}};
+    for (const auto& stage : state.completedStages)
+        completed.push_back(stage);
+
+    return {
+        {"success", true},
+        {"points", state.points},
+        {"coins", state.coins},
+        {"completedStages", completed},
+        {"pet", {
+            {"level", state.level},
+            {"experience", state.experience},
+            {"happiness", state.happiness},
+            {"hunger", state.hunger},
+            {"energy", state.energy}
+        }}
+    };
+}
+
 }
 
 Value practiceStateJson(const PracticeStateRow& state) {
@@ -662,7 +676,6 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
             {"progress",progressJson(progress)}});
     }
     return error(404,"Endpoint not found");
-}
 }
 
 int main(int argc, char** argv) {

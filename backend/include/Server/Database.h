@@ -20,7 +20,7 @@ struct UserRow {
 struct PetRow {
     long long userId = 0;
     std::string name = "UIA";
-        std::string species = "cat";
+   std::string species = "cat";
     bool speciesChosen = false;
     int level = 1;
     int experience = 0;
@@ -50,6 +50,7 @@ struct StudyStateRow {
     long long points = 0;
     int coins = 0;
     int level = 1;
+    int experience = 0;
     int happiness = 0;
     int hunger = 50;
     int energy = 50;
