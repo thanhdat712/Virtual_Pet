@@ -17,6 +17,7 @@ function applyAccountState(state) {
 		}));
 	}
 	if (state.pet) {
+		const previousPetLevel = petLevel;
 		const petName = state.pet.name;
 		const species = state.pet.species === 'dog' ? 'dog' : 'cat';
 		window.currentPetProfile = { name: petName, species, speciesChosen: state.pet.speciesChosen !== false };
@@ -32,6 +33,9 @@ const expMax = level * 100;
 
 petLevel = level;
 document.querySelector('#pet-level').textContent = level;
+if (previousPetLevel > 0 && level > previousPetLevel) {
+	window.playGameSound?.('level-up');
+}
 
 const expText = document.querySelector('#exp-text');
 const expFill = document.querySelector('#exp-fill');
