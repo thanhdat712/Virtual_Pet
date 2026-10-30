@@ -15,8 +15,8 @@ const MEMES = {
     wrong: ['chopixel2.gif', 'chopixel9.gif', 'chopixel11.jpg', 'chopixel12.jpg', 'chopixel13.jpg', 'chopixel15.jpg', 'duo1.jpg', 'meopixel12.jpg', 'meopixel13.jpg', 'meopixel14.jpg', 'meopixel16.jpg', 'meopixel17.jpg', 'meopixel9.gif', 'meopixel4.jpg', 'chopixel8.jpg', 'chopixel1.jpg', 'meopixel7.jpg', 'meopixel18.jpg']       // 5 meme khi trả lời SAI (mỗi lần rút 2)
 };
 const CAP = {
-    right: ['Bá Khí! ', 'Hay Lắm, human! ', 'Bá đạo trên từng hạt gạo. ', 'Mèo Méo Meo Mèo Meo. ',
-        'Cook tiếp đi đầu bếp 👨‍🍳🍳. ', 'Cổ điển, tôn trọng. ', '  Trên cái đất Thủ Đức này tui nể mỗi bạn. '],
+    right: ['Bá khí. ', 'Hay Lắm, human! ', 'Bá đạo trên từng hạt gạo. ', 'Mèo Méo Meo Mèo Meo. ',
+        'Cook tiếp đi đầu bếp 👨‍🍳🍳. ', 'Cổ điển, tôn trọng. ', '  Trên cái đất Thủ Đức này tui nể mỗi bạn. ', 'Sông sâu nước chảy đá mòn, hồi xưa còn nhỏ sau này lớn lên. ', 'Đẳng cấp, 5 sao, tinh hoa, hiếm thấy, tuyệt hảo, thời thượng, phong cách. '],
     wrong: ['Hồi chiều...hồi chiều làm sai câu TA. ', 'Cạn Phước. ', 'Chắc kiếp trước tặng chùa máy sấy tóc. ', 'Mong Tôn Hoa Sen thấy và làm ngơ. ', 'Thông báo: Pet của bạn đã gửi đơn xin đổi chủ. ',
         'Pet 7 vọng về bạn. ', 'Tui nói này bạn đừng buồn nha. ', 'Pet nước mình vất vả. ', 'Lên núi khỉ còn đuổi xuống. ']
 };

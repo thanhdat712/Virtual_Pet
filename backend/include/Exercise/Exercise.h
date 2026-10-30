@@ -3,9 +3,9 @@
 
 #include <string>
 
-int studyPointsPerCorrectAnswer(const std::string& tier) noexcept;
-int studyCompletionBonus(const std::string& tier) noexcept;
-int studyCompletionCoins(const std::string& tier) noexcept;
+int studyPointsPerCorrectAnswer(const std::string &tier) noexcept;
+int studyCompletionBonus(const std::string &tier) noexcept;
+int studyCompletionCoins(const std::string &tier) noexcept;
 bool studyStagePasses(int correctAnswers, int questionCount = 5) noexcept;
 
 #endif
