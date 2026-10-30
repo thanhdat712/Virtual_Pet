@@ -117,6 +117,14 @@ try {
     Check ($state.pet.happiness -eq 20 -and $state.pet.level -eq 1) 'Four Study stages each add five happiness without EXP progression'
     $purchase = Call POST '/api/shop/purchases' @{itemId=1;quantity=1} $cookie
     Check ($purchase.Status -eq 200 -and $purchase.Body.state.user.coins -eq 115) 'Study coins can buy shop items'
+    $null = Sql "UPDATE pets SET hunger=100 WHERE user_id=$userId;"
+    $fullFeed = Call POST '/api/pet/feed' @{itemId=1} $cookie
+    Check ($fullFeed.Status -eq 422 -and $fullFeed.Body.code -eq 'PET_FULL') 'Pet at 100 hunger cannot eat'
+    Check ((Sql "SELECT quantity FROM inventory WHERE user_id=$userId AND item_id=1;") -eq '1') 'Rejected feeding while full keeps food in inventory'
+    $null = Sql "UPDATE pets SET hunger=99 WHERE user_id=$userId;"
+    $lastBite = Call POST '/api/pet/feed' @{itemId=1} $cookie
+    Check ($lastBite.Status -eq 200 -and $lastBite.Body.pet.hunger -eq 100) 'Pet below full can eat until hunger reaches 100'
+    Check ((Sql "SELECT count(*) FROM inventory WHERE user_id=$userId AND item_id=1;") -eq '0') 'Successful feeding consumes one food'
 
     $null = Sql "UPDATE pets SET hunger=30,energy=30 WHERE user_id=$userId;"
     $null = Call POST '/api/study/time' @{action='start'} $cookie

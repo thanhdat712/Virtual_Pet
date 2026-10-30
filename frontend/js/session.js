@@ -1,4 +1,5 @@
 let petLevel = 0;
+let petHunger = 0;
 const petStage = document.querySelector('.pet-stage');
 const sleepingGameScene = document.querySelector('.pet-game');
 const sleepButton = document.querySelector('#sleep-pet');
@@ -47,6 +48,7 @@ function applyAccountState(state) {
 	}
 	if (state.pet) {
 		const previousPetLevel = petLevel;
+		petHunger = Math.max(0, Math.min(100, Number(state.pet.hunger) || 0));
 		const petName = state.pet.name;
 		const species = state.pet.species === 'dog' ? 'dog' : 'cat';
 		window.currentPetProfile = { name: petName, species, speciesChosen: state.pet.speciesChosen !== false };
@@ -169,6 +171,12 @@ function renderFood() {
 	const list = document.querySelector('#food-list');
 	list.replaceChildren();
 	const foods = inventory.filter((item) => item.category === 'food' && item.quantity > 0);
+	if (petHunger >= 100) {
+		const fullMessage = document.createElement('p');
+		fullMessage.className = 'food-full-message';
+		fullMessage.textContent = `${window.getCurrentPetName()} is full.`;
+		list.append(fullMessage);
+	}
 	if (!foods.length) {
 		const empty = document.createElement('p');
 		empty.textContent = 'No food in inventory';
@@ -178,7 +186,7 @@ function renderFood() {
 		const button = document.createElement('button');
 		button.type = 'button';
 		button.className = 'food-choice';
-		button.disabled = feeding;
+		button.disabled = feeding || petHunger >= 100;
 		button.setAttribute('aria-label', `${item.name}, ${item.quantity} remaining`);
 		button.setAttribute('aria-pressed', String(selectedFood === item.id));
 		const image = document.createElement('img');
@@ -226,6 +234,10 @@ function renderFood() {
 
 async function feedFood(item) {
 	if (feeding || !accountReady || !item) return;
+	if (petHunger >= 100) {
+		setFeedingStatus(`${window.getCurrentPetName()} is already full.`);
+		return;
+	}
 	feeding = true;
 	setFeedingStatus('');
 	renderFood();
@@ -244,7 +256,17 @@ async function feedFood(item) {
 		bite.addEventListener('animationend', () => bite.remove(), { once: true });
 		setFeedingStatus(`${item.name} eaten!`);
 	} catch (failure) {
-		setFeedingStatus(reportFailure(failure));
+		if (failure.code === 'PET_FULL') {
+			try {
+				await loadAccount();
+			} catch {
+				petHunger = 100;
+				renderFood();
+			}
+			setFeedingStatus(`${window.getCurrentPetName()} is already full.`);
+		} else {
+			setFeedingStatus(reportFailure(failure));
+		}
 	} finally {
 		feeding = false;
 		renderFood();

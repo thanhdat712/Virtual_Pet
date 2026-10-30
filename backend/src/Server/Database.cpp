@@ -804,12 +804,13 @@ int Database::feed(long long userId, int itemId)
     if ((*item)["category"] != "food")
         return 400;
     Transaction transaction(db_);
-    Statement sleeping(db_, "SELECT sleep_until,level,happiness FROM pets WHERE user_id=?;");
+    Statement sleeping(db_, "SELECT sleep_until,level,happiness,hunger FROM pets WHERE user_id=?;");
     sleeping.bind(1,userId);
     if (!sleeping.row()) return 404;
     if (sleeping.number(0) > static_cast<long long>(std::time(nullptr))) return 423;
     int level = std::max(1, static_cast<int>(sleeping.number(1)));
     int happiness = static_cast<int>(sleeping.number(2));
+    const int hunger = static_cast<int>(sleeping.number(3));
     const int levelsGained = applyHappinessGain(level, happiness, (*item)["happinessRestore"].get<int>());
     long long quantity = 0;
     {
@@ -821,6 +822,8 @@ int Database::feed(long long userId, int itemId)
     }
     if (quantity < 1)
         return 409;
+    if (hunger >= Pet::MAX_STAT)
+        return 422;
     Statement consume(db_, quantity == 1
                                ? "DELETE FROM inventory WHERE user_id=? AND item_id=?;"
                                : "UPDATE inventory SET quantity=quantity-1 WHERE user_id=? AND item_id=?;");
