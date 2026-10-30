@@ -82,8 +82,8 @@
         state: 'idle',                           // idle | countdown | playing | paused | over
         snake: [], dir: 'right', queue: [], food: null,
         walls: new Set(), portH: new Map(), portV: new Map(), portalTiles: [],
-        eaten: 0, interval: 250, acc: 0, time: 0, cd: 0, cdShown: 5,
-        best: 0, pendingBest: 0, prevBest: 0, coinsGiven: false, newRecord: false,
+        eaten: 0, interval: 250, acc: 0, time: 0, cd: 0, cdShown: 5, petLevel: 1,
+        best: 0, pendingBest: 0, prevBest: 0, happinessRemainderPoints: 0, coinsGiven: false, newRecord: false,
         gameId: null, practiceReady: false, starting: false, leavingPractice: false
     };
 
@@ -149,6 +149,13 @@
             button.disabled = disabled;
         });
     }
+    function happinessPercentForFood(eaten) {
+        const halfPercentThreshold = (30 + 18 * (S.petLevel - 1)) / 2;
+        const totalHappinessPoints = S.happinessRemainderPoints + eaten * 3;
+        const earnedHalfPercents = Math.floor(totalHappinessPoints / halfPercentThreshold)
+            - Math.floor(S.happinessRemainderPoints / halfPercentThreshold);
+        return earnedHalfPercents * 0.5;
+    }
     async function saveGameRewards() {
         if (S.state !== 'over' || !S.gameId || S.rewardSaving) return;
         S.rewardSaving = true;
@@ -159,8 +166,10 @@
             const saved = await window.api.finishPracticeGame(S.gameId, S.eaten);
             const result = window.PracticeAPI.lastResult;
             result.points = saved.awardedPoints;
-            result.happinessPercent = saved.awardedPoints * 0.05;
+            result.happinessPercent = happinessPercentForFood(S.eaten);
             result.coins = saved.awardedCoins;
+            S.petLevel = Math.max(1, Number(saved.state.pet?.level) || S.petLevel);
+            S.happinessRemainderPoints = Number(saved.state.happinessRemainderPoints) || 0;
             S.best = saved.state.bestScore;
             S.pendingBest = S.best;
             updateHud();
@@ -183,6 +192,8 @@
             const state = await window.api.practiceState();
             S.best = state.bestScore;
             S.pendingBest = S.best;
+            S.petLevel = Math.max(1, Number(state.pet?.level) || 1);
+            S.happinessRemainderPoints = Number(state.happinessRemainderPoints) || 0;
             updateHud();
             await window.api.practiceTime('start');
             S.practiceReady = true;
@@ -408,7 +419,7 @@
         if (S.state !== 'playing') return;
         setState('over');
         const points = Math.floor(S.eaten / 5) * 15;
-        const happy = points * 0.05;                       // 10 điểm = 0.5% happiness
+        const happy = happinessPercentForFood(S.eaten);
         const coins = S.coinsGiven ? 15 : 0;
         const result = { species: S.species, mode: S.mode, eaten: S.eaten, points, happinessPercent: happy, coins, seconds: Math.floor(S.time / 1000), newRecord: S.newRecord, win: !!win };
         window.PracticeAPI.lastResult = result;

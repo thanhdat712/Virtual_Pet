@@ -84,6 +84,8 @@ try {
     & g++ '-std=c++17' '-O2' '-I' (Join-Path $backend 'third_party/sqlite') `
         (Join-Path $PSScriptRoot 'db_probe.cpp') (Join-Path $build 'sqlite3.o') '-o' $probe
     if ($LASTEXITCODE -ne 0) { throw 'Study SQLite probe compilation failed' }
+    & $probe $database "CREATE TABLE study_state (user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,total_points INTEGER NOT NULL DEFAULT 0 CHECK(total_points>=0),happiness_remainder_points INTEGER NOT NULL DEFAULT 0 CHECK(happiness_remainder_points BETWEEN 0 AND 49),elapsed_remainder_seconds INTEGER NOT NULL DEFAULT 0 CHECK(elapsed_remainder_seconds BETWEEN 0 AND 104),is_active INTEGER NOT NULL DEFAULT 0 CHECK(is_active IN (0,1)),last_activity_at INTEGER);"
+    if ($LASTEXITCODE -ne 0) { throw 'Could not create legacy Study state for migration test' }
 
     Start-TestServer
     Check ((Call GET '/api/study/state').Status -eq 401) 'Study API requires authentication'
@@ -104,7 +106,7 @@ try {
     $easy = Call POST '/api/study/complete' @{level='A1';tier='easy';correctAnswers=4} $cookie
     Check ($easy.Body.passed -and $easy.Body.awardedPoints -eq 85 -and $easy.Body.awardedCoins -eq 0) 'Easy tier awards 15 per correct answer plus 25 points'
     Check ($easy.Body.state.pet.level -eq 1 -and $easy.Body.state.pet.PSObject.Properties.Name -notcontains 'experience') 'Study does not expose EXP or level pets through it'
-    Check ($easy.Body.state.pet.happiness -eq 5) 'Level 1 receives five happiness from a Study stage'
+    Check ($easy.Body.state.pet.happiness -eq 1) 'Eighty-five Study points convert to one happiness point'
     $medium = Call POST '/api/study/complete' @{level='A1';tier='medium';correctAnswers=4} $cookie
     Check ($medium.Body.passed -and $medium.Body.awardedPoints -eq 97) 'Medium tier awards 18 per correct answer plus 25 points'
     $hard = Call POST '/api/study/complete' @{level='A1';tier='hard';correctAnswers=4} $cookie
@@ -115,13 +117,18 @@ try {
     Check ($nextLevel.Body.passed -and $nextLevel.Body.awardedPoints -eq 85) 'Completing the hard tier unlocks the next level'
     $state = $nextLevel.Body.state
     Check ($state.points -eq 397 -and $state.coins -eq 120) 'Study points and coins update the SQLite account'
-    Check ($state.pet.happiness -eq 20 -and $state.pet.level -eq 1) 'Four Study stages each add five happiness without EXP progression'
-    $null = Sql "UPDATE pets SET level=2,happiness=0 WHERE user_id=$userId;"
+    Check ($state.pet.happiness -eq 7 -and $state.pet.level -eq 1) 'Study points convert to happiness using the 50-point remainder'
+    Check ((Sql "SELECT happiness_remainder_points FROM study_state WHERE user_id=$userId;") -eq '47') 'Unconverted Study points remain available for the next stage'
     $scaledStudy = Call POST '/api/study/complete' @{level='A2';tier='medium';correctAnswers=4} $cookie
-    Check ($scaledStudy.Body.state.pet.level -eq 2 -and $scaledStudy.Body.state.pet.happiness -eq 3) 'Level 2 receives less happiness for the same Study action'
-    $null = Sql "UPDATE pets SET level=1,happiness=20 WHERE user_id=$userId;"
+    Check ($scaledStudy.Body.state.pet.level -eq 1 -and $scaledStudy.Body.state.pet.happiness -eq 9) 'Study happiness remains based on points rather than pet level'
+    Check ((Sql "SELECT happiness_remainder_points FROM study_state WHERE user_id=$userId;") -eq '44') 'Study point remainder is carried across completed stages'
+    $null = Sql "UPDATE pets SET level=2,happiness=0 WHERE user_id=$userId; UPDATE study_state SET happiness_remainder_points=0 WHERE user_id=$userId;"
+    $scaledAtLevelTwo = Call POST '/api/study/complete' @{level='A2';tier='hard';correctAnswers=4} $cookie
+    Check ($scaledAtLevelTwo.Body.awardedPoints -eq 130 -and $scaledAtLevelTwo.Body.awardedCoins -eq 20) 'Study points and coins remain unchanged at higher pet levels'
+    Check ($scaledAtLevelTwo.Body.state.pet.level -eq 2 -and $scaledAtLevelTwo.Body.state.pet.happiness -eq 1) 'Level 2 Study requires 75 points per happiness percent'
+    Check ((Sql "SELECT happiness_remainder_points FROM study_state WHERE user_id=$userId;") -eq '55') 'Level 2 Study carries points toward the next happiness percent'
     $purchase = Call POST '/api/shop/purchases' @{itemId=1;quantity=1} $cookie
-    Check ($purchase.Status -eq 200 -and $purchase.Body.state.user.coins -eq 115) 'Study coins can buy shop items'
+    Check ($purchase.Status -eq 200 -and $purchase.Body.state.user.coins -eq 135) 'Study coins can buy shop items'
     $null = Sql "UPDATE pets SET hunger=100 WHERE user_id=$userId;"
     $fullFeed = Call POST '/api/pet/feed' @{itemId=1} $cookie
     Check ($fullFeed.Status -eq 422 -and $fullFeed.Body.code -eq 'PET_FULL') 'Pet at 100 hunger cannot eat'
@@ -155,7 +162,7 @@ try {
     Stop-TestServer
     Start-TestServer
     $persisted = (Call GET '/api/study/state' $null $cookie).Body
-    Check ($persisted.points -eq 494 -and $persisted.coins -eq 115 -and $persisted.completedStages.Count -eq 5) 'Study points, coins and completed tiers persist after restart'
+    Check ($persisted.points -eq 624 -and $persisted.coins -eq 135 -and $persisted.completedStages.Count -eq 6) 'Study points, coins and completed tiers persist after restart'
     Stop-TestServer
     Write-Host "Completed $script:checks Study integration checks."
 } finally {
