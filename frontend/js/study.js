@@ -524,8 +524,7 @@ async function endQuiz() {
 
             if (pet) {
                 const level = Math.max(1, Number(pet.level) || 1);
-                const exp = Math.max(0, Number(pet.experience) || 0);
-                msg += ` Pet Level: ${level}, EXP: ${exp}/${level * 100}, Happiness: ${pet.happiness}.`;
+                msg += ` Pet Level: ${level}, Happiness: ${pet.happiness}.`;
             }
         }
     } catch (error) {

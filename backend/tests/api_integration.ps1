@@ -190,7 +190,8 @@ try {
         }
         $fed = Call POST '/api/pet/feed' @{itemId=$itemId;userId=$bob.user.id;quantity=999;hunger=100;happiness=100;hungerRestore=100;happinessRestore=100;coins=99999;energy=100;level=99} $feeder.token
         Check ($fed.Status -eq 200 -and $fed.Body.pet.hunger -eq (10+$restores[$index][0]) -and $fed.Body.pet.happiness -eq (10+$restores[$index][1])) "Food $itemId applies only authoritative restores"
-        Check ($fed.Body.user.id -eq $feeder.user.id -and $fed.Body.pet.energy -eq 70 -and $fed.Body.pet.level -eq 1 -and $fed.Body.pet.experience -eq 0) 'Feeding ignores forged user and unrelated stats'
+        Check ($fed.Body.user.id -eq $feeder.user.id -and $fed.Body.pet.energy -eq 70 -and $fed.Body.pet.level -eq 1) 'Feeding ignores forged user and unrelated stats'
+        Check ($fed.Body.pet.PSObject.Properties.Name -notcontains 'experience') 'Pet API no longer exposes EXP'
         if ($itemId -eq 1) {
             Check ($fed.Body.inventory.Count -eq 1 -and $fed.Body.inventory[0].quantity -eq 1) 'Feeding decrements stack by exactly one'
             $null = Sql "UPDATE pets SET hunger=95,happiness=99 WHERE user_id=$($feeder.user.id);"

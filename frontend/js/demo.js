@@ -18,7 +18,7 @@
 	const copy = (value) => JSON.parse(JSON.stringify(value));
 	const initialState = () => ({
 		user: { id: 1, coins: 100 },
-pet: { name: 'UIA', level: 1, exp: 0, happiness: 0, hunger: 50, energy: 50, sleepUntil: 0 },
+pet: { name: 'UIA', level: 1, happiness: 0, hunger: 50, energy: 50, sleepUntil: 0 },
 		inventory: [{ id: 1, quantity: 3 }, { id: 2, quantity: 2 }],
 		decor: { background: null, floor: null, headwear: null }
 	});
@@ -26,7 +26,6 @@ pet: { name: 'UIA', level: 1, exp: 0, happiness: 0, hunger: 50, energy: 50, slee
 		return saved && Number.isSafeInteger(saved.user?.coins) && saved.user.coins >= 0
 			&& typeof saved.pet?.name === 'string' && saved.pet.name.trim().length > 0
 			&& Number.isSafeInteger(saved.pet.level) && saved.pet.level > 0
-			&& Number.isSafeInteger(saved.pet.exp) && saved.pet.exp >= 0
 			&& ['happiness', 'hunger', 'energy'].every((stat) => Number.isFinite(saved.pet[stat]) && saved.pet[stat] >= 0 && saved.pet[stat] <= 100)
 			&& Array.isArray(saved.inventory) && saved.inventory.every((owned) => {
 				const item = catalog.find((entry) => entry.id === owned?.id);
