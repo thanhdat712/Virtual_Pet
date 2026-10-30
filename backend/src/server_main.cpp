@@ -547,6 +547,7 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
         int itemId = integerField(fields,"itemId",2147483647);
         int status = db.feed(userId,itemId);
         if (status == 423) return apiError(423,"PET_SLEEPING","Your pet is asleep. Let it rest for 30 minutes.");
+        if (status == 422) return apiError(422,"PET_FULL","Your pet is already full.");
         if (status != 200) return apiError(status,status == 400 ? "NOT_FOOD" : status == 409 ? "NOT_OWNED" : "ITEM_NOT_FOUND",
             status == 400 ? "Item is not food." : status == 409 ? "Food not owned." : "Item or pet not found.");
         return actionResponse(db,userId,"Food eaten.");
