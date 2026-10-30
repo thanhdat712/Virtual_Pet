@@ -57,6 +57,7 @@ struct StudyStateRow {
 
 struct PracticeStateRow {
     long long points = 0;
+    long long happinessRemainderPoints = 0;
     int bestScore = 0;
     int coins = 0;
     int level = 1;
