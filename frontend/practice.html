@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Pet Snack Run - Practice</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+    <link rel="stylesheet" href="css/practice.css?v=mobile-bottom-controls-v3-20261027">
+</head>
+
+<body data-species="none" data-state="idle" data-music-style="arcade">
+    <canvas id="bg" aria-hidden="true"></canvas>
+
+    <main class="game" aria-label="Pet Snack Run">
+        <header class="top">
+            <a class="px-btn small" id="back-btn" href="index.html"><svg viewBox="0 0 8 8" width="14" height="14"
+                    fill="currentColor" shape-rendering="crispEdges" aria-hidden="true">
+                    <path d="M3 0h2v1h1v1h1v1h1v1H7v4H5V5H3v3H1V4H0V3h1V2h1V1h1z" />
+                </svg><span>Home</span></a>
+            <h1 class="px title">Pet Run</h1>
+            <button class="px-btn small" id="study-music-toggle" type="button" aria-pressed="false">♫ Play music</button>
+            <button class="px-btn small" id="pause-btn" type="button" data-action="pause" disabled>Pause</button>
+        </header>
+
+        <section class="stats" aria-label="Stats">
+            <div class="px stat"><span>Score</span><b id="st-score">0</b></div>
+            <div class="px stat"><span id="lb-eaten">Fish</span><b id="st-eaten">0</b></div>
+            <div class="px stat"><span id="lb-best">Best</span><b id="st-best">0</b></div>
+            <div class="px stat"><span>Time</span><b id="st-time">00:00</b></div>
+        </section>
+
+        <div class="board-wrap">
+            <canvas id="board" aria-label="Game board"></canvas>
+            <p class="toast px" id="toast" hidden></p>
+        </div>
+        <p class="practice-status px" id="practice-status" role="status" hidden></p>
+        <section class="bottom-actions" id="bottom-actions" hidden aria-label="Game options">
+            <div class="btn-row" data-bottom-actions="ready" hidden>
+                <button type="button" class="px-btn big" data-action="start">Start</button>
+                <a class="px-btn" href="index.html">Home</a>
+            </div>
+            <div class="btn-row" data-bottom-actions="over" hidden>
+                <button type="button" class="px-btn big" data-action="again">Play again</button>
+                <button type="button" class="px-btn" data-action="menu">Change pet</button>
+                <a class="px-btn" href="index.html">Home</a>
+            </div>
+        </section>
+        <p class="legend px">Swipe the board or use the D-pad / arrow keys / WASD. Gates of the same colour teleport you
+            across.</p>
+
+        <div class="mobile-controls">
+            <section class="controls" aria-label="Controls">
+                <div class="dpad" id="dpad">
+                    <button type="button" class="d-up" data-dir="up" aria-label="Up"><svg viewBox="0 0 8 8"
+                            aria-hidden="true">
+                            <path d="M3 1h2v1h1v1h1v1H5v3H3V4H1V3h1V2h1z" />
+                        </svg></button>
+                    <button type="button" class="d-left" data-dir="left" aria-label="Left"><svg viewBox="0 0 8 8"
+                            aria-hidden="true">
+                            <path d="M3 1h2v1h1v1h1v1H5v3H3V4H1V3h1V2h1z" />
+                        </svg></button>
+                    <button type="button" class="d-right" data-dir="right" aria-label="Right"><svg viewBox="0 0 8 8"
+                            aria-hidden="true">
+                            <path d="M3 1h2v1h1v1h1v1H5v3H3V4H1V3h1V2h1z" />
+                        </svg></button>
+                    <button type="button" class="d-down" data-dir="down" aria-label="Down"><svg viewBox="0 0 8 8"
+                            aria-hidden="true">
+                            <path d="M3 1h2v1h1v1h1v1H5v3H3V4H1V3h1V2h1z" />
+                        </svg></button>
+                    <span class="dpad-paw" aria-hidden="true"><img src="assets/study/nutbam.jpg" alt=""></span>
+                </div>
+            </section>
+
+            <aside class="switches" id="switches" hidden aria-label="Quick switch">
+                <div class="sw-group">
+                    <button type="button" class="switch" id="sw-species" data-action="swap-species" data-on="false"
+                        aria-label="Switch cat / dog">
+                        <span class="thumb"><img id="sw-species-icon" src="assets/study/meo.png" alt=""></span>
+                    </button>
+                    <span class="sw-label" id="sw-species-label"></span>
+                </div>
+                <div class="sw-group">
+                    <button type="button" class="switch" id="sw-mode" data-action="swap-mode" data-on="false"
+                        aria-label="Switch easy / hard">
+                        <span class="thumb"><canvas id="sw-mode-icon" width="16" height="16"></canvas></span>
+                    </button>
+                    <span class="sw-label" id="sw-mode-label"></span>
+                </div>
+            </aside>
+        </div>
+    </main>
+
+    <div class="overlay" id="overlay" hidden>
+        <section class="screen px" data-screen="species" hidden aria-labelledby="t-species">
+            <p class="kicker">PRACTICE</p>
+            <h2 id="t-species">Choose your pet</h2>
+            <div class="choices">
+                <!-- Ảnh mèo dùng trên sân và ở nút chọn thú. -->
+                <button type="button" class="choice px-btn" data-action="species" data-species="cat">
+                    <img class="spr pet-icon" src="assets/study/meo.png" alt=""><span>Cat</span>
+                </button>
+                <!-- Ảnh chó dùng trên sân và ở nút chọn thú. -->
+                <button type="button" class="choice px-btn" data-action="species" data-species="dog">
+                    <img class="spr pet-icon" src="assets/study/cho.png" alt=""><span>Dog</span>
+                </button>
+            </div>
+            <a class="px-btn" href="index.html">Home</a>
+        </section>
+
+        <section class="screen px" data-screen="mode" hidden aria-labelledby="t-mode">
+            <p class="kicker">DIFFICULTY</p>
+            <h2 id="t-mode">Choose a mode</h2>
+            <div class="choices">
+                <button type="button" class="choice px-btn" data-action="mode" data-mode="easy">
+                    <canvas class="spr" width="16" height="16" data-icon="grass"></canvas><span>Easy</span><small>Open
+                        field</small>
+                </button>
+                <button type="button" class="choice px-btn" data-action="mode" data-mode="hard">
+                    <canvas class="spr" width="16" height="16" data-icon="wall"></canvas><span>Hard</span><small>3-5
+                        walls</small>
+                </button>
+            </div>
+        </section>
+
+        <section class="screen px" data-screen="ready" hidden aria-labelledby="t-ready">
+            <button type="button" class="screen-close px-btn" data-action="close-panel"
+                aria-label="Close panel">X</button>
+            <h2 id="t-ready">Ready?</h2>
+            <div class="meme-box" hidden><img class="meme" id="meme-start" alt="" hidden></div>
+            <p class="hint">Arrow keys / WASD or the D-pad</p>
+            <div class="btn-row">
+                <button type="button" class="px-btn big" data-action="start">Start</button>
+                <a class="px-btn" href="index.html">Home</a>
+            </div>
+        </section>
+
+        <section class="screen px" data-screen="count" hidden aria-live="polite" aria-label="Countdown">
+            <p class="kicker">GET READY</p>
+            <b class="cd-num" id="cd-num">5</b>
+        </section>
+
+        <section class="screen px" data-screen="pause" hidden aria-labelledby="t-pause">
+            <h2 id="t-pause">Paused</h2>
+            <div class="btn-row">
+                <button type="button" class="px-btn big" data-action="resume">Resume</button>
+                <button type="button" class="px-btn" data-action="restart">Restart</button>
+                <a class="px-btn" href="index.html">Home</a>
+            </div>
+        </section>
+
+        <section class="screen px" data-screen="over" hidden aria-labelledby="over-title">
+            <button type="button" class="screen-close px-btn" data-action="close-panel"
+                aria-label="Close panel">X</button>
+            <h2 id="over-title">Game over</h2>
+            <div class="meme-box" hidden><img class="meme" id="meme-end" alt="" hidden></div>
+            <ul class="result">
+                <li><span id="rs-label">Fish eaten</span><b id="rs-eaten">0</b></li>
+                <li><span>Points</span><b id="rs-score">0</b></li>
+                <li><span>Happiness</span><b id="rs-happy">+0%</b></li>
+                <li><span>Coins</span><b id="rs-coins">+0</b></li>
+                <li><span>Time</span><b id="rs-time">00:00</b></li>
+            </ul>
+            <p class="record" id="rs-record" hidden>NEW RECORD!</p>
+            <button type="button" class="px-btn" id="reward-retry" data-action="retry-reward" hidden>Retry saving rewards</button>
+            <div class="btn-row">
+                <button type="button" class="px-btn big" data-action="again">Play again</button>
+                <button type="button" class="px-btn" data-action="menu">Change pet</button>
+                <a class="px-btn" href="index.html">Home</a>
+            </div>
+        </section>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/sound.js?v=practice-music-20261028"></script>
+    <script src="js/practice.js?v=account-rewards-v1"></script>
+</body>
+
+</html>

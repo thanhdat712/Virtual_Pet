@@ -1,13 +1,11 @@
+
 #ifndef GAME_SNAPSHOT_H
 #define GAME_SNAPSHOT_H
 
 #include <string>
 #include <vector>
-#include "../Item/Decoration.h" // DecorationSlot
+#include "../Item/Decoration.h"
 
-// Ảnh chụp dữ liệu của một ván game dưới dạng struct thuần (không con trỏ, không class game).
-// Đây là "hợp đồng" giữa Game và tầng lưu trữ (KAN-72 / SQLite): tầng lưu trữ chỉ cần
-// chuyển qua lại giữa GameSnapshot và các dòng trong database, không cần biết Game bên trong.
 struct InventoryEntrySnapshot {
     int itemId;
     int quantity;
@@ -24,8 +22,9 @@ struct PetSnapshot {
     int level = 1;
     int health = 100;
     int happiness = 0;
-    int hunger = 0;
-    int energy = 0;
+    int hunger = 50;
+    int energy = 50;
+    int experience = 0;
 };
 
 struct GameSnapshot {

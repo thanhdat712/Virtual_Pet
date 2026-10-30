@@ -74,82 +74,6 @@ const resetConfirmForm = passwordResetPanel.querySelector('#password-reset-confi
 const resetRequestMessage = passwordResetPanel.querySelector('#reset-request-message');
 const resetConfirmMessage = passwordResetPanel.querySelector('#reset-confirm-message');
 
-const emailVerificationPanel = document.createElement('section');
-emailVerificationPanel.className = 'entry-form password-reset-panel';
-emailVerificationPanel.hidden = true;
-emailVerificationPanel.innerHTML = `
-	<h1>Verify your email</h1>
-	<p class="entry-description">Enter the one-time code to activate your account.</p>
-	<p class="entry-description">Local development: the code appears here because email delivery is not configured.</p>
-	<p id="email-verification-message" class="entry-error" role="status" aria-live="polite"></p>
-	<form id="email-verification-form" class="entry-form">
-		<label for="verification-email">Email</label>
-		<input id="verification-email" name="email" type="email" maxlength="254" autocomplete="email" required>
-		<label for="verification-code">Verification code</label>
-		<input id="verification-code" name="verificationCode" type="text" maxlength="64" autocomplete="off" required>
-		<button class="entry-primary" type="submit">Verify email</button>
-		<button id="resend-verification-code" class="entry-back" type="button">Resend code</button>
-		<button class="entry-back" type="button" data-verification-back>Back to login</button>
-	</form>`;
-passwordResetPanel.insertAdjacentElement('afterend', emailVerificationPanel);
-
-const verificationForm = emailVerificationPanel.querySelector('#email-verification-form');
-const verificationMessage = emailVerificationPanel.querySelector('#email-verification-message');
-const verificationEmail = emailVerificationPanel.querySelector('#verification-email');
-
-function showEmailVerification(email, message = '') {
-	entryForm.hidden = true;
-	entryTitle.hidden = true;
-	entryDescription.hidden = true;
-	passwordResetPanel.hidden = true;
-	emailVerificationPanel.hidden = false;
-	verificationEmail.value = email;
-	verificationMessage.classList.remove('is-success');
-	verificationMessage.textContent = message;
-	emailVerificationPanel.querySelector('#verification-code').focus();
-}
-
-emailVerificationPanel.querySelectorAll('[data-verification-back]').forEach((button) => {
-	button.addEventListener('click', () => showAuth('login'));
-});
-
-emailVerificationPanel.querySelector('#resend-verification-code').addEventListener('click', async (event) => {
-	const button = event.currentTarget;
-	button.disabled = true;
-	verificationMessage.classList.remove('is-success');
-	verificationMessage.textContent = '';
-	try {
-		const result = await api.requestEmailVerification(verificationEmail.value.trim());
-		verificationMessage.classList.add('is-success');
-		verificationMessage.textContent = result.verificationCode
-			? `New verification code (valid for 30 minutes): ${result.verificationCode}`
-			: 'If the account needs verification, a new code was generated.';
-	} catch (failure) {
-		verificationMessage.textContent = failure.message || 'Could not resend the verification code.';
-	} finally {
-		button.disabled = false;
-	}
-});
-
-verificationForm.addEventListener('submit', async (event) => {
-	event.preventDefault();
-	const button = verificationForm.querySelector('[type="submit"]');
-	button.disabled = true;
-	verificationMessage.classList.remove('is-success');
-	verificationMessage.textContent = '';
-	try {
-		const result = await api.verifyEmail(verificationEmail.value.trim(),
-			emailVerificationPanel.querySelector('#verification-code').value.trim());
-		showAuth('login');
-		entryError.classList.add('is-success');
-		entryError.textContent = result.message || 'Email verified. You can now log in.';
-	} catch (failure) {
-		verificationMessage.textContent = failure.message || 'Could not verify this email.';
-	} finally {
-		button.disabled = false;
-	}
-});
-
 const accountProfilePanel = document.createElement('section');
 accountProfilePanel.className = 'entry-gate account-profile-gate';
 accountProfilePanel.hidden = true;
@@ -373,6 +297,7 @@ resetConfirmForm.addEventListener('submit', async (event) => {
 function setSoundEnabled(enabled) {
 	window.soundEnabled = enabled;
 	settingsSoundToggle.checked = enabled;
+	try { localStorage.setItem('pet-home-sound-enabled', String(enabled)); } catch { /* Sound still works for this page. */ }
 	document.querySelectorAll('audio').forEach((audio) => { audio.muted = !enabled; });
 	window.dispatchEvent(new CustomEvent('soundsettingchange', { detail: { enabled } }));
 }
@@ -473,6 +398,24 @@ async function migrateBrowserPreferences(user) {
 
 function showPetPicker() {
 	const profile = window.currentPetProfile || { species: 'cat', name: 'UIA' };
+	const choiceKey = `virtual-pet-pet-choice-v1-${String(signedInUser?.id ?? signedInUser?.username ?? 'guest')}`;
+	let alreadyChosen = false;
+	try {
+		alreadyChosen = localStorage.getItem(choiceKey) === profile.species;
+		if (sessionStorage.getItem('virtual-pet-returning-from-study') === 'true') {
+			sessionStorage.removeItem('virtual-pet-returning-from-study');
+			localStorage.setItem(choiceKey, profile.species);
+			alreadyChosen = true;
+		}
+	} catch {
+		// The pet picker remains available when browser storage is disabled.
+	}
+	if (alreadyChosen) {
+		petPicker.hidden = true;
+		entryGate.hidden = true;
+		document.body.classList.remove('entry-open');
+		return;
+	}
 	entryGate.hidden = true;
 	selectedSpecies = profile.species;
 	document.querySelectorAll('[data-pet-species]').forEach((button) => {
@@ -480,6 +423,16 @@ function showPetPicker() {
 	});
 	petChoiceError.textContent = '';
 	petPicker.hidden = false;
+}
+
+function continueToGame() {
+	if (window.currentPetProfile?.speciesChosen === false) {
+		showPetPicker();
+		return;
+	}
+	petPicker.hidden = true;
+	entryGate.hidden = true;
+	document.body.classList.remove('entry-open');
 }
 
 function showAuth(mode) {
@@ -490,7 +443,6 @@ function showAuth(mode) {
 	entryError.textContent = '';
 	entryError.classList.remove('is-success');
 	passwordResetPanel.hidden = true;
-		emailVerificationPanel.hidden = true;
 	entryTitle.hidden = false;
 	entryDescription.hidden = false;
 	forgotPasswordButton.hidden = mode !== 'login';
@@ -545,6 +497,12 @@ document.querySelector('#confirm-pet-choice').addEventListener('click', async (e
 	try {
 		const petName = window.currentPetProfile?.name || 'UIA';
 		applyAccountState(await api.savePetProfile(petName, selectedSpecies));
+		try {
+			const choiceKey = `virtual-pet-pet-choice-v1-${String(signedInUser?.id ?? signedInUser?.username ?? 'guest')}`;
+			localStorage.setItem(choiceKey, selectedSpecies);
+		} catch {
+			// The saved species on the server is still available if browser storage is disabled.
+		}
 		applyLobbyDecor();
 		petPicker.hidden = true;
 		entryGate.hidden = true;
@@ -598,28 +556,17 @@ entryForm.addEventListener('submit', async (event) => {
 		return;
 	}
 	try {
-		if (authMode === 'register') {
-			const result = await api.register(username, email, password);
-			entryForm.reset();
-			const localCodeMessage = result.verificationCode
-				? `Verification code for local testing (valid 30 minutes): ${result.verificationCode}`
-				: 'Check your email for the verification code.';
-			showEmailVerification(email,localCodeMessage);
-			return;
-		}
-		const result = await api.login(email, password);
+		const result = authMode === 'register'
+			? await api.register(username, email, password)
+			: await api.login(email, password);
 		signedInUser = result.user;
 		entryForm.reset();
 		if (!await window.initializeAccount()) throw new Error('Could not load your saved game.');
 		await migrateBrowserPreferences(signedInUser);
 		entryGate.hidden = true;
-		showPetPicker();
+		continueToGame();
 	} catch (failure) {
-		if (authMode === 'login' && failure.code === 'EMAIL_NOT_VERIFIED') {
-			showEmailVerification(email,failure.message);
-		} else {
-			entryError.textContent = failure.message || 'Could not connect to the server. Open Virtual Pet through its server and try again.';
-		}
+		entryError.textContent = failure.message || 'Could not connect to the server. Open Virtual Pet through its server and try again.';
 	} finally {
 		entrySubmit.disabled = false;
 	}
@@ -631,7 +578,7 @@ api.session()
 			signedInUser = result.user;
 			if (!await window.initializeAccount()) throw new Error('Could not load your saved game.');
 			await migrateBrowserPreferences(signedInUser);
-			showPetPicker();
+			continueToGame();
 		} else {
 			entryGate.hidden = false;
 			document.body.classList.add('entry-open');

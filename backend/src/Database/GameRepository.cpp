@@ -27,7 +27,7 @@ bool GameRepository::createInitialGame(int userId, const std::string& playerName
         // 2. Thú cưng ban đầu (UIA, Lv 1, Vui 85, Đói 30, Năng lượng 70)
         Statement petStmt(db.getRawHandle(),
             "INSERT INTO pets (user_id, name, level, experience, happiness, hunger, energy) "
-            "VALUES (?, 'UIA', 1, 0, 85, 30, 70) "
+            "VALUES (?, 'UIA', 1, 0, 0, 50, 50) "
             "ON CONFLICT(user_id) DO NOTHING;");
         petStmt.bindInt(1, userId);
         petStmt.execute();

@@ -18,7 +18,7 @@
 	const copy = (value) => JSON.parse(JSON.stringify(value));
 	const initialState = () => ({
 		user: { id: 1, coins: 100 },
-		pet: { name: 'UIA', level: 1, exp: 0, happiness: 85, hunger: 30, energy: 70 },
+pet: { name: 'UIA', level: 1, exp: 0, happiness: 0, hunger: 50, energy: 50, sleepUntil: 0 },
 		inventory: [{ id: 1, quantity: 3 }, { id: 2, quantity: 2 }],
 		decor: { background: null, floor: null, headwear: null }
 	});
@@ -52,6 +52,7 @@
 		floor: state.decor?.floor ?? null,
 		headwear: state.decor?.headwear ?? null
 	};
+	state.pet.sleepUntil ??= 0;
 	function persist(next) {
 		try {
 			localStorage.setItem(storageKey, JSON.stringify(next));
@@ -61,9 +62,17 @@
 		state = next;
 		return copy(state);
 	}
+	function finishSleepIfReady() {
+		if (!state.pet.sleepUntil || Date.now() < state.pet.sleepUntil) return;
+		const next = copy(state);
+		next.pet.energy = Math.min(100, next.pet.energy + 1);
+		next.pet.hunger = Math.max(0, next.pet.hunger - 5);
+		next.pet.sleepUntil = 0;
+		persist(next);
+	}
 	persist(state);
 	window.api = {
-		async me() { return copy(state); },
+		async me() { finishSleepIfReady(); return copy(state); },
 		async listShop() { return copy(catalog); },
 		async buyItem(itemId, quantity) {
 			const item = catalog.find((entry) => entry.id === itemId);
@@ -93,9 +102,11 @@
 			return persist(next);
 		},
 		async sleepPet() {
+			finishSleepIfReady();
 			if (state.pet.energy >= 100) throw new Error(`${window.getCurrentPetName?.() || 'UIA'} is not sleepy right now.`);
+			if (state.pet.sleepUntil > Date.now()) throw new Error(`${window.getCurrentPetName?.() || 'UIA'} is still sleeping.`);
 			const next = copy(state);
-			next.pet.energy = Math.min(100, next.pet.energy + 40);
+			next.pet.sleepUntil = Date.now() + 30 * 60 * 1000;
 			return persist(next);
 		},
 		async equipDecoration(slot, itemId) {

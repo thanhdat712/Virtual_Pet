@@ -9,11 +9,11 @@ const inventoryCount = document.querySelector('#inventory-count');
 const openInventoryButton = document.querySelector('#open-inventory');
 const closeInventoryButton = document.querySelector('#close-inventory');
 const studyButton = document.querySelector('#study-btn');
+const practiceButton = document.querySelector('#practice-btn');
 const inventoryTabs = document.querySelectorAll('#inventory-panel [data-filter]');
 const inventoryDetail = document.querySelector('#inventory-detail');
 let activeFilter = 'all';
 let selectedBagId = null;
-let bagMessage = '';
 const shopPanel = document.querySelector('#shop-panel');
 const shopGrid = document.querySelector('#shop-grid');
 const shopMessage = document.querySelector('#shop-message');
@@ -156,7 +156,6 @@ function renderInventory() {
 
 		cell.addEventListener('click', () => {
 			selectedBagId = item.id;
-			bagMessage = '';
 			renderInventory();
 			inventoryGrid.querySelector('.is-selected')?.focus();
 		});
@@ -182,44 +181,8 @@ function renderBagDetail() {
 	name.textContent = item.name;
 	const description = document.createElement('p');
 	description.textContent = item.description;
-	const message = document.createElement('p');
-	message.className = 'win-message';
-	message.setAttribute('role', 'status');
-	message.textContent = bagMessage;
-	info.append(name, description, message);
-
-	const action = document.createElement('button');
-	action.type = 'button';
-	action.className = 'win-btn';
-	if (item.category === 'food') {
-		action.textContent = 'Use';
-		action.addEventListener('click', () => useBagFood(item));
-	} else {
-		const worn = equippedDecor[item.filter] === item.id;
-		action.textContent = worn ? 'Remove' : (item.filter === 'headwear' ? 'Wear' : 'Equip');
-		action.addEventListener('click', () => equipBagDecoration(item, worn));
-	}
-	inventoryDetail.append(buildItemArt(item), info, action);
-}
-
-async function useBagFood(item) {
-	try {
-		applyAccountState(await api.feedPet(item.id));
-		bagMessage = `${item.name} eaten!`;
-	} catch (failure) {
-		bagMessage = failure.message;
-	}
-	renderBagDetail();
-}
-
-async function equipBagDecoration(item, worn) {
-	try {
-		applyAccountState(await api.equipDecoration(item.filter, worn ? null : item.id));
-		bagMessage = worn ? `${item.name} removed.` : `${item.name} equipped.`;
-	} catch (failure) {
-		bagMessage = failure.message;
-	}
-	renderBagDetail();
+	info.append(name, description);
+	inventoryDetail.append(buildItemArt(item), info);
 }
 
 function renderShop() {
@@ -307,20 +270,38 @@ function openPurchaseDialog(item) {
 
 	let quantityInput = null;
 	let quantityLabel = null;
+	let quantityControl = null;
+	let decreaseQuantityButton = null;
+	let increaseQuantityButton = null;
 	if (isFood) {
 		quantityLabel = document.createElement('label');
 		quantityLabel.className = 'purchase-quantity-label';
 		quantityLabel.htmlFor = 'purchase-quantity';
 		quantityLabel.textContent = 'Quantity';
+		quantityControl = document.createElement('div');
+		quantityControl.className = 'purchase-quantity-control';
+		decreaseQuantityButton = document.createElement('button');
+		decreaseQuantityButton.type = 'button';
+		decreaseQuantityButton.className = 'purchase-quantity-step';
+		decreaseQuantityButton.setAttribute('aria-label', 'Decrease quantity');
+		decreaseQuantityButton.textContent = '−';
 		quantityInput = document.createElement('input');
 		quantityInput.className = 'purchase-quantity-input';
 		quantityInput.id = 'purchase-quantity';
-		quantityInput.type = 'number';
-		quantityInput.min = '1';
-		quantityInput.max = String(Math.max(1, Math.floor(coins / item.price)));
+		quantityInput.type = 'text';
+		quantityInput.readOnly = true;
+		quantityInput.setAttribute('aria-label', 'Quantity');
+		quantityInput.setAttribute('aria-live', 'polite');
+		quantityInput.dataset.max = String(Math.min(1000, Math.max(1, Math.floor(coins / item.price))));
 		quantityInput.value = '1';
 		quantityInput.inputMode = 'numeric';
 		quantityInput.autocomplete = 'off';
+		increaseQuantityButton = document.createElement('button');
+		increaseQuantityButton.type = 'button';
+		increaseQuantityButton.className = 'purchase-quantity-step';
+		increaseQuantityButton.setAttribute('aria-label', 'Increase quantity');
+		increaseQuantityButton.textContent = '+';
+		quantityControl.append(decreaseQuantityButton, quantityInput, increaseQuantityButton);
 	}
 
 	const total = document.createElement('p');
@@ -346,8 +327,8 @@ function openPurchaseDialog(item) {
 	confirmButton.textContent = 'Confirm purchase';
 	confirmButton.addEventListener('click', async () => {
 		const quantity = quantityInput ? Number.parseInt(quantityInput.value, 10) : 1;
-		if (quantityInput && (!Number.isInteger(quantity) || quantity < 1 || quantity > Number(quantityInput.max))) {
-			error.textContent = `Choose a quantity from 1 to ${quantityInput.max}.`;
+		if (quantityInput && (!Number.isInteger(quantity) || quantity < 1 || quantity > Number(quantityInput.dataset.max))) {
+			error.textContent = `Choose a quantity from 1 to ${quantityInput.dataset.max}.`;
 			return;
 		}
 
@@ -363,6 +344,7 @@ function openPurchaseDialog(item) {
 		try {
 			const result = await api.buyItem(item.id, quantity);
 			applyAccountState(result);
+			window.playGameSound?.('buy-now');
 			shopMessage.textContent = `${quantity} × ${item.name} added to your inventory.`;
 			closePurchaseDialog();
 		} catch (failure) {
@@ -374,23 +356,23 @@ function openPurchaseDialog(item) {
 	});
 	actions.append(cancelButton, confirmButton);
 
-	quantityInput?.addEventListener('input', () => {
-		const maxQuantity = Number(quantityInput.max);
-		let quantity = Number.parseInt(quantityInput.value, 10);
-		if (Number.isInteger(quantity) && quantity > maxQuantity) {
-			quantity = maxQuantity;
-			quantityInput.value = String(quantity);
-		}
-		if (!Number.isInteger(quantity) || quantity < 1) {
-			quantity = 1;
-		}
+	const updateQuantity = (amount) => {
+		if (!quantityInput) return;
+		const maxQuantity = Number(quantityInput.dataset.max);
+		const quantity = Math.min(maxQuantity, Math.max(1, Number(quantityInput.value) + amount));
+		quantityInput.value = String(quantity);
 		total.textContent = `Total: ${item.price * quantity} coins`;
+		decreaseQuantityButton.disabled = quantity <= 1;
+		increaseQuantityButton.disabled = quantity >= maxQuantity;
 		error.textContent = '';
-	});
+	};
+	decreaseQuantityButton?.addEventListener('click', () => updateQuantity(-1));
+	increaseQuantityButton?.addEventListener('click', () => updateQuantity(1));
+	updateQuantity(0);
 
 	dialog.append(header, itemName, unitPrice);
 	if (isFood) {
-		dialog.append(quantityLabel, quantityInput);
+		dialog.append(quantityLabel, quantityControl);
 	}
 	dialog.append(total, error, actions);
 	backdrop.append(dialog);
@@ -432,7 +414,13 @@ function closeShop() {
 openInventoryButton.addEventListener('click', openInventory);
 closeInventoryButton.addEventListener('click', closeInventory);
 studyButton.addEventListener('click', () => {
+	if (window.currentPetProfile) {
+		try { sessionStorage.setItem('virtual-pet-returning-from-study', 'true'); } catch { /* Navigation still works without session storage. */ }
+	}
 	window.location.href = 'study.html';
+});
+practiceButton.addEventListener('click', () => {
+	window.location.href = 'practice.html';
 });
 openShopButton.addEventListener('click', openShop);
 closeShopButton.addEventListener('click', closeShop);

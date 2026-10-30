@@ -36,8 +36,10 @@ constexpr std::size_t MAX_SUBMISSIONS_PER_MINUTE = 5;
 std::string utcTimestamp() {
     const std::time_t now = std::time(nullptr);
     std::tm tm{};
-#ifdef _WIN32
+#if defined(_MSC_VER)
     gmtime_s(&tm, &now);
+#elif defined(_WIN32)
+    if (const std::tm* utc = std::gmtime(&now)) tm = *utc;
 #else
     gmtime_r(&now, &tm);
 #endif
@@ -92,13 +94,43 @@ Value userJson(const UserRow& user) {
 }
 
 Value petJson(const PetRow& pet) {
-    return {{"name",pet.name},{"species",pet.species},{"level",pet.level},{"experience",pet.experience},
-        {"happiness",pet.happiness},{"hunger",pet.hunger},{"energy",pet.energy}};
+    return {{"name",pet.name},{"species",pet.species},{"speciesChosen",pet.speciesChosen},
+        {"level",pet.level},{"experience",pet.experience},
+        {"happiness",pet.happiness},{"hunger",pet.hunger},{"energy",pet.energy},
+        {"sleepRemainingSeconds",pet.sleepRemainingSeconds},{"sleeping",pet.sleepRemainingSeconds > 0}};
 }
 
 Value progressJson(const ProgressRow& progress) {
     return {{"exerciseId",progress.exerciseId},{"status",progress.status},{"bestScore",progress.bestScore},
         {"attempts",progress.attempts},{"completedAt",progress.completedAt}};
+}
+    
+Value studyStateJson(const StudyStateRow& state) {
+    Value completed = Value::array();
+    for (const auto& stage : state.completedStages)
+        completed.push_back(stage);
+
+    return {
+        {"success", true},
+        {"points", state.points},
+        {"coins", state.coins},
+        {"completedStages", completed},
+        {"pet", {
+            {"level", state.level},
+            {"experience", state.experience},
+            {"happiness", state.happiness},
+            {"hunger", state.hunger},
+            {"energy", state.energy}
+        }}
+    };
+}
+
+}
+
+Value practiceStateJson(const PracticeStateRow& state) {
+    return {{"success",true},{"points",state.points},{"bestScore",state.bestScore},{"coins",state.coins},
+        {"pet",{{"level",state.level},{"happiness",state.happiness},
+            {"hunger",state.hunger},{"energy",state.energy}}}};
 }
 
 Value inventoryJson(Database& db, long long userId) {
@@ -136,6 +168,17 @@ std::string stringField(const Value& fields, const char* name, size_t maximum) {
     if (value.empty() || value.size() > maximum || value.find('\0') != std::string::npos)
         throw std::invalid_argument("Invalid string length or character");
     return value;
+}
+
+std::string normalizeEmail(std::string email) {
+    const auto first = std::find_if_not(email.begin(),email.end(),[](unsigned char ch) { return std::isspace(ch); });
+    const auto last = std::find_if_not(email.rbegin(),email.rend(),[](unsigned char ch) { return std::isspace(ch); }).base();
+    if (first >= last) return {};
+    email = std::string(first,last);
+    std::transform(email.begin(),email.end(),email.begin(),[](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return email;
 }
 
 int integerField(const Value& fields, const char* name, int maximum) {
@@ -176,7 +219,8 @@ HttpResponse staticFile(const std::string& path) {
         {".css","text/css; charset=utf-8"},{".js","text/javascript; charset=utf-8"},
         {".png","image/png"},{".jpg","image/jpeg"},{".jpeg","image/jpeg"},
         {".gif","image/gif"},{".webp","image/webp"},{".svg","image/svg+xml"},
-        {".ico","image/x-icon"},{".woff2","font/woff2"}};
+        {".ico","image/x-icon"},{".woff2","font/woff2"},{".mp3","audio/mpeg"},
+        {".wav","audio/wav"}};
     auto type = types.find(extension);
     if (type == types.end()) return error(404,"File not found");
     std::ifstream input(std::string(PET_FRONTEND_DIR) + relative, std::ios::binary);
@@ -204,7 +248,7 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
     }
     if (request.method == "POST" && request.path == "/api/auth/email-verification/request") {
         const auto fields = json::object(request.body);
-        const std::string email = stringField(fields,"email",254);
+        const std::string email = normalizeEmail(stringField(fields,"email",254));
         if (email.find('@') == std::string::npos)
             return apiError(400,"INVALID_ARGUMENT","Enter a valid email address.");
         Value verificationCode = nullptr;
@@ -217,7 +261,7 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
     }
     if (request.method == "POST" && request.path == "/api/auth/email-verification/confirm") {
         const auto fields = json::object(request.body);
-        const std::string email = stringField(fields,"email",254);
+        const std::string email = normalizeEmail(stringField(fields,"email",254));
         const std::string verificationCode = stringField(fields,"verificationCode",64);
         if (email.find('@') == std::string::npos || verificationCode.size() != 64 ||
             verificationCode.find_first_not_of("0123456789abcdef") != std::string::npos)
@@ -228,7 +272,7 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
     }
     if (request.method == "POST" && request.path == "/api/auth/password-reset/request") {
         const auto fields = json::object(request.body);
-        const std::string email = stringField(fields,"email",254);
+        const std::string email = normalizeEmail(stringField(fields,"email",254));
         if (email.find('@') == std::string::npos)
             return apiError(400,"INVALID_ARGUMENT","Enter a valid email address.");
 
@@ -256,7 +300,7 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
     const bool loginPath = request.path == "/api/login" || request.path == "/api/auth/login";
     if (request.method == "POST" && (registerPath || loginPath)) {
         auto fields = json::object(request.body);
-        auto email = stringField(fields,"email",254);
+        auto email = normalizeEmail(stringField(fields,"email",254));
         auto password = stringField(fields,"password",1024);
         UserRow user;
         if (registerPath) {
@@ -272,15 +316,15 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
                 : error(409,"Email already registered");
             if (modern && db.usernameExists(username)) return apiError(409,"USERNAME_TAKEN","This username is already taken.");
             db.createUser(username,email,password,user);
-            const std::string candidate = crypto::randomHex(32);
-            if (!db.issueEmailVerification(email,sha256::hashHex(candidate),static_cast<long long>(std::time(nullptr))+1800))
-                return apiError(500,"VERIFICATION_SETUP_FAILED","Could not create an email verification code.");
-            if (modern) return response(201,{{"success",true},{"code","REGISTERED"},
-                {"message","Account created. Verify your email before logging in."},
-                {"verificationCode",candidate},{"expiresInSeconds",1800},
-                {"user",{{"id",user.id},{"username",user.username}}}});
-            return response(201,{{"success",true},{"message","Account created. Verify your email before logging in."},
-                {"verificationCode",candidate},{"expiresInSeconds",1800}});
+            if (modern) {
+                const std::string token = db.createSession(user.id);
+                auto result = response(201,{{"success",true},{"code","REGISTERED"},
+                    {"message","Account created successfully."},
+                    {"user",{{"id",user.id},{"username",user.username}}}});
+                result.extraHeaders["Set-Cookie"] = "vp_session="+token+"; Path=/; HttpOnly; SameSite=Strict; Max-Age=604800";
+                return result;
+            }
+            return response(201,{{"success",true},{"message","Account created successfully."}});
         } else {
             int retry = authFailures.retryAfter();
             if (retry) {
@@ -294,10 +338,6 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
                 return request.path == "/api/auth/login"
                     ? apiError(401,"INVALID_CREDENTIALS","Invalid email or password.") : error(401,"Invalid credentials");
             }
-            if (!user.emailVerified)
-                return request.path == "/api/auth/login"
-                    ? apiError(403,"EMAIL_NOT_VERIFIED","Verify your email before logging in.")
-                    : error(403,"Email not verified");
             db.touchLastLogin(user.id);
         }
         const std::string token = db.createSession(user.id);
@@ -346,7 +386,7 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
     if (request.method == "POST" && request.path == "/api/account/email/request") {
         const auto fields = json::object(request.body);
         const std::string currentPassword = stringField(fields,"currentPassword",128);
-        const std::string newEmail = stringField(fields,"newEmail",254);
+        const std::string newEmail = normalizeEmail(stringField(fields,"newEmail",254));
         if (fields.size() != 2 || newEmail.find('@') == std::string::npos)
             return apiError(400,"INVALID_ARGUMENT","Enter a valid new email address.");
         UserRow account, verifiedAccount;
@@ -364,7 +404,7 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
     }
     if (request.method == "POST" && request.path == "/api/account/email/confirm") {
         const auto fields = json::object(request.body);
-        const std::string email = stringField(fields,"email",254);
+        const std::string email = normalizeEmail(stringField(fields,"email",254));
         const std::string verificationCode = stringField(fields,"verificationCode",64);
         if (fields.size() != 2 || email.find('@') == std::string::npos || verificationCode.size() != 64 ||
             verificationCode.find_first_not_of("0123456789abcdef") != std::string::npos)
@@ -378,6 +418,115 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
     }
     if (request.method == "GET" && request.path == "/api/game/state")
         return response(200,gameStateJson(db,userId));
+    if (request.method == "GET" && request.path == "/api/study/state") {
+        StudyStateRow state;
+        if (!db.getStudyState(userId,state)) return apiError(404,"STUDY_STATE_NOT_FOUND","Study state not found.");
+        return response(200,studyStateJson(state));
+    }
+    if (request.method == "POST" && request.path == "/api/study/time") {
+        const auto fields = json::object(request.body);
+        if (fields.size() != 1 || !fields.count("action") || !fields["action"].is_string())
+            return apiError(400,"INVALID_ARGUMENT","Expected a Study time action.");
+        StudyStateRow state;
+        const auto status = db.updateStudyActivity(userId,fields["action"].get<std::string>(),
+                                                    static_cast<long long>(std::time(nullptr)),state);
+        if (status == StudyOperationStatus::InvalidAction)
+            return apiError(400,"INVALID_ARGUMENT","Unknown Study time action.");
+        if (status == StudyOperationStatus::UserNotFound)
+            return apiError(404,"STUDY_STATE_NOT_FOUND","Study state not found.");
+        Value result = studyStateJson(state);
+        result["blocked"] = status == StudyOperationStatus::PetNeedsCare;
+        return response(200,result);
+    }
+    if (request.method == "POST" && request.path == "/api/study/complete") {
+        const auto fields = json::object(request.body);
+        if (fields.size() != 3 || !fields.count("level") || !fields["level"].is_string() ||
+            !fields.count("tier") || !fields["tier"].is_string() ||
+            !fields.count("correctAnswers") || !fields["correctAnswers"].is_number_integer() ||
+            fields["correctAnswers"] < 0 || fields["correctAnswers"] > 5)
+            return apiError(400,"INVALID_ARGUMENT","Expected level, tier, and 0–5 correct answers.");
+
+        StudyStateRow state;
+        bool passed = false, review = false;
+        int awardedPoints = 0, awardedCoins = 0;
+        const auto status = db.completeStudyStage(userId,fields["level"].get<std::string>(),
+            fields["tier"].get<std::string>(),fields["correctAnswers"].get<int>(),
+            state,passed,review,awardedPoints,awardedCoins);
+        if (status == StudyOperationStatus::PetNeedsCare)
+            return apiError(409,"PET_NEEDS_CARE","Your pet needs care before continuing Study.");
+        if (status == StudyOperationStatus::StageLocked)
+            return apiError(409,"STAGE_LOCKED","Complete the previous Study stage first.");
+        if (status == StudyOperationStatus::InvalidStage || status == StudyOperationStatus::InvalidAnswerCount)
+            return apiError(400,"INVALID_ARGUMENT","Invalid Study stage or answer count.");
+        if (status == StudyOperationStatus::UserNotFound)
+            return apiError(404,"STUDY_STATE_NOT_FOUND","Study state not found.");
+        Value result = {{"success",true},{"passed",passed},{"review",review},
+            {"correctAnswers",fields["correctAnswers"]},{"awardedPoints",awardedPoints},
+            {"awardedCoins",awardedCoins},{"state",studyStateJson(state)}};
+        return response(200,result);
+    }
+    if (request.method == "GET" && request.path == "/api/practice/state") {
+        PracticeStateRow state;
+        if (!db.getPracticeState(userId,state))
+            return apiError(404,"PRACTICE_STATE_NOT_FOUND","Practice state not found.");
+        return response(200,practiceStateJson(state));
+    }
+    if (request.method == "POST" && request.path == "/api/practice/time") {
+        const auto fields = json::object(request.body);
+        if (fields.size() != 1 || !fields.count("action") || !fields["action"].is_string())
+            return apiError(400,"INVALID_ARGUMENT","Expected a Practice time action.");
+        PracticeStateRow state;
+        const auto status = db.updatePracticeActivity(userId,fields["action"].get<std::string>(),
+                                                       static_cast<long long>(std::time(nullptr)),state);
+        if (status == PracticeOperationStatus::InvalidAction)
+            return apiError(400,"INVALID_ARGUMENT","Unknown Practice time action.");
+        if (status == PracticeOperationStatus::UserNotFound)
+            return apiError(404,"PRACTICE_STATE_NOT_FOUND","Practice state not found.");
+        return response(200,practiceStateJson(state));
+    }
+    if (request.method == "POST" && request.path == "/api/practice/game/start") {
+        const auto fields = json::object(request.body);
+        if (fields.size() != 1 || !fields.count("gameId") || !fields["gameId"].is_string())
+            return apiError(400,"INVALID_ARGUMENT","Expected a Practice game ID.");
+        const std::string gameId = fields["gameId"].get<std::string>();
+        if (gameId.size() != 36 || gameId.find_first_not_of("0123456789abcdef-") != std::string::npos)
+            return apiError(400,"INVALID_ARGUMENT","Invalid Practice game ID.");
+        if (!db.startPracticeGame(userId,gameId))
+            return apiError(404,"PRACTICE_STATE_NOT_FOUND","Practice state not found.");
+        return response(200,{{"success",true}});
+    }
+    if (request.method == "POST" && request.path == "/api/practice/game/abandon") {
+        const auto fields = json::object(request.body);
+        if (fields.size() != 1 || !fields.count("gameId") || !fields["gameId"].is_string())
+            return apiError(400,"INVALID_ARGUMENT","Expected a Practice game ID.");
+        const std::string gameId = fields["gameId"].get<std::string>();
+        if (gameId.size() != 36 || gameId.find_first_not_of("0123456789abcdef-") != std::string::npos)
+            return apiError(400,"INVALID_ARGUMENT","Invalid Practice game ID.");
+        if (!db.abandonPracticeGame(userId,gameId))
+            return apiError(404,"PRACTICE_STATE_NOT_FOUND","Practice state not found.");
+        return response(200,{{"success",true}});
+    }
+    if (request.method == "POST" && request.path == "/api/practice/finish") {
+        const auto fields = json::object(request.body);
+        if (fields.size() != 2 || !fields.count("gameId") || !fields["gameId"].is_string() ||
+            !fields.count("eaten") || !fields["eaten"].is_number_integer() ||
+            fields["eaten"] < 0 || fields["eaten"] > 1000000)
+            return apiError(400,"INVALID_ARGUMENT","Expected a Practice game ID and eaten count.");
+        const std::string gameId = fields["gameId"].get<std::string>();
+        if (gameId.size() != 36 || gameId.find_first_not_of("0123456789abcdef-") != std::string::npos)
+            return apiError(400,"INVALID_ARGUMENT","Invalid Practice game ID.");
+        PracticeStateRow state;
+        int awardedPoints = 0, awardedCoins = 0;
+        bool duplicate = false;
+        const auto status = db.finishPracticeGame(userId,gameId,fields["eaten"].get<int>(),
+                                                   state,awardedPoints,awardedCoins,duplicate);
+        if (status == PracticeOperationStatus::GameNotActive)
+            return apiError(409,"PRACTICE_GAME_NOT_ACTIVE","This Practice game is no longer active.");
+        if (status == PracticeOperationStatus::UserNotFound)
+            return apiError(404,"PRACTICE_STATE_NOT_FOUND","Practice state not found.");
+        return response(200,{{"success",true},{"awardedPoints",awardedPoints},
+            {"awardedCoins",awardedCoins},{"duplicate",duplicate},{"state",practiceStateJson(state)}});
+    }
     if (request.method == "GET" && request.path == "/api/me") {
         UserRow user; PetRow pet;
         if (!db.getUserById(userId,user) || !db.getPet(userId,pet)) return error(404,"User not found");
@@ -398,6 +547,7 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
         auto fields = json::object(request.body);
         int itemId = integerField(fields,"itemId",2147483647);
         int status = db.feed(userId,itemId);
+        if (status == 423) return apiError(423,"PET_SLEEPING","Your pet is asleep. Let it rest for 30 minutes.");
         if (status != 200) return apiError(status,status == 400 ? "NOT_FOOD" : status == 409 ? "NOT_OWNED" : "ITEM_NOT_FOUND",
             status == 400 ? "Item is not food." : status == 409 ? "Food not owned." : "Item or pet not found.");
         return actionResponse(db,userId,"Food eaten.");
@@ -423,14 +573,18 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
         return actionResponse(db,userId,"Settings saved.");
     }
     if (request.method == "POST" && (request.path == "/api/pet/play" ||
-        request.path == "/api/pet/sleep" || request.path == "/api/pet/bath")) {
+        request.path == "/api/pet/sleep" || request.path == "/api/pet/wake" ||
+        request.path == "/api/pet/bath")) {
         if (!request.body.empty()) return apiError(400,"INVALID_ARGUMENT","This action does not accept a body.");
         const std::string action = request.path.substr(std::string("/api/pet/").size());
         int levelsGained = 0;
         const int status = db.performPetAction(userId,action,levelsGained);
+        if (status == 423) return apiError(423,"PET_SLEEPING","Your pet is asleep. It will wake after 30 minutes.");
         if (status != 200) return apiError(status,status == 409 ? (action == "sleep" ? "ENERGY_FULL" : "PET_TOO_TIRED") : "PET_NOT_FOUND",
             status == 409 ? (action == "sleep" ? "Your pet is not sleepy." : "Your pet is too tired to play.") : "Pet not found.");
-        const std::string message = action == "sleep" ? "Your pet slept well." : action == "play" ? "Your pet had fun!" : "Squeaky clean!";
+        const std::string message = action == "sleep" ? "Your pet is sleeping for 30 minutes." :
+            action == "wake" ? "Your pet woke up." :
+            action == "play" ? "Your pet had fun!" : "Squeaky clean!";
         return actionResponse(db,userId,message,levelsGained);
     }
     if (request.method == "POST" && request.path == "/api/pet/decorate") {
@@ -526,7 +680,6 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
             {"progress",progressJson(progress)}});
     }
     return error(404,"Endpoint not found");
-}
 }
 
 int main(int argc, char** argv) {

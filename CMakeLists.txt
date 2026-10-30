@@ -104,6 +104,7 @@ target_link_libraries(Pet_Raising PRIVATE pet_core)
 
 add_executable(Pet_Raising_Server
     backend/src/server_main.cpp
+    backend/src/Exercise/Exercise.cpp
     backend/src/Exercise/Submission.cpp
     backend/src/Server/Database.cpp
     backend/src/Server/HttpServer.cpp
@@ -185,3 +186,10 @@ add_executable(test_submission_models
 )
 target_include_directories(test_submission_models PRIVATE backend/include/Exercise)
 add_test(NAME submission_models COMMAND test_submission_models)
+
+add_executable(test_exercise_scoring
+    tests/tests/test_exercise_scoring.cpp
+    backend/src/Exercise/Exercise.cpp
+)
+target_include_directories(test_exercise_scoring PRIVATE backend/include/Exercise)
+add_test(NAME exercise_scoring COMMAND test_exercise_scoring)

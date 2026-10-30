@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=VT323&family=Be+Vietnam+Pro:wght@400;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="css/study.css">
+    <link rel="stylesheet" href="css/study.css?v=study-cleanup-20261027">
 </head>
 
 <body>
@@ -20,16 +20,18 @@
     </div>
 
     <header class="topbar">
-        <a class="back" href="index.html">← Về nhà</a>
-        <h1>Lớp Học Thú Cưng 😺🐶</h1>
+        <a class="back" href="index.html">← Home</a>
+        <h1>Pet Study Class 😺🐶</h1>
         <div class="wallet"><span id="pts">✦ 0</span><span id="coins">◎ 0</span></div>
     </header>
 
     <!-- MÀN 1: DÂY LEO LỘ TRÌNH -->
     <main id="tree" class="screen">
-        <p class="start-tip">Kéo hoặc vuốt ngang để lướt theo dây leo, chạm vào nút để chọn cấp</p>
+        <p class="start-tip">Drag or swipe along the vine, then tap a level to choose it.</p>
         <div class="path" id="path">
-            <div class="path-in" id="pathIn"><canvas id="vc" class="vc" width="950" height="85"></canvas></div>
+            <div class="path-in" id="pathIn">
+                <div class="path-world" id="pathWorld"><canvas id="vc" class="vc" width="1350" height="85"></canvas></div>
+            </div>
         </div>
         <section id="panel" class="tier-panel hidden"></section>
     </main>
@@ -37,7 +39,7 @@
     <!-- MÀN 2: LÀM BÀI -->
     <main id="quiz" class="screen hidden">
         <div class="quiz-head">
-            <button id="quit" class="btn ghost">✕ Thoát</button>
+            <button id="quit" class="btn ghost">✕ Quit</button>
             <div class="bar"><i id="barFill"></i></div>
             <b id="qTitle"></b>
         </div>
@@ -52,7 +54,7 @@
             </div>
             <div id="fbR" class="meme-box fbm r"></div>
         </div>
-        <button id="next" class="btn hidden">Tiếp tục →</button>
+        <button id="next" class="btn hidden">Continue →</button>
     </main>
 
     <!-- MÀN 3: KẾT QUẢ -->
@@ -61,8 +63,8 @@
             <div id="resMeme" class="meme-box big"></div>
             <h2 id="resTitle"></h2>
             <p id="resText"></p>
-            <button id="retry" class="btn ghost">Làm lại</button>
-            <button id="toTree" class="btn">Về dây leo</button>
+            <button id="retry" class="btn ghost">Try Again</button>
+            <button id="toTree" class="btn">Back to Levels</button>
         </section>
     </main>
 
@@ -74,8 +76,24 @@
         <div class="meme-box stk d"></div>
     </div>
 
-    <script src="js/study-data.js"></script>
-    <script src="js/study.js"></script>
+    <audio id="study-background-music" src="assets/peace-of-mind.mp3" loop preload="auto" aria-hidden="true"></audio>
+    <button id="study-music-toggle" class="music-toggle" type="button" aria-pressed="false">♫ Play music</button>
+    <footer class="music-credit">Music: <a
+            href="https://incompetech.com/music/royalty-free/index.html?Search=Search&amp;isrc=USUAN1200099"
+            target="_blank" rel="noopener noreferrer">“Peace of Mind” by Kevin MacLeod</a> · <a
+            href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>
+    </footer>
+    <div id="study-blocked" class="hidden" role="alertdialog" aria-modal="true" aria-labelledby="study-blocked-title">
+        <section>
+            <h2 id="study-blocked-title">Pet needs care</h2>
+            <p id="study-blocked-message"></p>
+            <a class="btn" href="index.html">Home</a>
+        </section>
+    </div>
+    <script src="js/api.js"></script>
+    <script src="js/sound.js?v=study-music-controls-20261027"></script>
+    <script src="js/study-data.js?v=study-ui-en-20261027"></script>
+    <script src="js/study.js?v=study-meme-assets-study-dir-20261028"></script>
 </body>
 
 </html>

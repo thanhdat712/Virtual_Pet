@@ -1,4 +1,12 @@
 let petLevel = 0;
+const petStage = document.querySelector('.pet-stage');
+const sleepingGameScene = document.querySelector('.pet-game');
+const sleepButton = document.querySelector('#sleep-pet');
+const feedingStatus = document.querySelector('#feeding-status');
+let feedingStatusTimeout;
+let sleepCountdownTimer;
+let petSleeping = false;
+let petActionPending = false;
 
 function applyAccountState(state) {
 	coins = state.user.coins;
@@ -9,26 +17,43 @@ function applyAccountState(state) {
 		}));
 	}
 	if (state.pet) {
+		const previousPetLevel = petLevel;
 		const petName = state.pet.name;
 		const species = state.pet.species === 'dog' ? 'dog' : 'cat';
-		window.currentPetProfile = { name: petName, species };
+		window.currentPetProfile = { name: petName, species, speciesChosen: state.pet.speciesChosen !== false };
 		document.querySelector('#pet-name').textContent = petName;
 		document.querySelector('.pet-stage .pet-name').textContent = petName;
 		const petImage = species === 'dog' ? 'assets/pets/gaugau.png' : 'assets/pets/meomeo.png';
 		document.querySelector('.pet-stage .pet-image').src = petImage;
 		document.querySelector('.pet-stage .pet-image').alt = `${species === 'dog' ? 'Dog' : 'Cat'}, ${petName}`;
 		document.querySelector('.hud-avatar img').src = petImage;
-		document.querySelector('#pet-level').textContent = state.pet.level;
-		petLevel = state.pet.level;
-		const exp = state.pet.exp ?? state.pet.experience ?? 0;
-		const expMax = state.pet.level * 100;
-		document.querySelector('#exp-text').textContent = `EXP ${exp} / ${expMax}`;
-		document.querySelector('#exp-fill').style.width = `${Math.min(100, exp / expMax * 100)}%`;
+const level = Math.max(1, Number(state.pet.level) || 1);
+const exp = Math.max(0, Number(state.pet.experience ?? state.pet.exp) || 0);
+const expMax = level * 100;
+
+petLevel = level;
+document.querySelector('#pet-level').textContent = level;
+if (previousPetLevel > 0 && level > previousPetLevel) {
+	window.playGameSound?.('level-up');
+}
+
+const expText = document.querySelector('#exp-text');
+const expFill = document.querySelector('#exp-fill');
+
+if (expText) {
+    expText.textContent = `EXP ${exp} / ${expMax}`;
+}
+
+if (expFill) {
+    expFill.style.width = `${Math.min(100, exp / expMax * 100)}%`;
+}
+
 		['happiness', 'hunger', 'energy'].forEach((name) => {
 			const stat = document.querySelector(`[data-stat="${name}"]`);
 			stat.querySelector('.hud-stat-value').textContent = `${state.pet[name]} / 100`;
 			stat.querySelector('.px-bar i').style.width = `${state.pet[name]}%`;
 		});
+		syncSleepState(state.pet.sleepRemainingSeconds);
 	}
 	const equipment = state.equipment ?? state.decor;
 	if (equipment) {
@@ -68,11 +93,8 @@ document.querySelector('#open-food').addEventListener('click', () => {
 
 let feeding = false;
 let selectedFood = null;
-const petStage = document.querySelector('.pet-stage');
-const feedingStatus = document.querySelector('#feeding-status');
-let feedingStatusTimeout;
 
-function setFeedingStatus(message, duration = 0) {
+function setFeedingStatus(message, duration = 3000) {
 	clearTimeout(feedingStatusTimeout);
 	feedingStatusTimeout = null;
 	feedingStatus.textContent = message;
@@ -82,6 +104,38 @@ function setFeedingStatus(message, duration = 0) {
 			feedingStatusTimeout = null;
 		}, duration);
 	}
+}
+
+function syncSleepState(remainingSeconds = 0) {
+	window.clearInterval(sleepCountdownTimer);
+	sleepCountdownTimer = null;
+	const remaining = Math.max(0, Math.floor(Number(remainingSeconds) || 0));
+	petSleeping = remaining > 0;
+	petStage.classList.toggle('is-sleeping', petSleeping);
+	sleepingGameScene.classList.toggle('is-sleeping', petSleeping);
+	sleepButton.disabled = false;
+	document.querySelector('#sleep-action-label').textContent = petSleeping ? 'Wake up' : 'Sleep';
+	sleepButton.setAttribute('aria-label', petSleeping ? 'Wake pet up now' : 'Put pet to sleep');
+	if (!petSleeping) return;
+	setFeedingStatus('');
+
+	const wakeAt = Date.now() + remaining * 1000;
+	const updateCountdown = () => {
+		const secondsLeft = Math.max(0, Math.ceil((wakeAt - Date.now()) / 1000));
+		if (secondsLeft === 0) {
+			window.clearInterval(sleepCountdownTimer);
+			sleepCountdownTimer = null;
+			loadAccount().then(() => {
+				if (!petSleeping) setFeedingStatus(`${window.getCurrentPetName()} woke up! Energy increased by 1.`);
+			}).catch(() => {
+				setFeedingStatus('Could not refresh your pet after sleep. Reconnecting...');
+				syncSleepState(1);
+			});
+			return;
+		}
+	};
+	updateCountdown();
+	sleepCountdownTimer = window.setInterval(updateCountdown, 1000);
 }
 
 petStage.tabIndex = 0;
@@ -158,8 +212,8 @@ async function feedFood(item) {
 	setFeedingStatus('');
 	renderFood();
 	try {
-		const previousLevel = petLevel;
 		const fed = await api.feedPet(item.id);
+		window.playGameSound?.('eat');
 		applyAccountState(fed);
 		petStage.classList.remove('is-eating');
 		void petStage.offsetWidth;
@@ -170,9 +224,7 @@ async function feedFood(item) {
 		bite.className = 'eating-food';
 		petStage.append(bite);
 		bite.addEventListener('animationend', () => bite.remove(), { once: true });
-		setFeedingStatus(fed.pet.level > previousLevel
-			? `${item.name} eaten! Level up! ${window.getCurrentPetName()} is now level ${fed.pet.level}`
-			: `${item.name} eaten!`);
+		setFeedingStatus(`${item.name} eaten!`);
 	} catch (failure) {
 		setFeedingStatus(reportFailure(failure));
 	} finally {
@@ -191,17 +243,24 @@ petStage.addEventListener('keydown', (event) => {
 });
 
 document.querySelector('#sleep-pet').addEventListener('click', async (event) => {
-	if (!accountReady) return;
+	if (!accountReady || petActionPending) return;
 	const button = event.currentTarget;
-	button.disabled = true;
+	const waking = petSleeping;
+	petActionPending = true;
+	button.setAttribute('aria-busy', 'true');
 	try {
-		applyAccountState(await api.sleepPet());
-		setFeedingStatus(`${window.getCurrentPetName()} took a nap and feels rested!`);
+		applyAccountState(await (waking ? api.wakePet() : api.sleepPet()));
+		if (waking) {
+			setFeedingStatus(`${window.getCurrentPetName()} woke up.`);
+		} else {
+			window.playGameSound?.('sleep');
+		}
 	} catch (failure) {
 		const message = reportFailure(failure);
-		setFeedingStatus(message, message.includes('not sleepy right now') ? 5000 : 0);
+		setFeedingStatus(message, 5000);
 	} finally {
-		button.disabled = false;
+		petActionPending = false;
+		button.removeAttribute('aria-busy');
 	}
 });
 

@@ -1,21 +1,18 @@
 /* ===================== CẤU HÌNH ===================== */
-const KEY = 'petStudy';
 const LV = Object.keys(D);
 const TI = ['easy', 'medium', 'hard'];
-const TNAME = { easy: 'Dễ', medium: 'Vừa', hard: 'Khó' };
+const TNAME = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
 const PT = { easy: 15, medium: 18, hard: 20 };    // điểm mỗi câu đúng
 const QUIZ_SIZE = 5;                              // mỗi lần làm rút ngẫu nhiên 5 câu từ nhóm
 const PASS_RATE = 0.8;                            // 4/5 câu đúng là qua nhóm
-const TIER_BONUS = 25;                            // thưởng khi qua nhóm Dễ hoặc Vừa (không có xu)
-const LEVEL_BONUS = { pts: 50, coins: 20 };       // thưởng khi qua nhóm Khó = lên cấp (A1→A2, A2→B1...)
 
-/* MEME: ảnh nằm trong assets/memes/. Bạn chỉ cần đổi tên file tải về cho khớp tên bên dưới
+/* MEME: ảnh nằm trong assets/study/. Bạn chỉ cần đổi tên file tải về cho khớp tên bên dưới
    (hoặc sửa tên/đuôi .gif/.jpg/.png trong danh sách). Ảnh nào chưa có thì ô đó tự ẩn. */
 const MEMES_DIR = 'assets/study/';
 const MEMES = {
     corner: ['chopixel9.gif', 'meopixel9.gif', 'chopixel2.gif', 'meopixel1.gif'], // 4 góc màn hình lúc mở trang Study
-    right: ['chopixel5.gif', 'chopixel3.jpg', 'meopixel3.gif', 'chopixel7.gif', 'meopixel2.gif', 'meopixel6.gif', 'chopixel6.gif'], // 5 meme khi trả lời ĐÚNG (mỗi lần rút 2)
-    wrong: ['chopixel2.gif', 'meopixel9.gif', 'meopixel4.jpg', 'chopixel8.jpg', 'chopixel1.jpg', 'meopixel7.jpg']       // 5 meme khi trả lời SAI (mỗi lần rút 2)
+    right: ['chopixel4.jpg', 'chopixel10.jpg', 'meopixel1.gif', 'meopixel11.jpg', 'meopixel15.jpg', 'meopixel19.jpg', 'meopixel20.jpg', 'meopixel21.jpg', 'chopixel5.gif', 'chopixel3.jpg', 'meopixel3.gif', 'chopixel7.gif', 'meopixel2.gif', 'meopixel6.gif', 'chopixel6.gif'], // 5 meme khi trả lời ĐÚNG (mỗi lần rút 2)
+    wrong: ['chopixel2.gif', 'chopixel9.gif', 'chopixel11.jpg', 'chopixel12.jpg', 'chopixel13.jpg', 'chopixel15.jpg', 'duo1.jpg', 'meopixel12.jpg', 'meopixel13.jpg', 'meopixel14.jpg', 'meopixel16.jpg', 'meopixel17.jpg', 'meopixel9.gif', 'meopixel4.jpg', 'chopixel8.jpg', 'chopixel1.jpg', 'meopixel7.jpg', 'meopixel18.jpg']       // 5 meme khi trả lời SAI (mỗi lần rút 2)
 };
 const CAP = {
     right: ['Bá Khí! ', 'Hay Lắm, human! ', 'Bá đạo trên từng hạt gạo. ', 'Mèo Méo Meo Mèo Meo. ',
@@ -25,14 +22,19 @@ const CAP = {
 };
 
 /* ===================== TIỆN ÍCH ===================== */
-let S = JSON.parse(localStorage.getItem(KEY) || '{"done":{},"pts":0,"coins":0}');
+let S = { done: {}, pts: 0, coins: 0 };
 let cur = null;      // bài đang làm: {l, t, qs, i, ok, gain, review, answered, build}
 let selLv = null;    // cấp đang chọn trên dây leo
-let treeScroll = null;
+let studyLoaded = false;
+let studyBlocked = false;
+let studyTimer = null;
+let timerStarting = false;
+let timerBusy = false;
+const memeRequests = new WeakMap();
 
 const $ = id => document.getElementById(id);
-const save = () => localStorage.setItem(KEY, JSON.stringify(S));
 const pick = a => a[Math.floor(Math.random() * a.length)];
+
 const shuffle = a => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(x => x[1]);
 const seeded = seed => () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 
@@ -41,11 +43,154 @@ function show(id) {
     $('stickers').classList.toggle('hidden', id !== 'tree');
 }
 
-/* Điểm lưu riêng để phần Happiness đọc: 10 điểm study = 0.2% happiness (happiness += pts / 10 * 0.2) */
-function addPts(n) {
-    S.pts += n;
-    localStorage.setItem('petStudyPoints', S.pts);
-    save();
+function updateStudyState(state) {
+    if (state.state) state = state.state;
+    if (Array.isArray(state.completedStages)) {
+        S.done = {};
+        state.completedStages.forEach(stage => { S.done[stage] = 1; });
+    }
+    if (Number.isFinite(state.points)) S.pts = state.points;
+    if (Number.isFinite(state.coins)) S.coins = state.coins;
+    if (state.pet) S.pet = state.pet;
+    $('pts').textContent = '✦ ' + S.pts;
+    $('coins').textContent = '◎ ' + S.coins;
+}
+
+function showPetNeedsCare(pet) {
+    studyBlocked = true;
+    clearInterval(studyTimer);
+    studyTimer = null;
+    const messages = [];
+    if (pet.hunger < 10)
+        messages.push('Pet của bạn cảm thấy đói không thể chơi tiếp, hãy bổ sung năng lượng cho ẻm.');
+    if (pet.energy < 10)
+        messages.push('Pet của bạn đã hết năng lượng và cảm thấy mệt rồi, không thể chơi nữa.');
+    $('study-blocked-title').textContent = 'Pet needs care';
+    $('study-blocked-message').textContent = messages.join(' ');
+    document.body.classList.add('study-blocked');
+    $('study-blocked').classList.remove('hidden');
+}
+
+function showStudyUnavailable(message) {
+    studyBlocked = true;
+    clearInterval(studyTimer);
+    studyTimer = null;
+    $('study-blocked-title').textContent = 'Study is unavailable';
+    $('study-blocked-message').textContent = message;
+    document.body.classList.add('study-blocked');
+    $('study-blocked').classList.remove('hidden');
+}
+
+async function updateStudyTime(action, keepalive = false) {
+    const state = await window.api.studyTime(action, keepalive);
+    updateStudyState(state);
+    if (state.blocked) showPetNeedsCare(state.pet);
+    return state;
+}
+
+async function startVisibleStudyTime() {
+    if (!studyLoaded || studyBlocked || timerStarting || document.visibilityState === 'hidden') return;
+    timerStarting = true;
+    try {
+        const state = await updateStudyTime('start');
+        if (state.blocked || studyBlocked || document.visibilityState === 'hidden') {
+            if (!studyBlocked) await updateStudyTime('pause', true);
+            return;
+        }
+        clearInterval(studyTimer);
+        studyTimer = setInterval(async () => {
+            if (timerBusy || studyBlocked || document.visibilityState === 'hidden') return;
+            timerBusy = true;
+            try {
+                await updateStudyTime('heartbeat');
+            } catch (error) {
+                showStudyUnavailable(`Could not update Study time: ${error.message}`);
+            } finally {
+                timerBusy = false;
+            }
+        }, 20000);
+    } catch (error) {
+        showStudyUnavailable(error.status === 401
+            ? 'Please sign in from Home before starting Study.'
+            : `Could not load Study state: ${error.message}`);
+    } finally {
+        timerStarting = false;
+    }
+}
+
+function pauseVisibleStudyTime() {
+    clearInterval(studyTimer);
+    studyTimer = null;
+    if (!studyLoaded || studyBlocked) return;
+    window.api.studyTime('pause', true).then(state => {
+        updateStudyState(state);
+        if (state.blocked) showPetNeedsCare(state.pet);
+    }).catch(error => showStudyUnavailable(`Could not save Study time: ${error.message}`));
+}
+
+async function initializeStudy() {
+    try {
+        updateStudyState(await window.api.studyState());
+        studyLoaded = true;
+        if (S.pet && (S.pet.hunger < 10 || S.pet.energy < 10)) {
+            showPetNeedsCare(S.pet);
+            return;
+        }
+        renderTree();
+        await startVisibleStudyTime();
+    } catch (error) {
+        showStudyUnavailable(error.status === 401
+            ? 'Please sign in from Home before starting Study.'
+            : `Could not load Study state: ${error.message}`);
+    }
+}
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') pauseVisibleStudyTime();
+    else startVisibleStudyTime();
+});
+addEventListener('pagehide', pauseVisibleStudyTime);
+
+function fitStudyLayout() {
+    const path = $('path');
+    const pathIn = $('pathIn');
+    const pathWorld = $('pathWorld');
+    const tree = $('tree');
+    const scale = innerWidth <= 350 ? .56 : innerWidth <= 420 ? .62 : innerWidth < 500 ? .78 : innerWidth < 1000 ? .9 : 1;
+    const viewportWidth = document.documentElement.clientWidth;
+    const treeStyle = getComputedStyle(tree);
+    const pathWidth = viewportWidth;
+    const treeContentLeft = tree.getBoundingClientRect().left + parseFloat(treeStyle.paddingLeft);
+    const activeIndex = selLv ? LV.indexOf(selLv) : LV.findIndex(l => !S.done[l + '-hard']);
+    const activeNode = NODE[activeIndex < 0 ? 5 : activeIndex];
+    const nextOffset = Math.max(0, pathWidth / 2 - activeNode.x * scale);
+    path.style.width = `${pathWidth}px`;
+    path.style.marginLeft = `${-treeContentLeft}px`;
+    path.style.marginTop = '0px';
+    pathWorld.style.left = `${nextOffset}px`;
+    pathWorld.style.transform = `scale(${scale})`;
+    pathIn.style.width = `${Math.max(W * scale, nextOffset + NODE[5].x * scale + pathWidth / 2)}px`;
+    pathIn.style.height = `${340 * scale}px`;
+    if (innerWidth <= 420) {
+        const pathTop = path.getBoundingClientRect().top;
+        path.style.marginTop = `${Math.max(0, innerHeight / 2 - (pathTop + 170 * scale))}px`;
+        const stickerTop = $('stickers');
+        const topY = Math.ceil(document.querySelector('.start-tip').getBoundingClientRect().bottom + 6);
+        const pathRect = path.getBoundingClientRect();
+        const bottomY = Math.ceil(pathRect.bottom + 10);
+        const stickerSize = Math.min(90, viewportWidth * .24, pathRect.top - topY - 8);
+        stickerTop.querySelector('.stk.a').style.top = `${topY}px`;
+        stickerTop.querySelector('.stk.b').style.top = `${topY}px`;
+        stickerTop.querySelector('.stk.c').style.top = `${bottomY}px`;
+        stickerTop.querySelector('.stk.d').style.top = `${bottomY}px`;
+        stickerTop.querySelectorAll('.stk').forEach(el => {
+            el.style.width = `${stickerSize}px`;
+            el.style.height = `${stickerSize}px`;
+        });
+    }
+    if (tree.offsetParent) {
+        path.scrollLeft = activeNode.x * scale + nextOffset - pathWidth / 2;
+    }
 }
 
 function unlocked(l, t) {
@@ -55,23 +200,36 @@ function unlocked(l, t) {
 }
 
 function setMeme(el, file) { // chỉ hiện khi ảnh tải được
+    const request = {};
+    memeRequests.set(el, request);
     el.style.display = 'none';
+    el.replaceChildren();
     const im = new Image();
-    im.onload = () => { el.replaceChildren(im); el.style.display = 'block'; };
-    im.src = MEMES_DIR + file;
+    im.onload = () => {
+        if (memeRequests.get(el) !== request) return;
+        el.replaceChildren(im);
+        el.style.display = 'block';
+    };
+    im.onerror = () => {
+        if (memeRequests.get(el) === request) console.error(`Study meme failed to load: ${MEMES_DIR + file}`);
+    };
+    im.src = new URL(MEMES_DIR + file, document.baseURI).href;
 }
 
 /* ===================== DÂY LEO PIXEL ===================== */
-const W = 3800; // chiều dài dây leo (px), khớp .path-in trong CSS
+const W = 3800; // chiều dài vùng cuộn, khớp .path-in
+const DRAW_W = 4600;
+const VINE_START = -800;
+const VINE_END = DRAW_W;
 const NODE = [[520, 190], [1060, 100], [1620, 235], [2140, 120], [2700, 220], [3260, 105]].map(([x, y]) => ({ x, y })); // 6 nút A1..C2
 const VP = (() => { // các điểm dây đi qua: lệch ngẫu nhiên nhưng cố định, luôn qua các nút
-    const r = seeded(5), P = [[-140, 210]]; let px = -140;
+    const r = seeded(5), P = [[VINE_START, 210]]; let px = VINE_START;
     NODE.forEach(n => {
         const gap = n.x - px;
         P.push([px + gap * (.30 + r() * .1), 70 + r() * 200], [px + gap * (.66 + r() * .1), 70 + r() * 200], [n.x, n.y]);
         px = n.x;
     });
-    P.push([px + 200, 120 + r() * 120], [px + 420, 80 + r() * 160], [W + 140, 190]);
+    P.push([px + 200, 120 + r() * 120], [px + 420, 80 + r() * 160], [VINE_END, 190]);
     return P;
 })();
 
@@ -91,6 +249,7 @@ function growVine() { // vẽ một lần: 1 ô pixel = 4px màn hình
     document.body.appendChild(svg);
     const [m, m2] = svg.querySelectorAll('path');
     const U = 4, cv = $('vc'), c = cv.getContext('2d'), r = seeded(11), L = m.getTotalLength();
+    c.translate(-VINE_START / U, 0);
     const dot = (x, y, w, col) => { c.fillStyle = col; c.fillRect(Math.round(x / U - w / 2), Math.round(y / U - w / 2), w, w); };
     const trace = (path, dx, dy, w, col) => { const n = path.getTotalLength(); for (let s = 0; s <= n; s += 2) { const p = path.getPointAtLength(s); dot(p.x + dx, p.y + dy, w, col); } };
     const LEAF = [['#d4f3dc', '#8fd1a3', '#5fae7c'], ['#e3f6c9', '#b5dc8f', '#86bb62'], ['#bfe9d3', '#7cc4a0', '#4f9d7e'], ['#d4f3dc', '#8fd1a3', '#5fae7c'], ['#fde0ec', '#f3a9c8', '#d17fa6']]; // lá chủ yếu xanh lá pastel, thỉnh thoảng lá hồng
@@ -114,12 +273,12 @@ function growVine() { // vẽ một lần: 1 ô pixel = 4px màn hình
     }
     let berries = '';
     for (let k = 0; k < 14; k++) { const a = m.getPointAtLength(r() * L); berries += `<i class="pb" style="left:${a.x + (r() - .5) * 30}px;top:${a.y + (r() - .5) * 40}px;animation-delay:${-r()}s"></i>`; }
-    $('pathIn').insertAdjacentHTML('beforeend', berries);
+    $('pathWorld').insertAdjacentHTML('beforeend', berries);
     svg.remove();
 }
 
 function buildNodes() {
-    $('pathIn').insertAdjacentHTML('beforeend', LV.map((l, n) =>
+    $('pathWorld').insertAdjacentHTML('beforeend', LV.map((l, n) =>
         `<button class="node" data-l="${l}" style="left:${NODE[n].x}px;top:${NODE[n].y}px" onclick="pickLv('${l}')"><b>${l}</b><em></em></button>`).join(''));
 }
 
@@ -132,7 +291,6 @@ function enableDrag(pe) { // kéo chuột / lăn con lăn để lướt ngang (c
         const max = pe.scrollWidth - pe.clientWidth;
         if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && ((e.deltaY > 0 && pe.scrollLeft < max) || (e.deltaY < 0 && pe.scrollLeft > 0))) { pe.scrollLeft += e.deltaY; e.preventDefault(); }
     };
-    pe.addEventListener('scroll', () => { if (pe.offsetParent) treeScroll = pe.scrollLeft; }, { passive: true });
 }
 
 function pickLv(l) { selLv = l; renderTree(); }
@@ -150,12 +308,10 @@ function renderTree() {
     pn.classList.toggle('hidden', !selLv);
     if (selLv) {
         const l = selLv, open = unlocked(l, 'easy');
-        pn.innerHTML = `<h3>Cấp ${l}</h3><small>${S.done[l + '-hard'] ? 'Hoàn thành! Bạn có thể ôn lại.' : open ? 'Qua Dễ → Vừa → Khó để mở cấp tiếp theo' : 'Hoàn thành cấp trước để mở khóa'}</small><div class="tiers">`
+        pn.innerHTML = `<h3>Level ${l}</h3><small>${S.done[l + '-hard'] ? 'Completed! You can review this level.' : open ? 'Complete Easy → Medium → Hard to unlock the next level.' : 'Complete the previous level to unlock this level.'}</small><div class="tiers">`
             + TI.map(t => { const ok = unlocked(l, t); return `<button class="tier ${t} ${ok ? '' : 'locked'} ${S.done[l + '-' + t] ? 'done' : ''}" ${ok ? '' : 'disabled'} onclick="startQuiz('${l}','${t}')">${TNAME[t]}</button>`; }).join('') + '</div>';
     }
-    const pe = $('path');
-    if (treeScroll === null) { const ci = LV.findIndex(l => !S.done[l + '-hard']); treeScroll = NODE[ci < 0 ? 5 : ci].x - pe.clientWidth / 2; }
-    pe.scrollLeft = treeScroll;
+    fitStudyLayout();
 }
 
 /* ===================== NỀN PIXEL ===================== */
@@ -239,8 +395,19 @@ function decor() { // hạt bay: ít phần tử để nhẹ máy
 
 /* ===================== LÀM BÀI ===================== */
 function startQuiz(l, t) {
-    // review: nhóm đã hoàn thành trước đó -> chế độ ôn tập, không cộng điểm/xu
-    cur = { l, t, qs: shuffle(D[l][t]).slice(0, QUIZ_SIZE), i: 0, ok: 0, gain: 0, review: !!S.done[l + '-' + t] };
+    // Bài đã hoàn thành chỉ dùng để ôn tập
+    cur = {
+        l,
+        t,
+        qs: shuffle(D[l][t]).slice(0, QUIZ_SIZE),
+        i: 0,
+        ok: 0,
+        gain: 0,
+        review: !!S.done[l + '-' + t],
+        finishing: false
+    };
+
+    window.playGameSound?.('study-start');
     show('quiz');
     showQ();
 }
@@ -248,27 +415,28 @@ function startQuiz(l, t) {
 function showQ() {
     const q = cur.qs[cur.i];
     cur.answered = false;
+    $('next').disabled = false;
     cur.build = [];
     $('fbWrap').classList.add('hidden');
     $('next').classList.add('hidden');
     $('barFill').style.width = (cur.i / cur.qs.length * 100) + '%';
-    $('qTitle').textContent = `${cur.l} · ${TNAME[cur.t]}${cur.review ? ' · Ôn tập' : ''} · ${cur.i + 1}/${cur.qs.length}`;
+    $('qTitle').textContent = `${cur.l} · ${TNAME[cur.t]}${cur.review ? ' · Review' : ''} · ${cur.i + 1}/${cur.qs.length}`;
     let h = '';
     if (q.t === 'mcq' || q.t === 'read') {
         q.opts = shuffle(q.o.map((txt, k) => ({ txt, ok: k === 0 })));
-        h += `<span class="tag">${q.t === 'read' ? 'Đọc hiểu' : 'Chọn đáp án'}</span>`;
+        h += `<span class="tag">${q.t === 'read' ? 'Reading comprehension' : 'Multiple choice'}</span>`;
         if (q.v) h += `<div class="vi">${q.v}</div>`;
         if (q.x) h += `<div class="passage">${q.x}</div>`;
         h += `<div class="q">${q.q}</div>` + q.opts.map((o, k) => `<button class="opt" onclick="answerMcq(${k})">${o.txt}</button>`).join('');
     } else if (q.t === 'fill') {
-        h += `<span class="tag">Điền từ</span><div class="q">${q.q}</div>
-      <input class="fill" id="fillIn" autocomplete="off" placeholder="Gõ đáp án..." onkeydown="if(event.key==='Enter')answerFill()">
-      <button class="btn" onclick="answerFill()">Kiểm tra</button>`;
+        h += `<span class="tag">Fill in the blank</span><div class="q">${q.q}</div>
+      <input class="fill" id="fillIn" autocomplete="off" placeholder="Type your answer..." onkeydown="if(event.key==='Enter')answerFill()">
+      <button class="btn" onclick="answerFill()">Check answer</button>`;
     } else {
         q.words = shuffle(q.a.split(' '));
-        h += `<span class="tag">Sắp xếp câu</span><div class="q">Xếp các từ thành câu đúng:</div>
+        h += `<span class="tag">Sentence order</span><div class="q">Arrange the words to make a correct sentence:</div>
       <div class="chips answer-zone" id="zone"></div><div class="chips" id="pool"></div>
-      <button class="btn" onclick="answerOrder()">Kiểm tra</button>`;
+      <button class="btn" onclick="answerOrder()">Check answer</button>`;
     }
     $('qBox').innerHTML = h;
     if (q.t === 'order') drawChips();
@@ -307,37 +475,82 @@ function answerOrder() {
 
 function finish(correct, answer) {
     cur.answered = true;
+    window.playGameSound?.(correct ? 'study-correct' : 'study-wrong');
     if (correct) { cur.ok++; if (!cur.review) { cur.gain += PT[cur.t]; $('pts').textContent = '✦ ' + (S.pts + cur.gain); } } // điểm tạm tính, chỉ lưu khi qua màn
     $('fb').className = 'feedback ' + (correct ? 'good' : 'wrong');
     $('fbWrap').classList.remove('hidden');
     $('fbVerdict').textContent = correct ? '✓ ĐÚNG!' : '✕ SAI RỒI';
-    $('fbText').textContent = correct ? `${pick(CAP.right)}${cur.review ? '' : ' +' + PT[cur.t] + ' điểm tạm tính'}` : `${pick(CAP.wrong)} Đáp án đúng: ${answer}`;
+    $('fbText').textContent = correct ? `${pick(CAP.right)}${cur.review ? '' : ' +' + PT[cur.t] + ' điểm tạm tính'}` : `${pick(CAP.wrong)}Đáp án đúng: ${answer}`;
     $('fbExp').textContent = cur.qs[cur.i].e;
     const pair = shuffle(MEMES[correct ? 'right' : 'wrong']); // 2 meme ngẫu nhiên khác nhau, hai bên bảng
     setMeme($('fbL'), pair[0]); setMeme($('fbR'), pair[1]);
     $('next').classList.remove('hidden');
-    $('next').textContent = cur.i + 1 < cur.qs.length ? 'Tiếp tục →' : 'Xem kết quả';
+    $('next').textContent = cur.i + 1 < cur.qs.length ? 'Continue →' : 'See results';
 }
 
-function endQuiz() {
-    const n = cur.qs.length, need = Math.ceil(n * PASS_RATE), pass = cur.ok >= need, li = LV.indexOf(cur.l);
-    let msg = `Đúng ${cur.ok}/${n} câu.`;
-    if (cur.review) msg += ' Chế độ ôn tập nên không cộng điểm và xu.';
-    else if (!pass) msg += ` Cần đúng ít nhất ${need} câu để qua. ${cur.gain} điểm tạm tính đã được hoàn lại, thử lại nhé!`;
-    else {
-        S.done[cur.l + '-' + cur.t] = 1;
-        const hard = cur.t === 'hard', bonus = hard ? LEVEL_BONUS.pts : TIER_BONUS;
-        if (hard) S.coins += LEVEL_BONUS.coins;
-        addPts(cur.gain + bonus); // lưu điểm + xu
-        msg += ` Nhận ${cur.gain} điểm làm bài + ${bonus} điểm thưởng` + (hard
-            ? ` + ${LEVEL_BONUS.coins} xu. ${li < LV.length - 1 ? `Qua cấp ${cur.l}, đã mở khóa ${LV[li + 1]}!` : 'Bạn đã chinh phục toàn bộ dây leo!'}`
-            : '. Đã mở khóa nhóm tiếp theo!');
+
+async function endQuiz() {
+    if (cur.finishing) return;
+
+    cur.finishing = true;
+    $('next').disabled = true;
+
+    const n = cur.qs.length;
+    const need = Math.ceil(n * PASS_RATE);
+    const li = LV.indexOf(cur.l);
+    let pass = cur.ok >= need;
+    let msg = `${cur.ok}/${n} correct.`;
+
+    try {
+        const result = await window.api.completeStudyStage(cur.l, cur.t, cur.ok);
+        updateStudyState(result.state);
+        pass = result.passed;
+
+        if (result.review) {
+            msg += ' Review mode does not award points or coins.';
+        } else if (!pass) {
+            msg += ` Get at least ${need} correct to pass. Your ${cur.gain} pending points have been returned. Try again!`;
+        } else {
+            const hard = cur.t === 'hard';
+            const pet = result.state.pet;
+
+            msg += ` You earned ${result.awardedPoints} points` + (
+                hard
+                    ? ` and ${result.awardedCoins} coins. ${li < LV.length - 1
+                        ? `Level ${cur.l} complete! ${LV[li + 1]} is now unlocked.`
+                        : 'You have completed the entire vine!'}`
+                    : '. The next tier is now unlocked!'
+            );
+
+            if (pet) {
+                const level = Math.max(1, Number(pet.level) || 1);
+                const exp = Math.max(0, Number(pet.experience) || 0);
+                msg += ` Pet Level: ${level}, EXP: ${exp}/${level * 100}, Happiness: ${pet.happiness}.`;
+            }
+        }
+    } catch (error) {
+        if (error.code === 'PET_NEEDS_CARE') {
+            try {
+                const state = await window.api.studyState();
+                updateStudyState(state);
+                showPetNeedsCare(state.pet);
+            } catch (stateError) {
+                showStudyUnavailable(`Could not load pet state: ${stateError.message}`);
+            }
+        } else {
+            showStudyUnavailable(`Could not save your Study result: ${error.message}`);
+        }
+        return;
     }
+
     $('pts').textContent = '✦ ' + S.pts;
     $('coins').textContent = '◎ ' + S.coins;
-    $('resTitle').textContent = pass ? 'Tuyệt vời!' : 'Cố lên nào!';
+    $('resTitle').textContent = pass ? 'Excellent work!' : 'Keep going!';
     $('resText').textContent = msg;
     setMeme($('resMeme'), pick(MEMES[pass ? 'right' : 'wrong']));
+
+    if (pass) window.playGameSound?.('study-complete');
+
     show('result');
 }
 
@@ -349,4 +562,10 @@ $('retry').onclick = () => startQuiz(cur.l, cur.t);
 pixelScene(); tiles(); grass(); decor();
 growVine(); buildNodes(); enableDrag($('path'));
 $('stickers').querySelectorAll('.stk').forEach((el, i) => setMeme(el, MEMES.corner[i]));
-renderTree();
+let layoutTimer;
+addEventListener('resize', () => {
+    clearTimeout(layoutTimer);
+    layoutTimer = setTimeout(fitStudyLayout, 120);
+});
+initializeStudy();
+window.startStudyMusic?.();
