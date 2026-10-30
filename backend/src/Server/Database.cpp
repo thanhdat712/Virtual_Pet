@@ -67,7 +67,8 @@ namespace
 
     int applyHappinessGain(int &level, int &happiness, int gain)
     {
-        happiness += gain;
+        if (gain > 0)
+            happiness += std::max(1, (gain + level - 1) / level);
         int levelsGained = 0;
         while (happiness >= Pet::MAX_STAT)
         {
@@ -1197,7 +1198,7 @@ StudyOperationStatus Database::completeStudyStage(long long userId, const std::s
         petLevel = std::max(1, static_cast<int>(current.number(0)));
         happiness = static_cast<int>(current.number(1));
     }
-    const int happinessGain = 5 * petLevel;
+    const int happinessGain = 5;
     const int levelsGained = applyHappinessGain(petLevel, happiness, happinessGain);
 
     Statement petUpdate(db_, "UPDATE pets SET level=?,happiness=? WHERE user_id=?;");
