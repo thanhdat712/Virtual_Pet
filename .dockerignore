@@ -1,0 +1,14 @@
+.git
+.vscode
+.env
+.env.*
+**/.env
+**/.env.*
+build
+backend/build
+backend/build-*
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/*.exe
+**/*.o

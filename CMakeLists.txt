@@ -125,6 +125,9 @@ target_compile_definitions(
 )
 if(WIN32)
     target_link_libraries(Pet_Raising_Server PRIVATE ws2_32)
+else()
+    find_package(OpenSSL REQUIRED)
+    target_link_libraries(Pet_Raising_Server PRIVATE OpenSSL::Crypto)
 endif()
 
 # Test
