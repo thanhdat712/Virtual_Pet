@@ -7,7 +7,7 @@ int clampStatValue(long long value) {
     if (value < Pet::MIN_STAT) return Pet::MIN_STAT;
     if (value > Pet::MAX_STAT) return Pet::MAX_STAT;
     return static_cast<int>(value);
-}
+    }
 }
 
 Pet::Pet(int id, const std::string& name,
