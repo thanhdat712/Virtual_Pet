@@ -95,7 +95,7 @@ Value userJson(const UserRow& user) {
 
 Value petJson(const PetRow& pet) {
     return {{"name",pet.name},{"species",pet.species},{"speciesChosen",pet.speciesChosen},
-        {"level",pet.level},{"experience",pet.experience},
+        {"level",pet.level},
         {"happiness",pet.happiness},{"hunger",pet.hunger},{"energy",pet.energy},
         {"sleepRemainingSeconds",pet.sleepRemainingSeconds},{"sleeping",pet.sleepRemainingSeconds > 0}};
 }
@@ -117,7 +117,6 @@ Value studyStateJson(const StudyStateRow& state) {
         {"completedStages", completed},
         {"pet", {
             {"level", state.level},
-            {"experience", state.experience},
             {"happiness", state.happiness},
             {"hunger", state.hunger},
             {"energy", state.energy}

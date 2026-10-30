@@ -19,7 +19,6 @@ CREATE TABLE IF NOT EXISTS pets (
     species TEXT NOT NULL DEFAULT 'cat' CHECK (species IN ('cat', 'dog')),
     species_chosen INTEGER NOT NULL DEFAULT 0 CHECK (species_chosen IN (0, 1)),
     level INTEGER NOT NULL DEFAULT 1 CHECK (level >= 1),
-    experience INTEGER NOT NULL DEFAULT 0 CHECK (experience >= 0),
     happiness INTEGER NOT NULL DEFAULT 0 CHECK (happiness BETWEEN 0 AND 100),
     hunger INTEGER NOT NULL DEFAULT 50 CHECK (hunger BETWEEN 0 AND 100),
     energy INTEGER NOT NULL DEFAULT 50 CHECK (energy BETWEEN 0 AND 100),

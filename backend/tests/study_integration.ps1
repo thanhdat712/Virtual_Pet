@@ -103,6 +103,7 @@ try {
     Check ($failed.Status -eq 200 -and -not $failed.Body.passed -and $failed.Body.awardedPoints -eq 0) 'Three correct answers do not award provisional points'
     $easy = Call POST '/api/study/complete' @{level='A1';tier='easy';correctAnswers=4} $cookie
     Check ($easy.Body.passed -and $easy.Body.awardedPoints -eq 85 -and $easy.Body.awardedCoins -eq 0) 'Easy tier awards 15 per correct answer plus 25 points'
+    Check ($easy.Body.state.pet.level -eq 1 -and $easy.Body.state.pet.PSObject.Properties.Name -notcontains 'experience') 'Study does not expose EXP or level pets through it'
     $medium = Call POST '/api/study/complete' @{level='A1';tier='medium';correctAnswers=4} $cookie
     Check ($medium.Body.passed -and $medium.Body.awardedPoints -eq 97) 'Medium tier awards 18 per correct answer plus 25 points'
     $hard = Call POST '/api/study/complete' @{level='A1';tier='hard';correctAnswers=4} $cookie
@@ -113,7 +114,7 @@ try {
     Check ($nextLevel.Body.passed -and $nextLevel.Body.awardedPoints -eq 85) 'Completing the hard tier unlocks the next level'
     $state = $nextLevel.Body.state
     Check ($state.points -eq 397 -and $state.coins -eq 120) 'Study points and coins update the SQLite account'
-    Check ($state.pet.happiness -eq 7 -and $state.pet.level -eq 1) 'Fifty Study points convert to one happiness point without losing remainder'
+    Check ($state.pet.happiness -eq 20 -and $state.pet.level -eq 1) 'Four Study stages each add five happiness without EXP progression'
     $purchase = Call POST '/api/shop/purchases' @{itemId=1;quantity=1} $cookie
     Check ($purchase.Status -eq 200 -and $purchase.Body.state.user.coins -eq 115) 'Study coins can buy shop items'
 

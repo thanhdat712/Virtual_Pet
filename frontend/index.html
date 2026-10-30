@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pet Home</title>
     <link rel="stylesheet" href="css/style.css?v=default-room-20261028">
-    <link rel="stylesheet" href="css/pixel.css?v=default-room-20261028">
+    <link rel="stylesheet" href="css/pixel.css?v=remove-pet-exp-20261030">
 </head>
 
 <body class="entry-open">
@@ -53,8 +53,6 @@
             <div class="hud-avatar"><img src="assets/pets/meomeo.png" alt="PetLovery"></div>
             <div class="hud-player-info">
                 <p class="hud-level-row"><span class="px-icon" data-px="star"></span><span>Lv. <b id="pet-level">1</b></span><span class="hud-name" id="pet-name">UIA</span></p>
-                <div class="px-bar exp"><i id="exp-fill" style="width:0%"></i></div>
-                <p class="hud-exp-text" id="exp-text">EXP 0 / 100</p>
             </div>
         </section>
 
@@ -124,6 +122,28 @@
             <div id="food-list"></div>
         </aside>
         <p class="feeding-status" id="feeding-status" role="status" aria-live="polite"></p>
+
+        <section class="level-up-backdrop" id="level-up-dialog" role="dialog" aria-modal="true" aria-labelledby="level-up-title" aria-describedby="level-up-message" hidden>
+            <div class="level-up-card">
+                <span class="px-icon huge level-up-star" data-px="star" aria-hidden="true"></span>
+                <p class="level-up-kicker">LEVEL UP!</p>
+                <h2 id="level-up-title"></h2>
+                <p class="level-up-message" id="level-up-message">Your rewards have been added to your account.</p>
+                <div class="level-up-rewards" aria-label="Level-up rewards">
+                    <div class="level-up-reward">
+                        <span class="px-icon huge" data-px="coin" aria-hidden="true"></span>
+                        <strong id="level-up-coins"></strong>
+                        <span>Coins</span>
+                    </div>
+                    <div class="level-up-reward">
+                        <img src="assets/items/mat_ong.png" alt="Honey" draggable="false">
+                        <strong id="level-up-honey"></strong>
+                        <span>Honey</span>
+                    </div>
+                </div>
+                <button class="level-up-close" id="close-level-up" type="button">Continue</button>
+            </div>
+        </section>
 
         <nav class="px-box hud-tools" aria-label="Điều hướng nhanh">
             <button class="tool-btn" id="open-shop" type="button" title="Shop" aria-label="Shop" aria-haspopup="dialog" aria-controls="shop-panel"><span class="px-icon big" data-px="bag"></span></button>
@@ -265,7 +285,7 @@
     <script src="js/pixel.js" defer></script>
     <script src="js/api.js?v=immediate-pet-wake-20261029" defer></script>
     <script src="js/app.js?v=purchase-quantity-controls-20261027" defer></script>
-    <script src="js/session.js?v=immediate-pet-wake-hover-fix-20261029" defer></script>
+    <script src="js/session.js?v=remove-pet-exp-20261030" defer></script>
     <script src="js/auth.js?v=direct-signup-session-20261028" defer></script>
 </body>
 

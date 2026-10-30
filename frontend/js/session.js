@@ -8,8 +8,37 @@ let sleepCountdownTimer;
 let petSleeping = false;
 let petActionPending = false;
 
+const levelUpDialog = document.querySelector('#level-up-dialog');
+const levelUpCloseButton = document.querySelector('#close-level-up');
+
+function showLevelUpDialog(level, levelsGained) {
+	const petName = window.getCurrentPetName();
+	document.querySelector('#level-up-title').textContent = `${petName} reached Level ${level}!`;
+	document.querySelector('#level-up-message').textContent = levelsGained > 1
+		? `${levelsGained} levels gained! Your rewards have been added to your account.`
+		: 'Your rewards have been added to your account.';
+	document.querySelector('#level-up-coins').textContent = `+${levelsGained * 10}`;
+	document.querySelector('#level-up-honey').textContent = `+${levelsGained}`;
+	levelUpDialog.hidden = false;
+	levelUpCloseButton.focus();
+}
+
+function closeLevelUpDialog() {
+	levelUpDialog.hidden = true;
+	petStage.focus({ preventScroll: true });
+}
+
+levelUpCloseButton.addEventListener('click', closeLevelUpDialog);
+levelUpDialog.addEventListener('click', (event) => {
+	if (event.target === levelUpDialog) closeLevelUpDialog();
+});
+document.addEventListener('keydown', (event) => {
+	if (event.key === 'Escape' && !levelUpDialog.hidden) closeLevelUpDialog();
+});
+
 function applyAccountState(state) {
 	coins = state.user.coins;
+	let levelsGained = 0;
 	if (state.inventory) {
 		inventory.splice(0, inventory.length, ...state.inventory.map((owned) => {
 			const itemId = owned.itemId ?? owned.id;
@@ -28,25 +57,10 @@ function applyAccountState(state) {
 		document.querySelector('.pet-stage .pet-image').alt = `${species === 'dog' ? 'Dog' : 'Cat'}, ${petName}`;
 		document.querySelector('.hud-avatar img').src = petImage;
 const level = Math.max(1, Number(state.pet.level) || 1);
-const exp = Math.max(0, Number(state.pet.experience ?? state.pet.exp) || 0);
-const expMax = level * 100;
 
 petLevel = level;
 document.querySelector('#pet-level').textContent = level;
-if (previousPetLevel > 0 && level > previousPetLevel) {
-	window.playGameSound?.('level-up');
-}
-
-const expText = document.querySelector('#exp-text');
-const expFill = document.querySelector('#exp-fill');
-
-if (expText) {
-    expText.textContent = `EXP ${exp} / ${expMax}`;
-}
-
-if (expFill) {
-    expFill.style.width = `${Math.min(100, exp / expMax * 100)}%`;
-}
+levelsGained = previousPetLevel > 0 ? level - previousPetLevel : 0;
 
 		['happiness', 'hunger', 'energy'].forEach((name) => {
 			const stat = document.querySelector(`[data-stat="${name}"]`);
@@ -71,6 +85,10 @@ if (expFill) {
 	renderFood();
 	applyLobbyDecor();
 	renderDecorate();
+	if (levelsGained > 0) {
+		window.playGameSound?.('level-up');
+		showLevelUpDialog(petLevel, levelsGained);
+	}
 }
 
 async function loadAccount() {

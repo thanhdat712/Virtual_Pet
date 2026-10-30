@@ -153,8 +153,7 @@ namespace
     bool loadStudyState(sqlite3 *database, long long userId, StudyStateRow &state)
 {
     Statement statement(database,
-        "SELECT s.total_points,u.coins,p.level,p.experience,"
-        "p.happiness,p.hunger,p.energy "
+        "SELECT s.total_points,u.coins,p.level,p.happiness,p.hunger,p.energy "
         "FROM study_state s JOIN users u ON u.id=s.user_id "
         "JOIN pets p ON p.user_id=s.user_id WHERE s.user_id=?;");
 
@@ -166,10 +165,9 @@ namespace
     state.points = statement.number(0);
     state.coins = static_cast<int>(statement.number(1));
     state.level = static_cast<int>(statement.number(2));
-    state.experience = static_cast<int>(statement.number(3));
-    state.happiness = static_cast<int>(statement.number(4));
-    state.hunger = static_cast<int>(statement.number(5));
-    state.energy = static_cast<int>(statement.number(6));
+    state.happiness = static_cast<int>(statement.number(3));
+    state.hunger = static_cast<int>(statement.number(4));
+    state.energy = static_cast<int>(statement.number(5));
 
     state.completedStages.clear();
 
@@ -694,7 +692,7 @@ bool Database::getPet(long long userId, PetRow &pet)
     wake.bind(2, Pet::SLEEP_HUNGER_COST);
     wake.bind(3, userId);
     wake.done();
-    Statement statement(db_, "SELECT user_id,name,species,species_chosen,level,experience,happiness,hunger,energy,"
+    Statement statement(db_, "SELECT user_id,name,species,species_chosen,level,happiness,hunger,energy,"
                              "MAX(0,sleep_until-CAST(strftime('%s','now') AS INTEGER)) FROM pets WHERE user_id=?;");
     statement.bind(1, userId);
     if (!statement.row())
@@ -704,11 +702,10 @@ bool Database::getPet(long long userId, PetRow &pet)
     pet.species = statement.text(2);
     pet.speciesChosen = statement.number(3) != 0;
     pet.level = static_cast<int>(statement.number(4));
-    pet.experience = static_cast<int>(statement.number(5));
-    pet.happiness = static_cast<int>(statement.number(6));
-    pet.hunger = static_cast<int>(statement.number(7));
-    pet.energy = static_cast<int>(statement.number(8));
-    pet.sleepRemainingSeconds = static_cast<int>(statement.number(9));
+    pet.happiness = static_cast<int>(statement.number(5));
+    pet.hunger = static_cast<int>(statement.number(6));
+    pet.energy = static_cast<int>(statement.number(7));
+    pet.sleepRemainingSeconds = static_cast<int>(statement.number(8));
     return true;
 }
 
@@ -1185,39 +1182,27 @@ StudyOperationStatus Database::completeStudyStage(long long userId, const std::s
     studyUpdate.done();
 
     int petLevel = 1;
-    int experience = 0;
     int happiness = 0;
 
     {
-        Statement current(db_, "SELECT level,experience,happiness FROM pets WHERE user_id=?;");
+        Statement current(db_, "SELECT level,happiness FROM pets WHERE user_id=?;");
         current.bind(1, userId);
 
         if (!current.row())
             return StudyOperationStatus::UserNotFound;
 
         petLevel = std::max(1, static_cast<int>(current.number(0)));
-        experience = std::max(0, static_cast<int>(current.number(1)));
-        happiness = static_cast<int>(current.number(2));
+        happiness = static_cast<int>(current.number(1));
     }
-    const int startingLevel = petLevel;
-
-    experience += 10 * petLevel;
     const int happinessGain = 5 * petLevel;
+    const int levelsGained = applyHappinessGain(petLevel, happiness, happinessGain);
 
-    while (experience >= petLevel * 100)
-    {
-        experience -= petLevel * 100;
-        ++petLevel;
-    }
-    applyHappinessGain(petLevel, happiness, happinessGain);
-
-    Statement petUpdate(db_, "UPDATE pets SET level=?,experience=?,happiness=? WHERE user_id=?;");
+    Statement petUpdate(db_, "UPDATE pets SET level=?,happiness=? WHERE user_id=?;");
     petUpdate.bind(1, petLevel);
-    petUpdate.bind(2, experience);
-    petUpdate.bind(3, happiness);
-    petUpdate.bind(4, userId);
+    petUpdate.bind(2, happiness);
+    petUpdate.bind(3, userId);
     petUpdate.done();
-    grantLevelRewards(db_, userId, petLevel - startingLevel);
+    grantLevelRewards(db_, userId, levelsGained);
     Statement coinUpdate(db_, "UPDATE users SET coins=coins+? WHERE id=?;");
     coinUpdate.bind(1, awardedCoins);
     coinUpdate.bind(2, userId);

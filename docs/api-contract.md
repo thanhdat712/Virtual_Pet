@@ -54,7 +54,7 @@ Yêu cầu đăng nhập. Trả trạng thái user, pet, inventory, equipment v�
   "user": { "id": 1, "username": "player_01", "coins": 100 },
   "pet": {
     "name": "Mochi", "species": "cat", "level": 1,
-    "experience": 0, "happiness": 85, "hunger": 30, "energy": 70
+    "happiness": 85, "hunger": 30, "energy": 70
   },
   "inventory": [{ "itemId": 1, "quantity": 2 }],
   "equipment": { "headwear": null, "background": null, "floor": null },
