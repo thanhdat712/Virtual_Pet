@@ -104,6 +104,7 @@ try {
     $easy = Call POST '/api/study/complete' @{level='A1';tier='easy';correctAnswers=4} $cookie
     Check ($easy.Body.passed -and $easy.Body.awardedPoints -eq 85 -and $easy.Body.awardedCoins -eq 0) 'Easy tier awards 15 per correct answer plus 25 points'
     Check ($easy.Body.state.pet.level -eq 1 -and $easy.Body.state.pet.PSObject.Properties.Name -notcontains 'experience') 'Study does not expose EXP or level pets through it'
+    Check ($easy.Body.state.pet.happiness -eq 5) 'Level 1 receives five happiness from a Study stage'
     $medium = Call POST '/api/study/complete' @{level='A1';tier='medium';correctAnswers=4} $cookie
     Check ($medium.Body.passed -and $medium.Body.awardedPoints -eq 97) 'Medium tier awards 18 per correct answer plus 25 points'
     $hard = Call POST '/api/study/complete' @{level='A1';tier='hard';correctAnswers=4} $cookie
@@ -115,6 +116,10 @@ try {
     $state = $nextLevel.Body.state
     Check ($state.points -eq 397 -and $state.coins -eq 120) 'Study points and coins update the SQLite account'
     Check ($state.pet.happiness -eq 20 -and $state.pet.level -eq 1) 'Four Study stages each add five happiness without EXP progression'
+    $null = Sql "UPDATE pets SET level=2,happiness=0 WHERE user_id=$userId;"
+    $scaledStudy = Call POST '/api/study/complete' @{level='A2';tier='medium';correctAnswers=4} $cookie
+    Check ($scaledStudy.Body.state.pet.level -eq 2 -and $scaledStudy.Body.state.pet.happiness -eq 3) 'Level 2 receives less happiness for the same Study action'
+    $null = Sql "UPDATE pets SET level=1,happiness=20 WHERE user_id=$userId;"
     $purchase = Call POST '/api/shop/purchases' @{itemId=1;quantity=1} $cookie
     Check ($purchase.Status -eq 200 -and $purchase.Body.state.user.coins -eq 115) 'Study coins can buy shop items'
     $null = Sql "UPDATE pets SET hunger=100 WHERE user_id=$userId;"
@@ -150,7 +155,7 @@ try {
     Stop-TestServer
     Start-TestServer
     $persisted = (Call GET '/api/study/state' $null $cookie).Body
-    Check ($persisted.points -eq 397 -and $persisted.coins -eq 115 -and $persisted.completedStages.Count -eq 4) 'Study points, coins and completed tiers persist after restart'
+    Check ($persisted.points -eq 494 -and $persisted.coins -eq 115 -and $persisted.completedStages.Count -eq 5) 'Study points, coins and completed tiers persist after restart'
     Stop-TestServer
     Write-Host "Completed $script:checks Study integration checks."
 } finally {

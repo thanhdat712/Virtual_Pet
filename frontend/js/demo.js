@@ -93,7 +93,9 @@ pet: { name: 'UIA', level: 1, happiness: 0, hunger: 50, energy: 50, sleepUntil: 
 			next.inventory.find((entry) => entry.id === itemId).quantity -= 1;
 			next.inventory = next.inventory.filter((entry) => entry.quantity > 0);
 			next.pet.hunger = Math.min(100, next.pet.hunger + item.hungerRestore);
-			next.pet.happiness += item.happinessRestore;
+			if (item.happinessRestore > 0) {
+				next.pet.happiness += Math.max(1, Math.ceil(item.happinessRestore / next.pet.level));
+			}
 			while (next.pet.happiness >= 100) {
 				next.pet.level += 1;
 				next.pet.happiness -= 100;
