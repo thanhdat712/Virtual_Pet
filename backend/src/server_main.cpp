@@ -48,38 +48,6 @@ std::string utcTimestamp() {
     return buffer;
 }
 
-std::string environmentValue(const char* name) {
-    const char* value = std::getenv(name);
-    return value ? value : "";
-}
-
-bool environmentFlag(const char* name, bool defaultValue) {
-    const std::string value = environmentValue(name);
-    if (value.empty()) return defaultValue;
-    return value == "1" || value == "true" || value == "TRUE" || value == "yes";
-}
-
-bool hostIsAllowed(const std::string& host, const std::string& allowedHost, int port) {
-    const auto normalize = [](std::string value) {
-        std::transform(value.begin(), value.end(), value.begin(),
-            [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-        return value;
-    };
-    if (!allowedHost.empty()) {
-        const auto expected = normalize(allowedHost);
-        const auto actual = normalize(host);
-        return actual == expected || actual == expected + ":" + std::to_string(port);
-    }
-    return host == "127.0.0.1:" + std::to_string(port) ||
-        host == "localhost:" + std::to_string(port);
-}
-
-std::string sessionCookie(const std::string& token, bool secure) {
-    std::string cookie = "vp_session=" + token + "; Path=/; HttpOnly; SameSite=Strict; Max-Age=604800";
-    if (secure) cookie += "; Secure";
-    return cookie;
-}
-
 Value submissionJson(const Submission& sub) {
     return {{"success",true},{"id",sub.id},{"submissionId",sub.id},
         {"userId",sub.userId},{"exerciseId",sub.exerciseId},
@@ -265,13 +233,10 @@ HttpResponse staticFile(const std::string& path) {
     return result;
 }
 
-HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& request,
-                   bool secureCookies, bool allowDevelopmentEmailCodes) {
+HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& request) {
     if (request.method == "OPTIONS") {
         auto result = response(204,nullptr); result.body.clear(); return result;
     }
-    if (request.method == "GET" && request.path == "/healthz")
-        return response(200,{{"status","ok"}});
     if (request.method == "GET" && request.path.compare(0,5,"/api/") != 0) return staticFile(request.path);
     if (request.method == "GET" && request.path == "/api/shop") return response(200,shopCatalog());
     if (request.method == "GET" && request.path == "/api/exercises") {
@@ -282,8 +247,6 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
         return response(200,result);
     }
     if (request.method == "POST" && request.path == "/api/auth/email-verification/request") {
-        if (!allowDevelopmentEmailCodes)
-            return apiError(503,"EMAIL_DELIVERY_UNAVAILABLE","Email delivery is not configured on this server.");
         const auto fields = json::object(request.body);
         const std::string email = normalizeEmail(stringField(fields,"email",254));
         if (email.find('@') == std::string::npos)
@@ -308,8 +271,6 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
         return response(200,{{"success",true},{"message","Email verified. You can now log in."}});
     }
     if (request.method == "POST" && request.path == "/api/auth/password-reset/request") {
-        if (!allowDevelopmentEmailCodes)
-            return apiError(503,"EMAIL_DELIVERY_UNAVAILABLE","Email delivery is not configured on this server.");
         const auto fields = json::object(request.body);
         const std::string email = normalizeEmail(stringField(fields,"email",254));
         if (email.find('@') == std::string::npos)
@@ -360,7 +321,7 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
                 auto result = response(201,{{"success",true},{"code","REGISTERED"},
                     {"message","Account created successfully."},
                     {"user",{{"id",user.id},{"username",user.username}}}});
-                result.extraHeaders["Set-Cookie"] = sessionCookie(token,secureCookies);
+                result.extraHeaders["Set-Cookie"] = "vp_session="+token+"; Path=/; HttpOnly; SameSite=Strict; Max-Age=604800";
                 return result;
             }
             return response(201,{{"success",true},{"message","Account created successfully."}});
@@ -383,7 +344,7 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
         if (request.path == "/api/auth/login") {
             auto result = response(200,{{"success",true},{"code","AUTHENTICATED"},
                 {"user",{{"id",user.id},{"username",user.username}}}});
-            result.extraHeaders["Set-Cookie"] = sessionCookie(token,secureCookies);
+            result.extraHeaders["Set-Cookie"] = "vp_session="+token+"; Path=/; HttpOnly; SameSite=Strict; Max-Age=604800";
             return result;
         }
         return response(request.path == "/api/register" ? 201 : 200,
@@ -401,7 +362,6 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
         if (!token.empty()) db.revokeSession(token);
         auto result = response(200,{{"success",true},{"code","LOGGED_OUT"},{"message","Signed out."}});
         result.extraHeaders["Set-Cookie"] = "vp_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0";
-        if (secureCookies) result.extraHeaders["Set-Cookie"] += "; Secure";
         return result;
     }
     long long userId = 0;
@@ -424,8 +384,6 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
         return response(200,{{"success",true},{"message","Password changed. Other sessions have been signed out."}});
     }
     if (request.method == "POST" && request.path == "/api/account/email/request") {
-        if (!allowDevelopmentEmailCodes)
-            return apiError(503,"EMAIL_DELIVERY_UNAVAILABLE","Email delivery is not configured on this server.");
         const auto fields = json::object(request.body);
         const std::string currentPassword = stringField(fields,"currentPassword",128);
         const std::string newEmail = normalizeEmail(stringField(fields,"newEmail",254));
@@ -727,35 +685,23 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
 
 int main(int argc, char** argv) {
     try {
-        const std::string configuredPort = argc >= 2 ? argv[1] : environmentValue("PORT");
-        int port = configuredPort.empty() ? 8080 : std::stoi(configuredPort);
+        int port = argc >= 2 ? std::stoi(argv[1]) : 8080;
         if (port < 1 || port > 65535) throw std::invalid_argument("Invalid port");
-        const std::string bindAddress = environmentValue("PET_BIND_ADDRESS").empty()
-            ? "127.0.0.1" : environmentValue("PET_BIND_ADDRESS");
-        std::string allowedHost = environmentValue("PET_ALLOWED_HOST");
-        if (allowedHost.empty()) allowedHost = environmentValue("RAILWAY_PUBLIC_DOMAIN");
-        const bool secureCookies = environmentFlag("VP_SECURE_COOKIES", bindAddress != "127.0.0.1");
-        const bool allowDevelopmentEmailCodes = bindAddress == "127.0.0.1" &&
-            environmentFlag("VP_ENABLE_DEV_EMAIL_CODES", true);
-        std::string databasePath = environmentValue("PET_DATABASE_PATH");
-        if (databasePath.empty())
-            databasePath = argc >= 3 ? argv[2] : "backend/build/virtual_pet.db";
         Database db;
-        if (!db.open(databasePath) || !db.runSchema() || !db.seedExercisesIfEmpty())
+        if (!db.open(argc >= 3 ? argv[2] : "backend/build/virtual_pet.db") || !db.runSchema() || !db.seedExercisesIfEmpty())
             throw std::runtime_error(db.lastError());
         AuthFailures authFailures;
         HttpServer server;
-        server.setHandler([&db,&authFailures,port,&allowedHost,secureCookies,allowDevelopmentEmailCodes](const HttpRequest& request) {
+        server.setHandler([&db,&authFailures,port](const HttpRequest& request) {
             const auto origin = request.header("origin");
             const auto host = request.header("host");
-            const bool healthProbe = request.method == "GET" && request.path == "/healthz";
-            if (!healthProbe && !hostIsAllowed(host,allowedHost,port))
-                return error(403,"Host not allowed");
+            if (host != "127.0.0.1:"+std::to_string(port) && host != "localhost:"+std::to_string(port))
+                return error(403,"Local host required");
             bool localOrigin = origin == "http://localhost:5500" || origin == "http://127.0.0.1:5500" || origin == "null";
-            bool sameOrigin = origin == "http://"+host || origin == "https://"+host;
+            bool sameOrigin = origin == "http://"+host;
             if (!origin.empty() && !localOrigin && !sameOrigin) return error(403,"Origin not allowed");
             HttpResponse result;
-            try { result = route(db,authFailures,request,secureCookies,allowDevelopmentEmailCodes); }
+            try { result = route(db,authFailures,request); }
             catch (const nlohmann::json::exception&) { result = error(400,"Invalid JSON or field type"); }
             catch (const std::invalid_argument& exception) { result = error(400,exception.what()); }
             catch (const std::exception& exception) {
@@ -770,7 +716,7 @@ int main(int argc, char** argv) {
             }
             return result;
         });
-        if (!server.listen(bindAddress,port)) throw std::runtime_error(server.lastError());
+        if (!server.listen("127.0.0.1",port)) throw std::runtime_error(server.lastError());
     } catch (const std::exception& exception) {
         std::fprintf(stderr,"Server failed: %s\n",exception.what()); return 1;
     }

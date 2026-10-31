@@ -1,20 +1,9 @@
 #include "Crypto.h"
-#include <climits>
-#include <string>
+#include <windows.h>
+#include <stdexcept>
 #include <vector>
 
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <openssl/crypto.h>
-#include <openssl/evp.h>
-#include <openssl/rand.h>
-#endif
-
-#include <stdexcept>
-
 namespace {
-#ifdef _WIN32
 using OpenProvider = LONG (WINAPI*)(void**, LPCWSTR, LPCWSTR, ULONG);
 using CloseProvider = LONG (WINAPI*)(void*, ULONG);
 using DeriveKey = LONG (WINAPI*)(void*, PUCHAR, ULONG, PUCHAR, ULONG, ULONGLONG, PUCHAR, ULONG, ULONG);
@@ -49,12 +38,6 @@ struct DerivedKey {
         for (size_t index = 0; index < sizeof(bytes); ++index) wipe[index] = 0;
     }
 };
-#else
-struct DerivedKey {
-    unsigned char bytes[32] = {};
-    ~DerivedKey() { OPENSSL_cleanse(bytes, sizeof(bytes)); }
-};
-#endif
 
 std::string hex(const unsigned char* bytes, size_t count) {
     const char* digits = "0123456789abcdef";
@@ -65,42 +48,23 @@ std::string hex(const unsigned char* bytes, size_t count) {
     }
     return result;
 }
-
-std::string hexBytes(const std::vector<unsigned char>& bytes) {
-    return hex(bytes.data(), bytes.size());
-}
 }
 
 std::string crypto::randomHex(unsigned long bytes) {
-    if (bytes > static_cast<unsigned long>(INT_MAX))
-        throw std::runtime_error("Random byte request is too large");
     std::vector<unsigned char> buffer(bytes);
-#ifdef _WIN32
     if (cng().random(nullptr, buffer.data(), bytes, 2) < 0) throw std::runtime_error("CNG random failed");
-#else
-    if (RAND_bytes(buffer.data(), static_cast<int>(buffer.size())) != 1)
-        throw std::runtime_error("OpenSSL random generation failed");
-#endif
-    return hexBytes(buffer);
+    return hex(buffer.data(), buffer.size());
 }
 
 std::string crypto::passwordHash(const std::string& password, const std::string& salt) {
-    DerivedKey key;
-#ifdef _WIN32
     Algorithm algorithm;
     if (cng().open(&algorithm.handle, L"SHA256", nullptr, 8) < 0) throw std::runtime_error("CNG SHA256 unavailable");
+    DerivedKey key;
     LONG status = cng().derive(algorithm.handle,
         reinterpret_cast<PUCHAR>(const_cast<char*>(password.data())), static_cast<ULONG>(password.size()),
         reinterpret_cast<PUCHAR>(const_cast<char*>(salt.data())), static_cast<ULONG>(salt.size()),
         600000, key.bytes, sizeof(key.bytes), 0);
     if (status < 0) throw std::runtime_error("PBKDF2 failed");
-#else
-    if (password.size() > static_cast<size_t>(INT_MAX) || salt.size() > static_cast<size_t>(INT_MAX) ||
-        PKCS5_PBKDF2_HMAC(password.data(), static_cast<int>(password.size()),
-            reinterpret_cast<const unsigned char*>(salt.data()), static_cast<int>(salt.size()),
-            600000, EVP_sha256(), sizeof(key.bytes), key.bytes) != 1)
-        throw std::runtime_error("PBKDF2 failed");
-#endif
     return "pbkdf2-sha256$600000$" + hex(key.bytes, sizeof(key.bytes));
 }
 
