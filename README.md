@@ -163,8 +163,7 @@ The script configures the project and builds all targets. To run the tests separ
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-The HTTP server uses Winsock on Windows and POSIX sockets on Linux. CMake links
-`ws2_32` on Windows and OpenSSL on Linux for secure random generation and password hashing.
+The HTTP server uses Winsock; CMake links `ws2_32` on Windows, including MinGW builds.
 
 To start the web application after a successful build:
 
@@ -197,23 +196,9 @@ ctest --test-dir build --output-on-failure
 ./build/Pet_Raising_Server
 ```
 
-Linux builds also require the OpenSSL development package (for example,
-`libssl-dev` on Debian-based systems).
-
 The server serves the frontend itself; open `http://127.0.0.1:8080` in a browser.
 
 Build outputs, editor settings, and runtime database files are excluded from Git. Do not commit the `build/`, `.vscode/`, or local database files.
-
-### Railway deployment (shared accounts)
-
-The default local setup stores accounts and game data in `backend/build/virtual_pet.db` on that computer. Different computers do not share local accounts. To share accounts, deploy one central Railway service and have every player use its public URL.
-
-1. Create a Railway project from this GitHub repository and deploy the `main` branch. Railway uses the included `Dockerfile` and `railway.json`.
-2. Add a Railway Volume to the service and mount it at `/data`. This keeps the SQLite database when Railway rebuilds or restarts the container. Keep the service at one replica because SQLite is stored on a single volume.
-3. Generate a public domain for the service. Set `PET_ALLOWED_HOST` to that hostname (without `https://`), or rely on Railway's `RAILWAY_PUBLIC_DOMAIN` variable.
-4. Wait for the `/healthz` deployment check to pass, then share the Railway HTTPS URL. Everyone must use that same URL; opening `localhost` creates a separate local account database.
-
-The container reads Railway's `PORT`, binds to `0.0.0.0`, stores the database at `/data/virtual_pet.db`, and marks session cookies `Secure`. Existing accounts in a computer's local database are not copied automatically; register them on the shared service or migrate their data separately. Verification, password-reset, and email-change requests return `503` on non-loopback deployments until an email provider is configured. Keep the public service bound to `0.0.0.0`; the development-code option is intended only for local use.
 
 ## 5. Backend Design
 
