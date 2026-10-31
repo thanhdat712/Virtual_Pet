@@ -3,8 +3,8 @@
 ## Một backend đang chạy
 
 Entry point duy nhất của HTTP API là `src/server_main.cpp`. Script PowerShell và
-CMake đều build cùng entry point này. Server dùng Winsock, phục vụ frontend và
-API cùng origin, rồi đọc/ghi trạng thái trong SQLite.
+CMake đều build cùng entry point này. Server dùng socket của Windows hoặc POSIX,
+phục vụ frontend và API cùng origin, rồi đọc/ghi trạng thái trong SQLite.
 
 ```text
 frontend/index.html
@@ -32,6 +32,16 @@ Mặc định server dùng `backend/build/virtual_pet.db`, là database cũ đã
 lại và migration tại chỗ. Đừng xóa file này nếu cần giữ tiến trình người chơi.
 Schema chuẩn duy nhất là `database/schema.sql`; server thực thi schema này khi
 khởi động rồi tự bổ sung các cột mới cho database cũ.
+
+Server có thể được cấu hình bằng `PORT`, `PET_BIND_ADDRESS`,
+`PET_DATABASE_PATH`, `PET_ALLOWED_HOST` và `VP_SECURE_COOKIES`. Mặc định vẫn
+chỉ bind `127.0.0.1`; deployment cần bind `0.0.0.0`, dùng database trên volume
+bền vững và chỉ cho phép hostname public đã cấu hình. Hướng dẫn Railway có ở
+README thư mục gốc.
+
+Mỗi máy chạy local có database và tài khoản riêng. Đăng nhập bằng cùng một URL
+Railway chia sẻ database giữa các máy; dữ liệu tài khoản local hiện có không tự
+được chuyển lên server trung tâm.
 
 ## API chính
 

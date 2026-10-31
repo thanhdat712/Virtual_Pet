@@ -1,15 +1,57 @@
 #include "HttpServer.h"
 
+#ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#else
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <unistd.h>
+#endif
 
 #include <cctype>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <sstream>
 
 namespace {
+
+#ifdef _WIN32
+using SocketHandle = SOCKET;
+constexpr SocketHandle INVALID_SOCKET_HANDLE = INVALID_SOCKET;
+
+void closeSocket(SocketHandle socket) { closesocket(socket); }
+
+int receiveBytes(SocketHandle socket, char* buffer, int length) {
+    return recv(socket, buffer, length, 0);
+}
+
+int sendBytes(SocketHandle socket, const char* buffer, int length) {
+    return send(socket, buffer, length, 0);
+}
+#else
+using SocketHandle = int;
+constexpr SocketHandle INVALID_SOCKET_HANDLE = -1;
+#ifdef MSG_NOSIGNAL
+constexpr int SEND_FLAGS = MSG_NOSIGNAL;
+#else
+constexpr int SEND_FLAGS = 0;
+#endif
+
+void closeSocket(SocketHandle socket) { close(socket); }
+
+int receiveBytes(SocketHandle socket, char* buffer, int length) {
+    return static_cast<int>(recv(socket, buffer, static_cast<size_t>(length), 0));
+}
+
+int sendBytes(SocketHandle socket, const char* buffer, int length) {
+    return static_cast<int>(send(socket, buffer, static_cast<size_t>(length), SEND_FLAGS));
+}
+#endif
 
 std::string toLower(const std::string& s) {
     std::string out = s;
@@ -18,12 +60,12 @@ std::string toLower(const std::string& s) {
 }
 
 // Đọc toàn bộ cho tới khi gặp "\r\n\r\n" (hết header) rồi đọc thêm theo Content-Length.
-int receiveRequest(SOCKET client, std::string& raw) {
+int receiveRequest(SocketHandle client, std::string& raw) {
     char buffer[4096];
     const size_t maxHeader = 16384, maxBody = 32768;
     size_t headerEnd = std::string::npos;
     while (headerEnd == std::string::npos) {
-        int n = recv(client, buffer, sizeof(buffer), 0);
+        int n = receiveBytes(client, buffer, sizeof(buffer));
         if (n <= 0) return 400;
         raw.append(buffer, n);
         headerEnd = raw.find("\r\n\r\n");
@@ -66,7 +108,7 @@ int receiveRequest(SOCKET client, std::string& raw) {
     size_t have = raw.size() - bodyStart;
     if (have > contentLength) return 400;
     while (have < contentLength) {
-        int n = recv(client, buffer, static_cast<int>(std::min(sizeof(buffer),contentLength-have)), 0);
+        int n = receiveBytes(client, buffer, static_cast<int>(std::min(sizeof(buffer),contentLength-have)));
         if (n <= 0) return 400;
         raw.append(buffer, n);
         have = raw.size() - bodyStart;
@@ -129,6 +171,7 @@ const char* statusText(int status) {
         case 403: return "Forbidden";
         case 404: return "Not Found";
         case 405: return "Method Not Allowed";
+        case 503: return "Service Unavailable";
         case 409: return "Conflict";
         case 413: return "Payload Too Large";
         case 429: return "Too Many Requests";
@@ -138,7 +181,7 @@ const char* statusText(int status) {
     }
 }
 
-void sendResponse(SOCKET client, const HttpResponse& res) {
+void sendResponse(SocketHandle client, const HttpResponse& res) {
     std::string out;
     out.reserve(res.body.size() + 256);
     out += "HTTP/1.1 ";
@@ -157,7 +200,7 @@ void sendResponse(SOCKET client, const HttpResponse& res) {
 
     size_t sent = 0;
     while (sent < out.size()) {
-        int n = send(client, out.data() + sent, static_cast<int>(out.size() - sent), 0);
+        int n = sendBytes(client, out.data() + sent, static_cast<int>(out.size() - sent));
         if (n <= 0) break;
         sent += n;
     }
@@ -168,40 +211,58 @@ void sendResponse(SOCKET client, const HttpResponse& res) {
 HttpServer::HttpServer() {}
 
 HttpServer::~HttpServer() {
+#ifdef _WIN32
     if (wsaStarted_) WSACleanup();
+#endif
 }
 
 bool HttpServer::listen(const std::string& host, int port) {
+#ifdef _WIN32
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
         lastError_ = "WSAStartup that bai";
         return false;
     }
     wsaStarted_ = true;
+#endif
 
-    SOCKET listenSock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (listenSock == INVALID_SOCKET) {
+    SocketHandle listenSock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (listenSock == INVALID_SOCKET_HANDLE) {
         lastError_ = "Khong tao duoc socket";
         return false;
     }
 
+#ifdef _WIN32
     BOOL exclusive = TRUE;
     setsockopt(listenSock, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, reinterpret_cast<const char*>(&exclusive), sizeof(exclusive));
+#else
+    int reuseAddress = 1;
+    setsockopt(listenSock, SOL_SOCKET, SO_REUSEADDR, &reuseAddress, sizeof(reuseAddress));
+#endif
 
     sockaddr_in addr;
     std::memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(static_cast<u_short>(port));
-    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_port = htons(static_cast<uint16_t>(port));
+    if (host == "0.0.0.0") {
+        addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    } else {
+        addr.sin_addr.s_addr = inet_addr(host.c_str());
+        if (addr.sin_addr.s_addr == INADDR_NONE) {
+            lastError_ = "Invalid IPv4 listen address";
+            closeSocket(listenSock);
+            return false;
+        }
+    }
 
-    if (bind(listenSock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == SOCKET_ERROR) {
+    if (bind(listenSock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == -1) {
         lastError_ = "Bind that bai (cong co the dang duoc dung)";
-        closesocket(listenSock);
+        closeSocket(listenSock);
         return false;
     }
-    if (::listen(listenSock, SOMAXCONN) == SOCKET_ERROR) {
+    if (::listen(listenSock, SOMAXCONN) == -1) {
         lastError_ = "Listen that bai";
-        closesocket(listenSock);
+        closeSocket(listenSock);
         return false;
     }
 
@@ -209,11 +270,21 @@ bool HttpServer::listen(const std::string& host, int port) {
     std::fflush(stdout);
 
     while (true) {
-        SOCKET client = accept(listenSock, nullptr, nullptr);
-        if (client == INVALID_SOCKET) continue;
+        SocketHandle client = accept(listenSock, nullptr, nullptr);
+        if (client == INVALID_SOCKET_HANDLE) continue;
+#if !defined(_WIN32) && defined(SO_NOSIGPIPE)
+        int noSignal = 1;
+        setsockopt(client,SOL_SOCKET,SO_NOSIGPIPE,&noSignal,sizeof(noSignal));
+#endif
+#ifdef _WIN32
         DWORD timeout = 3000;
         setsockopt(client,SOL_SOCKET,SO_RCVTIMEO,reinterpret_cast<const char*>(&timeout),sizeof(timeout));
         setsockopt(client,SOL_SOCKET,SO_SNDTIMEO,reinterpret_cast<const char*>(&timeout),sizeof(timeout));
+#else
+        timeval timeout{3, 0};
+        setsockopt(client,SOL_SOCKET,SO_RCVTIMEO,&timeout,sizeof(timeout));
+        setsockopt(client,SOL_SOCKET,SO_SNDTIMEO,&timeout,sizeof(timeout));
+#endif
 
         std::string raw;
         int received = receiveRequest(client, raw);
@@ -233,9 +304,9 @@ bool HttpServer::listen(const std::string& host, int port) {
             res.body = "{\"error\":\"Invalid or oversized HTTP request\"}";
             sendResponse(client,res);
         }
-        closesocket(client);
+        closeSocket(client);
     }
 
-    closesocket(listenSock);
+    closeSocket(listenSock);
     return true;
 }
