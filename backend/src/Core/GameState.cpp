@@ -29,9 +29,9 @@ void GameState::initialize() {
         DEFAULT_PET_NAME,
         1,
         100,
-        85,
-        30,
-        70
+        0,
+        50,
+        50
     );
 
     newPlayer->setPet(newPet);
