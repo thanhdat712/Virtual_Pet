@@ -83,7 +83,7 @@
         snake: [], dir: 'right', queue: [], food: null,
         walls: new Set(), portH: new Map(), portV: new Map(), portalTiles: [],
         eaten: 0, interval: 250, acc: 0, time: 0, cd: 0, cdShown: 5, petLevel: 1,
-        best: 0, pendingBest: 0, prevBest: 0, happinessRemainderPoints: 0, coinsGiven: false, newRecord: false,
+        best: 0, pendingBest: 0, prevBest: 0, coinsGiven: false, newRecord: false,
         gameId: null, practiceReady: false, starting: false, leavingPractice: false
     };
 
@@ -150,11 +150,8 @@
         });
     }
     function happinessPercentForFood(eaten) {
-        const halfPercentThreshold = (30 + 18 * (S.petLevel - 1)) / 2;
-        const totalHappinessPoints = S.happinessRemainderPoints + eaten * 3;
-        const earnedHalfPercents = Math.floor(totalHappinessPoints / halfPercentThreshold)
-            - Math.floor(S.happinessRemainderPoints / halfPercentThreshold);
-        return earnedHalfPercents * 0.5;
+        const foodsPerHalfPercent = 5 + 3 * (S.petLevel - 1);
+        return Math.floor(eaten / foodsPerHalfPercent) * 0.5;
     }
     async function saveGameRewards() {
         if (S.state !== 'over' || !S.gameId || S.rewardSaving) return;
@@ -169,7 +166,6 @@
             result.happinessPercent = happinessPercentForFood(S.eaten);
             result.coins = saved.awardedCoins;
             S.petLevel = Math.max(1, Number(saved.state.pet?.level) || S.petLevel);
-            S.happinessRemainderPoints = Number(saved.state.happinessRemainderPoints) || 0;
             S.best = saved.state.bestScore;
             S.pendingBest = S.best;
             updateHud();
@@ -193,7 +189,6 @@
             S.best = state.bestScore;
             S.pendingBest = S.best;
             S.petLevel = Math.max(1, Number(state.pet?.level) || 1);
-            S.happinessRemainderPoints = Number(state.happinessRemainderPoints) || 0;
             updateHud();
             await window.api.practiceTime('start');
             S.practiceReady = true;
