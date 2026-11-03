@@ -495,7 +495,10 @@ document.querySelector('#confirm-pet-choice').addEventListener('click', async (e
 	const button = event.currentTarget;
 	button.disabled = true;
 	try {
-		const petName = window.currentPetProfile?.name || 'UIA';
+		const isInitialPetChoice = window.currentPetProfile?.speciesChosen === false;
+		const petName = isInitialPetChoice && selectedSpecies === 'dog'
+			? 'Cheems'
+			: window.currentPetProfile?.name || 'UIA';
 		applyAccountState(await api.savePetProfile(petName, selectedSpecies));
 		try {
 			const choiceKey = `virtual-pet-pet-choice-v1-${String(signedInUser?.id ?? signedInUser?.username ?? 'guest')}`;
