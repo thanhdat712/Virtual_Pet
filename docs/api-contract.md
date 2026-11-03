@@ -101,13 +101,17 @@ During a game, a new best is provisional in the browser; the account's official
 best remains unchanged until game over. Ending the game commits the new best
 alongside its points and any eligible record coins. Abandoning the game or
 starting another one discards that provisional best and reward. Every five
-foods award 15 points; each 20 accumulated points add one happiness point (the
-0.5% per 10 points fraction is retained). Beating a non-zero previous record
-earns 15 coins at game over.
+foods award 15 points; foods left over do not award score points. Happiness is
+counted independently per game: each full group of `5 + 3 * (pet level - 1)`
+foods earns 0.5%, and any remaining foods are discarded rather than carried to
+the next game. This means the thresholds are 5 foods at level 1, 8 at level 2,
+and 11 at level 3. Already-earned half-percent rewards are retained only to
+apply each pair as one whole happiness point. Beating a non-zero previous
+record earns 15 coins at game over.
 
 | Method | Route | Body | Purpose |
 |---|---|---|---|
-| `GET` | `/api/practice/state` | Không có | Load best score, lifetime points, coins and pet stats |
+| `GET` | `/api/practice/state` | Không có | Load best score, lifetime points, coins, pet stats and pending half-percent happiness |
 | `POST` | `/api/practice/time` | `{ "action": "start" }` | Begin counting time on the Practice page |
 | `POST` | `/api/practice/time` | `{ "action": "heartbeat" }` | Account for page time; sent every 20 seconds |
 | `POST` | `/api/practice/time` | `{ "action": "pause" }` | Stop counting when leaving the page |

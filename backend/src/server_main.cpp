@@ -128,7 +128,7 @@ Value studyStateJson(const StudyStateRow& state) {
 
 Value practiceStateJson(const PracticeStateRow& state) {
     return {{"success",true},{"points",state.points},{"bestScore",state.bestScore},{"coins",state.coins},
-        {"happinessRemainderPoints",state.happinessRemainderPoints},
+        {"happinessHalfPercentRemainder",state.happinessHalfPercentRemainder},
         {"pet",{{"level",state.level},{"happiness",state.happiness},
             {"hunger",state.hunger},{"energy",state.energy}}}};
 }

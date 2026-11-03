@@ -206,7 +206,7 @@ namespace
     bool loadPracticeState(sqlite3 *database, long long userId, PracticeStateRow &state)
     {
         Statement statement(database,
-                            "SELECT s.total_points,s.happiness_remainder_points,s.best_score,u.coins,"
+                            "SELECT s.total_points,s.happiness_half_percent_remainder,s.best_score,u.coins,"
                             "p.level,p.happiness,p.hunger,p.energy "
                             "FROM practice_state s JOIN users u ON u.id=s.user_id "
                             "JOIN pets p ON p.user_id=s.user_id WHERE s.user_id=?;");
@@ -214,7 +214,7 @@ namespace
         if (!statement.row())
             return false;
         state.points = statement.number(0);
-        state.happinessRemainderPoints = statement.number(1);
+        state.happinessHalfPercentRemainder = static_cast<int>(statement.number(1));
         state.bestScore = static_cast<int>(statement.number(2));
         state.coins = static_cast<int>(statement.number(3));
         state.level = static_cast<int>(statement.number(4));
@@ -302,21 +302,33 @@ bool Database::runSchema()
                          "INSERT INTO study_state SELECT user_id,total_points,happiness_remainder_points,"
                          "elapsed_remainder_seconds,is_active,last_activity_at FROM study_state_old;"
                          "DROP TABLE study_state_old;");
-        if (tableDefinition(db_, "practice_state").find("BETWEEN 0 AND 19") != std::string::npos)
-            execute(db_, "ALTER TABLE practice_state RENAME TO practice_state_old;"
+        if (!hasColumn(db_, "practice_state", "happiness_half_percent_remainder"))
+        {
+            execute(db_, "ALTER TABLE practice_state ADD COLUMN happiness_half_percent_remainder "
+                         "INTEGER NOT NULL DEFAULT 0 CHECK (happiness_half_percent_remainder IN (0, 1));");
+            if (hasColumn(db_, "practice_state", "happiness_remainder_points"))
+                execute(db_, "UPDATE practice_state SET happiness_half_percent_remainder=CASE WHEN "
+                             "happiness_remainder_points >= (SELECT (30+18*(pets.level-1))/2 FROM pets "
+                             "WHERE pets.user_id=practice_state.user_id) THEN 1 ELSE 0 END;");
+        }
+        if (hasColumn(db_, "practice_state", "happiness_remainder_points"))
+            execute(db_, "ALTER TABLE practice_state RENAME TO practice_state_legacy;"
                          "CREATE TABLE practice_state ("
                          "user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,"
                          "total_points INTEGER NOT NULL DEFAULT 0 CHECK (total_points >= 0),"
-                         "happiness_remainder_points INTEGER NOT NULL DEFAULT 0 CHECK (happiness_remainder_points >= 0),"
+                         "happiness_half_percent_remainder INTEGER NOT NULL DEFAULT 0 "
+                         "CHECK (happiness_half_percent_remainder IN (0, 1)),"
                          "best_score INTEGER NOT NULL DEFAULT 0 CHECK (best_score >= 0),"
                          "elapsed_remainder_seconds INTEGER NOT NULL DEFAULT 0 CHECK (elapsed_remainder_seconds BETWEEN 0 AND 104),"
                          "is_active INTEGER NOT NULL DEFAULT 0 CHECK (is_active IN (0, 1)),"
                          "last_activity_at INTEGER,"
                          "active_game_id TEXT NOT NULL DEFAULT '');"
-                         "INSERT INTO practice_state SELECT user_id,total_points,happiness_remainder_points,"
-                         "best_score,elapsed_remainder_seconds,is_active,last_activity_at,active_game_id "
-                         "FROM practice_state_old;"
-                         "DROP TABLE practice_state_old;");
+                         "INSERT INTO practice_state(user_id,total_points,happiness_half_percent_remainder,"
+                         "best_score,elapsed_remainder_seconds,is_active,last_activity_at,active_game_id) "
+                         "SELECT user_id,total_points,happiness_half_percent_remainder,best_score,"
+                         "elapsed_remainder_seconds,is_active,last_activity_at,active_game_id "
+                         "FROM practice_state_legacy;"
+                         "DROP TABLE practice_state_legacy;");
         if (!hasColumn(db_, "users", "username"))
             execute(db_, "ALTER TABLE users ADD COLUMN username TEXT;");
         if (!hasColumn(db_, "users", "sound_enabled"))
@@ -1376,16 +1388,16 @@ PracticeOperationStatus Database::finishPracticeGame(long long userId, const std
     }
 
     std::string activeGameId;
-    long long happinessRemainder = 0;
+    int happinessHalfPercentRemainder = 0;
     int previousBest = 0;
     {
-        Statement state(db_, "SELECT active_game_id,happiness_remainder_points,best_score "
+        Statement state(db_, "SELECT active_game_id,happiness_half_percent_remainder,best_score "
                              "FROM practice_state WHERE user_id=?;");
         state.bind(1, userId);
         if (!state.row())
             return PracticeOperationStatus::UserNotFound;
         activeGameId = state.text(0);
-        happinessRemainder = state.number(1);
+        happinessHalfPercentRemainder = static_cast<int>(state.number(1));
         previousBest = static_cast<int>(state.number(2));
     }
     if (activeGameId != gameId)
@@ -1393,7 +1405,6 @@ PracticeOperationStatus Database::finishPracticeGame(long long userId, const std
 
     awardedPoints = (eaten / 5) * 15;
     awardedCoins = previousBest > 0 && eaten > previousBest ? 15 : 0;
-    const long long happinessPoints = static_cast<long long>(eaten) * 3;
     int petLevel = 1;
     int petHappiness = 0;
     Statement currentPet(db_, "SELECT level,happiness FROM pets WHERE user_id=?;");
@@ -1402,9 +1413,10 @@ PracticeOperationStatus Database::finishPracticeGame(long long userId, const std
         return PracticeOperationStatus::UserNotFound;
     petLevel = std::max(1, static_cast<int>(currentPet.number(0)));
     petHappiness = static_cast<int>(currentPet.number(1));
-    const long long pointsPerHappiness = 30LL + 18LL * (petLevel - 1);
-    const long long happinessTotal = happinessRemainder + happinessPoints;
-    const int happinessGain = static_cast<int>(happinessTotal / pointsPerHappiness);
+    const int foodsPerHalfPercent = 5 + 3 * (petLevel - 1);
+    const int halfPercentsEarned = eaten / foodsPerHalfPercent;
+    const int totalHalfPercents = happinessHalfPercentRemainder + halfPercentsEarned;
+    const int happinessGain = totalHalfPercents / 2;
 
     Statement record(db_, "INSERT INTO practice_game_rewards(user_id,game_id,eaten,points_awarded,coins_awarded) "
                           "VALUES(?,?,?,?,?);");
@@ -1416,11 +1428,11 @@ PracticeOperationStatus Database::finishPracticeGame(long long userId, const std
     record.done();
 
     Statement stateUpdate(db_, "UPDATE practice_state SET total_points=total_points+?,"
-                               "happiness_remainder_points=?,best_score=MAX(best_score,?),"
+                               "happiness_half_percent_remainder=?,best_score=MAX(best_score,?),"
                                "active_game_id='' "
                                "WHERE user_id=?;");
     stateUpdate.bind(1, awardedPoints);
-    stateUpdate.bind(2, happinessTotal % pointsPerHappiness);
+    stateUpdate.bind(2, totalHalfPercents % 2);
     stateUpdate.bind(3, eaten);
     stateUpdate.bind(4, userId);
     stateUpdate.done();
