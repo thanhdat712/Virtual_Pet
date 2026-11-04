@@ -24,7 +24,7 @@ bool GameRepository::createInitialGame(int userId, const std::string& playerName
         profileStmt.bindString(2, playerName.empty() ? "Player" : playerName);
         profileStmt.execute();
 
-        // 2. Thú cưng ban đầu (UIA, Lv 1, Vui , Đói 50, Năng lượng 0)
+        // 2. Thú cưng ban đầu (UIA, Lv 1, Vui , Đói 50, Năng lượng 50)
         Statement petStmt(db.getRawHandle(),
             "INSERT INTO pets (user_id, name, level, experience, happiness, hunger, energy) "
             "VALUES (?, 'UIA', 1, 0, 0, 50, 50) "
