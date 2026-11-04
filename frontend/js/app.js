@@ -14,7 +14,6 @@ const inventoryTabs = document.querySelectorAll('#inventory-panel [data-filter]'
 const inventoryDetail = document.querySelector('#inventory-detail');
 let activeFilter = 'all';
 let selectedBagId = null;
-let bagMessage = '';
 const shopPanel = document.querySelector('#shop-panel');
 const shopGrid = document.querySelector('#shop-grid');
 const shopMessage = document.querySelector('#shop-message');
@@ -157,7 +156,6 @@ function renderInventory() {
 
 		cell.addEventListener('click', () => {
 			selectedBagId = item.id;
-			bagMessage = '';
 			renderInventory();
 			inventoryGrid.querySelector('.is-selected')?.focus();
 		});
@@ -183,44 +181,8 @@ function renderBagDetail() {
 	name.textContent = item.name;
 	const description = document.createElement('p');
 	description.textContent = item.description;
-	const message = document.createElement('p');
-	message.className = 'win-message';
-	message.setAttribute('role', 'status');
-	message.textContent = bagMessage;
-	info.append(name, description, message);
-
-	const action = document.createElement('button');
-	action.type = 'button';
-	action.className = 'win-btn';
-	if (item.category === 'food') {
-		action.textContent = 'Use';
-		action.addEventListener('click', () => useBagFood(item));
-	} else {
-		const worn = equippedDecor[item.filter] === item.id;
-		action.textContent = worn ? 'Remove' : (item.filter === 'headwear' ? 'Wear' : 'Equip');
-		action.addEventListener('click', () => equipBagDecoration(item, worn));
-	}
-	inventoryDetail.append(buildItemArt(item), info, action);
-}
-
-async function useBagFood(item) {
-	try {
-		applyAccountState(await api.feedPet(item.id));
-		bagMessage = `${item.name} eaten!`;
-	} catch (failure) {
-		bagMessage = failure.message;
-	}
-	renderBagDetail();
-}
-
-async function equipBagDecoration(item, worn) {
-	try {
-		applyAccountState(await api.equipDecoration(item.filter, worn ? null : item.id));
-		bagMessage = worn ? `${item.name} removed.` : `${item.name} equipped.`;
-	} catch (failure) {
-		bagMessage = failure.message;
-	}
-	renderBagDetail();
+	info.append(name, description);
+	inventoryDetail.append(buildItemArt(item), info);
 }
 
 function renderShop() {
@@ -382,6 +344,7 @@ function openPurchaseDialog(item) {
 		try {
 			const result = await api.buyItem(item.id, quantity);
 			applyAccountState(result);
+			window.playGameSound?.('buy-now');
 			shopMessage.textContent = `${quantity} × ${item.name} added to your inventory.`;
 			closePurchaseDialog();
 		} catch (failure) {

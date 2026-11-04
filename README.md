@@ -1,12 +1,12 @@
 # Virtual pet
 
-**A Virtual Pet Game Combined with C/C++ Programming Education**
+**A Virtual Pet Game with English Learning**
 
 ## 1. Project Introduction
 
-Pet Raising is a web-based educational game that combines virtual pet care with C/C++ programming practice. The project aims to provide an interactive learning experience for university students and programming beginners.
+Pet Raising is a web-based virtual pet game that combines pet care, English practice, and casual gameplay. Players care for a pet, complete English quizzes, and earn in-game rewards as they progress.
 
-Users can take care of virtual pets, practice programming through exercises, earn rewards, and track their learning progress.
+The Study section focuses on English skills across CEFR levels A1 to C2, including grammar, vocabulary, pronunciation, sentence building, and reading comprehension. The Practice section is a casual Pet Run mini-game for entertainment. Both activities connect to the pet-care and reward systems.
 
 ## 2. Technologies and Development Tools
 
@@ -42,7 +42,7 @@ Virtual_Pet/
 ├── README.md
 ├── frontend/
 │   ├── index.html               # Main virtual pet application
-│   ├── study.html               # Programming exercises page
+│   ├── study.html               # English learning and quiz page
 │   ├── css/
 │   │   ├── style.css
 │   │   ├── pixel.css
@@ -53,7 +53,7 @@ Virtual_Pet/
 │   │   ├── auth.js              # Login and registration
 │   │   ├── session.js           # Session state
 │   │   ├── study.js             # Exercise page behavior
-│   │   ├── study-data.js        # Exercise content
+│   │   ├── study-data.js        # English quiz content
 │   │   ├── pixel.js             # Pixel-art helpers
 │   │   └── demo.js              # Legacy/demo code
 │   └── assets/
@@ -119,7 +119,7 @@ Virtual_Pet/
 
 ### Main areas
 
-- `frontend/` - Browser application, study page, styles, JavaScript, and visual assets.
+- `frontend/` - Browser application for pet care, English study, and the Practice mini-game.
 - `backend/include/` and `backend/src/` - C++ interfaces and implementations organized by feature.
 - `backend/src/server_main.cpp` - HTTP server entry point that serves the frontend and API.
 - `backend/main.cpp` - Small console program for checking game initialization.
@@ -200,9 +200,9 @@ The server serves the frontend itself; open `http://127.0.0.1:8080` in a browser
 
 Build outputs, editor settings, and runtime database files are excluded from Git. Do not commit the `build/`, `.vscode/`, or local database files.
 
-## 5. Application of Object-Oriented Programming
+## 5. Backend Design
 
-Object-Oriented Programming (OOP) is a core approach used in the C++ backend to organize the application's logic into classes and objects.
+The C++ backend uses Object-Oriented Programming (OOP) to organize the application's game and service logic into classes and objects. C++ is an implementation technology; the learner-facing Study content is English.
 
 The project applies the following OOP principles:
 
@@ -223,11 +223,11 @@ The OOP design helps organize the codebase into manageable modules, supports cod
 | 4 | Hoàng Thị Mỹ Trang | 6651071079 |
 | 5 | Nguyễn Thị Ngọc Đẹp  | 6651071015 |
 
-## 7. Project Purpose
+## 7. Project Goals
 
-- Apply C++ programming and OOP concepts to a practical project
-- Combine educational programming exercises with virtual pet game mechanics
-- Develop teamwork, version control, and software development skills
-- Build a modular application that can be extended in the future
+- Provide interactive English practice through quizzes across CEFR levels A1 to C2
+- Make learning progress engaging with virtual pet care, rewards, and casual gameplay
+- Track player progress and persist game data between sessions
+- Build a modular application that can be maintained and extended in the future
 
 The account/game-data separation, account validation rules, ER diagram, and SQLite migration are documented in [docs/user-data-model.md](docs/user-data-model.md).

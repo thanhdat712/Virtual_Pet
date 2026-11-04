@@ -190,7 +190,8 @@ try {
         }
         $fed = Call POST '/api/pet/feed' @{itemId=$itemId;userId=$bob.user.id;quantity=999;hunger=100;happiness=100;hungerRestore=100;happinessRestore=100;coins=99999;energy=100;level=99} $feeder.token
         Check ($fed.Status -eq 200 -and $fed.Body.pet.hunger -eq (10+$restores[$index][0]) -and $fed.Body.pet.happiness -eq (10+$restores[$index][1])) "Food $itemId applies only authoritative restores"
-        Check ($fed.Body.user.id -eq $feeder.user.id -and $fed.Body.pet.energy -eq 70 -and $fed.Body.pet.level -eq 1 -and $fed.Body.pet.experience -eq 0) 'Feeding ignores forged user and unrelated stats'
+        Check ($fed.Body.user.id -eq $feeder.user.id -and $fed.Body.pet.energy -eq 70 -and $fed.Body.pet.level -eq 1) 'Feeding ignores forged user and unrelated stats'
+        Check ($fed.Body.pet.PSObject.Properties.Name -notcontains 'experience') 'Pet API no longer exposes EXP'
         if ($itemId -eq 1) {
             Check ($fed.Body.inventory.Count -eq 1 -and $fed.Body.inventory[0].quantity -eq 1) 'Feeding decrements stack by exactly one'
             $null = Sql "UPDATE pets SET hunger=95,happiness=99 WHERE user_id=$($feeder.user.id);"
@@ -326,9 +327,17 @@ try {
     $frontendPlay = Call POST '/api/pet/play' $null '' '' $frontendCookie
     Check ($frontendPlay.Body.state.pet.level -eq 2 -and $frontendPlay.Body.state.pet.energy -eq 55) 'Frontend play action updates game state'
     $frontendSleep = Call POST '/api/pet/sleep' $null '' '' $frontendCookie
-    Check ($frontendSleep.Body.state.pet.energy -eq 95) 'Frontend sleep action updates game state'
+    Check ($frontendSleep.Status -eq 200 -and $frontendSleep.Body.state.pet.sleepRemainingSeconds -gt 0 -and
+        $frontendSleep.Body.state.pet.energy -eq $frontendPlay.Body.state.pet.energy) 'Sleep starts a 30-minute rest without granting energy early'
+    Check ((Call POST '/api/pet/bath' $null '' '' $frontendCookie).Status -eq 423) 'Sleeping pet cannot perform other actions'
+    $frontendWake = Call POST '/api/pet/wake' $null '' '' $frontendCookie
+    Check ($frontendWake.Body.state.pet.sleepRemainingSeconds -eq 0 -and
+        $frontendWake.Body.state.pet.energy -eq $frontendPlay.Body.state.pet.energy) 'Pet can wake immediately without full-rest energy'
     $frontendBath = Call POST '/api/pet/bath' $null '' '' $frontendCookie
     Check ($frontendBath.Body.state.pet.happiness -eq 5) 'Frontend bath action updates game state'
+    $null = Sql "UPDATE pets SET energy=40,hunger=20,sleep_until=CAST(strftime('%s','now') AS INTEGER)-1 WHERE user_id=(SELECT id FROM users WHERE email='frontend@test.local');"
+    $autoWoken = (Call GET '/api/game/state' $null '' '' $frontendCookie).Body.pet
+    Check ($autoWoken.sleepRemainingSeconds -eq 0 -and $autoWoken.energy -eq 41 -and $autoWoken.hunger -eq 15) 'Pet wakes automatically with rest benefits after the sleep timer expires'
     $null = Call POST '/api/pet/unequip' @{slot='background'} '' '' $frontendCookie
     Stop-TestServer
     Start-TestServer

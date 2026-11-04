@@ -23,7 +23,6 @@ struct PetRow {
    std::string species = "cat";
     bool speciesChosen = false;
     int level = 1;
-    int experience = 0;
     int happiness = 0;
 int hunger = 50;
 int energy = 50;
@@ -50,7 +49,6 @@ struct StudyStateRow {
     long long points = 0;
     int coins = 0;
     int level = 1;
-    int experience = 0;
     int happiness = 0;
     int hunger = 50;
     int energy = 50;
@@ -59,6 +57,7 @@ struct StudyStateRow {
 
 struct PracticeStateRow {
     long long points = 0;
+    int happinessHalfPercentRemainder = 0;
     int bestScore = 0;
     int coins = 0;
     int level = 1;
@@ -148,7 +147,7 @@ public:
     bool renamePet(long long userId, const std::string& name);
         bool savePetProfile(long long userId, const std::string& name, const std::string& species);
     int feed(long long userId, int itemId);
-        int performPetAction(long long userId, const std::string& action, int& levelsGained);
+    int performPetAction(long long userId, const std::string& action, int& levelsGained);
         int equipDecoration(long long userId, int itemId);
         bool unequipDecoration(long long userId, const std::string& slot);
 

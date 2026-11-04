@@ -1,4 +1,5 @@
 let petLevel = 0;
+let petHunger = 0;
 const petStage = document.querySelector('.pet-stage');
 const sleepingGameScene = document.querySelector('.pet-game');
 const sleepButton = document.querySelector('#sleep-pet');
@@ -6,9 +7,39 @@ const feedingStatus = document.querySelector('#feeding-status');
 let feedingStatusTimeout;
 let sleepCountdownTimer;
 let petSleeping = false;
+let petActionPending = false;
+
+const levelUpDialog = document.querySelector('#level-up-dialog');
+const levelUpCloseButton = document.querySelector('#close-level-up');
+
+function showLevelUpDialog(level, levelsGained) {
+	const petName = window.getCurrentPetName();
+	document.querySelector('#level-up-title').textContent = `${petName} reached Level ${level}!`;
+	document.querySelector('#level-up-message').textContent = levelsGained > 1
+		? `${levelsGained} levels gained! Your rewards have been added to your account.`
+		: 'Your rewards have been added to your account.';
+	document.querySelector('#level-up-coins').textContent = `+${levelsGained * 10}`;
+	document.querySelector('#level-up-honey').textContent = `+${levelsGained}`;
+	levelUpDialog.hidden = false;
+	levelUpCloseButton.focus();
+}
+
+function closeLevelUpDialog() {
+	levelUpDialog.hidden = true;
+	petStage.focus({ preventScroll: true });
+}
+
+levelUpCloseButton.addEventListener('click', closeLevelUpDialog);
+levelUpDialog.addEventListener('click', (event) => {
+	if (event.target === levelUpDialog) closeLevelUpDialog();
+});
+document.addEventListener('keydown', (event) => {
+	if (event.key === 'Escape' && !levelUpDialog.hidden) closeLevelUpDialog();
+});
 
 function applyAccountState(state) {
 	coins = state.user.coins;
+	let levelsGained = 0;
 	if (state.inventory) {
 		inventory.splice(0, inventory.length, ...state.inventory.map((owned) => {
 			const itemId = owned.itemId ?? owned.id;
@@ -16,6 +47,8 @@ function applyAccountState(state) {
 		}));
 	}
 	if (state.pet) {
+		const previousPetLevel = petLevel;
+		petHunger = Math.max(0, Math.min(100, Number(state.pet.hunger) || 0));
 		const petName = state.pet.name;
 		const species = state.pet.species === 'dog' ? 'dog' : 'cat';
 		window.currentPetProfile = { name: petName, species, speciesChosen: state.pet.speciesChosen !== false };
@@ -26,22 +59,10 @@ function applyAccountState(state) {
 		document.querySelector('.pet-stage .pet-image').alt = `${species === 'dog' ? 'Dog' : 'Cat'}, ${petName}`;
 		document.querySelector('.hud-avatar img').src = petImage;
 const level = Math.max(1, Number(state.pet.level) || 1);
-const exp = Math.max(0, Number(state.pet.experience ?? state.pet.exp) || 0);
-const expMax = level * 100;
 
 petLevel = level;
 document.querySelector('#pet-level').textContent = level;
-
-const expText = document.querySelector('#exp-text');
-const expFill = document.querySelector('#exp-fill');
-
-if (expText) {
-    expText.textContent = `EXP ${exp} / ${expMax}`;
-}
-
-if (expFill) {
-    expFill.style.width = `${Math.min(100, exp / expMax * 100)}%`;
-}
+levelsGained = previousPetLevel > 0 ? level - previousPetLevel : 0;
 
 		['happiness', 'hunger', 'energy'].forEach((name) => {
 			const stat = document.querySelector(`[data-stat="${name}"]`);
@@ -66,6 +87,10 @@ if (expFill) {
 	renderFood();
 	applyLobbyDecor();
 	renderDecorate();
+	if (levelsGained > 0) {
+		window.playGameSound?.('level-up');
+		showLevelUpDialog(petLevel, levelsGained);
+	}
 }
 
 async function loadAccount() {
@@ -89,7 +114,7 @@ document.querySelector('#open-food').addEventListener('click', () => {
 let feeding = false;
 let selectedFood = null;
 
-function setFeedingStatus(message, duration = 0) {
+function setFeedingStatus(message, duration = 3000) {
 	clearTimeout(feedingStatusTimeout);
 	feedingStatusTimeout = null;
 	feedingStatus.textContent = message;
@@ -108,7 +133,9 @@ function syncSleepState(remainingSeconds = 0) {
 	petSleeping = remaining > 0;
 	petStage.classList.toggle('is-sleeping', petSleeping);
 	sleepingGameScene.classList.toggle('is-sleeping', petSleeping);
-	sleepButton.disabled = petSleeping;
+	sleepButton.disabled = false;
+	document.querySelector('#sleep-action-label').textContent = petSleeping ? 'Wake up' : 'Sleep';
+	sleepButton.setAttribute('aria-label', petSleeping ? 'Wake pet up now' : 'Put pet to sleep');
 	if (!petSleeping) return;
 	setFeedingStatus('');
 
@@ -144,6 +171,12 @@ function renderFood() {
 	const list = document.querySelector('#food-list');
 	list.replaceChildren();
 	const foods = inventory.filter((item) => item.category === 'food' && item.quantity > 0);
+	if (petHunger >= 100) {
+		const fullMessage = document.createElement('p');
+		fullMessage.className = 'food-full-message';
+		fullMessage.textContent = `${window.getCurrentPetName()} is full.`;
+		list.append(fullMessage);
+	}
 	if (!foods.length) {
 		const empty = document.createElement('p');
 		empty.textContent = 'No food in inventory';
@@ -153,7 +186,7 @@ function renderFood() {
 		const button = document.createElement('button');
 		button.type = 'button';
 		button.className = 'food-choice';
-		button.disabled = feeding;
+		button.disabled = feeding || petHunger >= 100;
 		button.setAttribute('aria-label', `${item.name}, ${item.quantity} remaining`);
 		button.setAttribute('aria-pressed', String(selectedFood === item.id));
 		const image = document.createElement('img');
@@ -201,6 +234,10 @@ function renderFood() {
 
 async function feedFood(item) {
 	if (feeding || !accountReady || !item) return;
+	if (petHunger >= 100) {
+		setFeedingStatus(`${window.getCurrentPetName()} is already full.`);
+		return;
+	}
 	feeding = true;
 	setFeedingStatus('');
 	renderFood();
@@ -219,7 +256,17 @@ async function feedFood(item) {
 		bite.addEventListener('animationend', () => bite.remove(), { once: true });
 		setFeedingStatus(`${item.name} eaten!`);
 	} catch (failure) {
-		setFeedingStatus(reportFailure(failure));
+		if (failure.code === 'PET_FULL') {
+			try {
+				await loadAccount();
+			} catch {
+				petHunger = 100;
+				renderFood();
+			}
+			setFeedingStatus(`${window.getCurrentPetName()} is already full.`);
+		} else {
+			setFeedingStatus(reportFailure(failure));
+		}
 	} finally {
 		feeding = false;
 		renderFood();
@@ -236,17 +283,24 @@ petStage.addEventListener('keydown', (event) => {
 });
 
 document.querySelector('#sleep-pet').addEventListener('click', async (event) => {
-	if (!accountReady) return;
+	if (!accountReady || petActionPending) return;
 	const button = event.currentTarget;
-	button.disabled = true;
+	const waking = petSleeping;
+	petActionPending = true;
+	button.setAttribute('aria-busy', 'true');
 	try {
-		applyAccountState(await api.sleepPet());
-		window.playGameSound?.('sleep');
+		applyAccountState(await (waking ? api.wakePet() : api.sleepPet()));
+		if (waking) {
+			setFeedingStatus(`${window.getCurrentPetName()} woke up.`);
+		} else {
+			window.playGameSound?.('sleep');
+		}
 	} catch (failure) {
 		const message = reportFailure(failure);
-		setFeedingStatus(message, message.includes('not sleepy right now') ? 5000 : 0);
+		setFeedingStatus(message, 5000);
 	} finally {
-		button.disabled = petSleeping;
+		petActionPending = false;
+		button.removeAttribute('aria-busy');
 	}
 });
 

@@ -127,8 +127,6 @@ img { image-rendering: pixelated; }
     pointer-events: none;
 }
 
-.px-bar.exp { --bar: #a4ee78; }
-
 /* ---------- Bố cục màn hình chính ---------- */
 .pet-game {
     font-size: calc(var(--u) * 1.6);
@@ -186,12 +184,6 @@ img { image-rendering: pixelated; }
     margin-left: auto;
     font-size: calc(var(--u) * 1.4);
     font-weight: 600;
-}
-
-.hud-exp-text {
-    margin: 0;
-    font-size: calc(var(--u) * 1.3);
-    text-align: right;
 }
 
 .account-row {
@@ -445,6 +437,59 @@ img { image-rendering: pixelated; }
 }
 
 .pet-game .food-choice[aria-pressed="true"] { box-shadow: inset 0 0 0 var(--px) var(--px-accent); }
+
+.level-up-backdrop[hidden] { display: none; }
+.level-up-backdrop {
+    position: fixed;
+    z-index: 20;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: calc(var(--u) * 2);
+    background: rgba(31, 92, 75, .62);
+    color: var(--px-text);
+}
+.level-up-card {
+    width: min(calc(var(--u) * 46), 100%);
+    padding: calc(var(--u) * 3);
+    display: grid;
+    justify-items: center;
+    gap: calc(var(--u) * 1.4);
+    border: calc(var(--px) * 1.5) solid var(--px-ink);
+    background: var(--px-fill);
+    box-shadow: var(--px-frame), inset 0 0 0 var(--px) var(--px-light);
+    text-align: center;
+    animation: level-up-enter .24s steps(4, end) both;
+}
+.level-up-star { color: #f0b52d; filter: drop-shadow(var(--px) var(--px) 0 var(--px-ink)); }
+.level-up-kicker { margin: 0; color: var(--px-head); font-size: calc(var(--u) * 2); }
+.level-up-card h2 { margin: 0; font-size: calc(var(--u) * 2.8); line-height: 1.2; }
+.level-up-message { margin: 0; font-size: calc(var(--u) * 1.5); }
+.level-up-rewards { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(var(--u) * 1.2); }
+.level-up-reward {
+    min-width: 0;
+    padding: calc(var(--u) * 1.2);
+    display: grid;
+    justify-items: center;
+    gap: calc(var(--u) * .6);
+    background: var(--px-fill-2);
+    box-shadow: inset 0 0 0 var(--px) var(--px-shade);
+}
+.level-up-reward img { width: calc(var(--u) * 5); height: calc(var(--u) * 5); object-fit: contain; }
+.level-up-reward strong { font-size: calc(var(--u) * 2); }
+.level-up-reward > span:last-child { font-size: calc(var(--u) * 1.4); }
+.level-up-close {
+    min-height: calc(var(--u) * 5);
+    padding: 0 calc(var(--u) * 3);
+    border: 0;
+    background: var(--px-head);
+    box-shadow: inset 0 calc(var(--px) * -1) 0 0 rgba(0, 0, 0, .22);
+    color: #fff;
+    font: inherit;
+}
+.level-up-close:focus-visible { outline: var(--px) dashed var(--px-ink); outline-offset: var(--px); }
+@keyframes level-up-enter { from { opacity: 0; transform: translateY(calc(var(--u) * 2)); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .level-up-card { animation: none; } }
 
 /* ---------- Màn hình hẹp ---------- */
 @media (max-width: 720px) {

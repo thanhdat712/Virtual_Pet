@@ -95,7 +95,7 @@ Value userJson(const UserRow& user) {
 
 Value petJson(const PetRow& pet) {
     return {{"name",pet.name},{"species",pet.species},{"speciesChosen",pet.speciesChosen},
-        {"level",pet.level},{"experience",pet.experience},
+        {"level",pet.level},
         {"happiness",pet.happiness},{"hunger",pet.hunger},{"energy",pet.energy},
         {"sleepRemainingSeconds",pet.sleepRemainingSeconds},{"sleeping",pet.sleepRemainingSeconds > 0}};
 }
@@ -117,7 +117,6 @@ Value studyStateJson(const StudyStateRow& state) {
         {"completedStages", completed},
         {"pet", {
             {"level", state.level},
-            {"experience", state.experience},
             {"happiness", state.happiness},
             {"hunger", state.hunger},
             {"energy", state.energy}
@@ -129,6 +128,7 @@ Value studyStateJson(const StudyStateRow& state) {
 
 Value practiceStateJson(const PracticeStateRow& state) {
     return {{"success",true},{"points",state.points},{"bestScore",state.bestScore},{"coins",state.coins},
+        {"happinessHalfPercentRemainder",state.happinessHalfPercentRemainder},
         {"pet",{{"level",state.level},{"happiness",state.happiness},
             {"hunger",state.hunger},{"energy",state.energy}}}};
 }
@@ -219,7 +219,8 @@ HttpResponse staticFile(const std::string& path) {
         {".css","text/css; charset=utf-8"},{".js","text/javascript; charset=utf-8"},
         {".png","image/png"},{".jpg","image/jpeg"},{".jpeg","image/jpeg"},
         {".gif","image/gif"},{".webp","image/webp"},{".svg","image/svg+xml"},
-        {".ico","image/x-icon"},{".woff2","font/woff2"},{".mp3","audio/mpeg"}};
+        {".ico","image/x-icon"},{".woff2","font/woff2"},{".mp3","audio/mpeg"},
+        {".wav","audio/wav"}};
     auto type = types.find(extension);
     if (type == types.end()) return error(404,"File not found");
     std::ifstream input(std::string(PET_FRONTEND_DIR) + relative, std::ios::binary);
@@ -547,6 +548,7 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
         int itemId = integerField(fields,"itemId",2147483647);
         int status = db.feed(userId,itemId);
         if (status == 423) return apiError(423,"PET_SLEEPING","Your pet is asleep. Let it rest for 30 minutes.");
+        if (status == 422) return apiError(422,"PET_FULL","Your pet is already full.");
         if (status != 200) return apiError(status,status == 400 ? "NOT_FOOD" : status == 409 ? "NOT_OWNED" : "ITEM_NOT_FOUND",
             status == 400 ? "Item is not food." : status == 409 ? "Food not owned." : "Item or pet not found.");
         return actionResponse(db,userId,"Food eaten.");
@@ -572,7 +574,8 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
         return actionResponse(db,userId,"Settings saved.");
     }
     if (request.method == "POST" && (request.path == "/api/pet/play" ||
-        request.path == "/api/pet/sleep" || request.path == "/api/pet/bath")) {
+        request.path == "/api/pet/sleep" || request.path == "/api/pet/wake" ||
+        request.path == "/api/pet/bath")) {
         if (!request.body.empty()) return apiError(400,"INVALID_ARGUMENT","This action does not accept a body.");
         const std::string action = request.path.substr(std::string("/api/pet/").size());
         int levelsGained = 0;
@@ -580,7 +583,9 @@ HttpResponse route(Database& db, AuthFailures& authFailures, const HttpRequest& 
         if (status == 423) return apiError(423,"PET_SLEEPING","Your pet is asleep. It will wake after 30 minutes.");
         if (status != 200) return apiError(status,status == 409 ? (action == "sleep" ? "ENERGY_FULL" : "PET_TOO_TIRED") : "PET_NOT_FOUND",
             status == 409 ? (action == "sleep" ? "Your pet is not sleepy." : "Your pet is too tired to play.") : "Pet not found.");
-        const std::string message = action == "sleep" ? "Your pet is sleeping for 30 minutes." : action == "play" ? "Your pet had fun!" : "Squeaky clean!";
+        const std::string message = action == "sleep" ? "Your pet is sleeping for 30 minutes." :
+            action == "wake" ? "Your pet woke up." :
+            action == "play" ? "Your pet had fun!" : "Squeaky clean!";
         return actionResponse(db,userId,message,levelsGained);
     }
     if (request.method == "POST" && request.path == "/api/pet/decorate") {

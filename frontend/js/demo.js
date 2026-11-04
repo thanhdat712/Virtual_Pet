@@ -18,7 +18,7 @@
 	const copy = (value) => JSON.parse(JSON.stringify(value));
 	const initialState = () => ({
 		user: { id: 1, coins: 100 },
-pet: { name: 'UIA', level: 1, exp: 0, happiness: 0, hunger: 50, energy: 50, sleepUntil: 0 },
+pet: { name: 'UIA', level: 1, happiness: 0, hunger: 50, energy: 50, sleepUntil: 0 },
 		inventory: [{ id: 1, quantity: 3 }, { id: 2, quantity: 2 }],
 		decor: { background: null, floor: null, headwear: null }
 	});
@@ -26,7 +26,6 @@ pet: { name: 'UIA', level: 1, exp: 0, happiness: 0, hunger: 50, energy: 50, slee
 		return saved && Number.isSafeInteger(saved.user?.coins) && saved.user.coins >= 0
 			&& typeof saved.pet?.name === 'string' && saved.pet.name.trim().length > 0
 			&& Number.isSafeInteger(saved.pet.level) && saved.pet.level > 0
-			&& Number.isSafeInteger(saved.pet.exp) && saved.pet.exp >= 0
 			&& ['happiness', 'hunger', 'energy'].every((stat) => Number.isFinite(saved.pet[stat]) && saved.pet[stat] >= 0 && saved.pet[stat] <= 100)
 			&& Array.isArray(saved.inventory) && saved.inventory.every((owned) => {
 				const item = catalog.find((entry) => entry.id === owned?.id);
@@ -94,7 +93,9 @@ pet: { name: 'UIA', level: 1, exp: 0, happiness: 0, hunger: 50, energy: 50, slee
 			next.inventory.find((entry) => entry.id === itemId).quantity -= 1;
 			next.inventory = next.inventory.filter((entry) => entry.quantity > 0);
 			next.pet.hunger = Math.min(100, next.pet.hunger + item.hungerRestore);
-			next.pet.happiness += item.happinessRestore;
+			if (item.happinessRestore > 0) {
+				next.pet.happiness += Math.max(1, Math.ceil(item.happinessRestore / next.pet.level));
+			}
 			while (next.pet.happiness >= 100) {
 				next.pet.level += 1;
 				next.pet.happiness -= 100;

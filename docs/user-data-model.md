@@ -10,7 +10,7 @@ xóa tài khoản, coins, inventory hay pet hiện có.
 | Bảng | Nội dung |
 |---|---|
 | `users` | username, email, password salt/hash, coins, cài đặt âm thanh |
-| `pets` | tên, loài, level, experience, happiness, hunger, energy |
+| `pets` | tên, loài, level, happiness, hunger, energy |
 | `sessions` | hash token đăng nhập và thời hạn |
 | `inventory` | vật phẩm và số lượng theo user |
 | `equipped_decorations` | vật trang trí đang trang bị theo slot |
@@ -22,6 +22,9 @@ Frontend chuyển các giá trị cũ lên API khi đăng nhập thành công r�
 sau khi server đã lưu. Từ đó trở đi SQLite là nguồn dữ liệu chính cho các mục
 này. Session token không được lưu trong `localStorage`; browser nhận cookie
 HttpOnly.
+
+Cột `experience` có thể còn trong database hiện hữu để tránh migration làm mất dữ liệu,
+nhưng không còn được dùng cho gameplay hoặc API. Database mới không tạo cột này.
 
 ## Cách chạy
 

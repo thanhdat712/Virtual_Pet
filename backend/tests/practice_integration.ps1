@@ -84,8 +84,17 @@ try {
     & g++ '-std=c++17' '-O2' '-I' (Join-Path $backend 'third_party/sqlite') `
         (Join-Path $PSScriptRoot 'db_probe.cpp') (Join-Path $build 'sqlite3.o') '-o' $probe
     if ($LASTEXITCODE -ne 0) { throw 'Practice SQLite probe compilation failed' }
+    $schema = Get-Content -LiteralPath (Join-Path $backend '..\database\schema.sql') -Raw
+    & $probe $database $schema
+    if ($LASTEXITCODE -ne 0) { throw 'Could not create the Practice migration test schema' }
+    & $probe $database "DROP TABLE practice_state; CREATE TABLE practice_state (user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,total_points INTEGER NOT NULL DEFAULT 0 CHECK(total_points>=0),happiness_remainder_points INTEGER NOT NULL DEFAULT 0 CHECK(happiness_remainder_points BETWEEN 0 AND 19),best_score INTEGER NOT NULL DEFAULT 0 CHECK(best_score>=0),elapsed_remainder_seconds INTEGER NOT NULL DEFAULT 0 CHECK(elapsed_remainder_seconds BETWEEN 0 AND 104),is_active INTEGER NOT NULL DEFAULT 0 CHECK(is_active IN (0,1)),last_activity_at INTEGER,active_game_id TEXT NOT NULL DEFAULT ''); INSERT INTO users(username,email,password_salt,password_hash,email_verified) VALUES('legacy_practice','legacy_practice@test.local','legacy','legacy',1); INSERT INTO pets(user_id,level) SELECT id,1 FROM users WHERE username='legacy_practice'; INSERT INTO practice_state(user_id,total_points,happiness_remainder_points,best_score) SELECT id,45,15,12 FROM users WHERE username='legacy_practice';"
+    if ($LASTEXITCODE -ne 0) { throw 'Could not create legacy Practice state for migration test' }
 
     Start-TestServer
+    $practiceColumns = Sql 'PRAGMA table_info(practice_state);'
+    Check (($practiceColumns -match '\|happiness_half_percent_remainder\|').Count -eq 1 -and
+        ($practiceColumns -match '\|happiness_remainder_points\|').Count -eq 0) 'Practice migration removes the obsolete points column'
+    Check ((Sql "SELECT total_points||'|'||happiness_half_percent_remainder||'|'||best_score FROM practice_state WHERE user_id=(SELECT id FROM users WHERE username='legacy_practice');") -eq '45|1|12') 'Practice migration preserves the account record and converts existing half-percent progress'
     Check ((Call GET '/api/practice/state').Status -eq 401) 'Practice API requires authentication'
     $username = 'practice_' + [Guid]::NewGuid().ToString('N').Substring(0,8)
     $email = "$username@test.local"
@@ -98,6 +107,7 @@ try {
 
     $initial = (Call GET '/api/practice/state' $null $cookie).Body
     Check ($initial.bestScore -eq 0 -and $initial.points -eq 0 -and $initial.coins -eq 100) 'Practice account starts with a persistent empty record'
+    Check ($initial.happinessHalfPercentRemainder -eq 0) 'Practice starts without a pending half-percent happiness reward'
 
     $null = Sql "UPDATE pets SET hunger=30,energy=30 WHERE user_id=$userId;"
     $null = Call POST '/api/practice/time' @{action='start'} $cookie
@@ -108,25 +118,46 @@ try {
     $firstGame = [Guid]::NewGuid().ToString()
     $null = Call POST '/api/practice/game/start' @{gameId=$firstGame} $cookie
     Check ((Call GET '/api/practice/state' $null $cookie).Body.bestScore -eq 0) 'A provisional record is not visible as the account best before game over'
-    $first = Call POST '/api/practice/finish' @{gameId=$firstGame;eaten=5} $cookie
-    Check ($first.Body.awardedPoints -eq 15 -and $first.Body.awardedCoins -eq 0 -and $first.Body.state.points -eq 15 -and $first.Body.state.bestScore -eq 5) 'Five foods and the new record are committed only when the game ends'
-    Check ($first.Body.state.pet.happiness -eq 0 -and $first.Body.state.coins -eq 100) 'Pending Practice rewards do not change happiness or coins before earned thresholds'
+    $first = Call POST '/api/practice/finish' @{gameId=$firstGame;eaten=4} $cookie
+    Check ($first.Body.awardedPoints -eq 0 -and $first.Body.awardedCoins -eq 0 -and $first.Body.state.points -eq 0 -and $first.Body.state.bestScore -eq 4) 'Four foods do not award score points or coins'
+    Check ($first.Body.state.pet.happiness -eq 0 -and $first.Body.state.happinessHalfPercentRemainder -eq 0) 'Four foods do not increase happiness or carry food progress into another game'
+
+    $shortGame = [Guid]::NewGuid().ToString()
+    $null = Call POST '/api/practice/game/start' @{gameId=$shortGame} $cookie
+    $short = Call POST '/api/practice/finish' @{gameId=$shortGame;eaten=1} $cookie
+    Check ($short.Body.state.pet.happiness -eq 0 -and $short.Body.state.happinessHalfPercentRemainder -eq 0) 'One food in a later game does not complete the previous game five-food threshold'
 
     $secondGame = [Guid]::NewGuid().ToString()
     $null = Call POST '/api/practice/game/start' @{gameId=$secondGame} $cookie
-    Check ((Call GET '/api/practice/state' $null $cookie).Body.bestScore -eq 5) 'The previous account record remains official while a new game is active'
+    Check ((Call GET '/api/practice/state' $null $cookie).Body.bestScore -eq 4) 'The previous account record remains official while a new game is active'
     Check ((Call GET '/api/game/state' $null $cookie).Body.user.coins -eq 100) 'Record bonus coins remain pending until game over'
-    $second = Call POST '/api/practice/finish' @{gameId=$secondGame;eaten=10} $cookie
-    Check ($second.Body.awardedPoints -eq 30 -and $second.Body.awardedCoins -eq 15 -and $second.Body.state.coins -eq 115 -and $second.Body.state.bestScore -eq 10) 'Game over commits points, the new record, and the 15-coin record reward'
-    Check ($second.Body.state.pet.happiness -eq 2) 'Practice happiness conversion retains fractions across games'
+    $second = Call POST '/api/practice/finish' @{gameId=$secondGame;eaten=8} $cookie
+    Check ($second.Body.awardedPoints -eq 15 -and $second.Body.awardedCoins -eq 15 -and $second.Body.state.coins -eq 115 -and $second.Body.state.bestScore -eq 8) 'Eight foods at level 1 award one 15-point score batch and the record bonus'
+    Check ($second.Body.state.pet.happiness -eq 0 -and $second.Body.state.happinessHalfPercentRemainder -eq 1) 'Eight foods at level 1 earn one half-percent and discard the three-food remainder'
 
-    $duplicate = Call POST '/api/practice/finish' @{gameId=$secondGame;eaten=10} $cookie
+    $duplicate = Call POST '/api/practice/finish' @{gameId=$secondGame;eaten=8} $cookie
     Check ($duplicate.Body.duplicate -and (Call GET '/api/game/state' $null $cookie).Body.user.coins -eq 115) 'Repeated game-over requests cannot pay twice'
+
+    $null = Sql "UPDATE pets SET level=2,happiness=0 WHERE user_id=$userId; UPDATE practice_state SET happiness_half_percent_remainder=0 WHERE user_id=$userId;"
+    $levelTwoShortOne = [Guid]::NewGuid().ToString()
+    $null = Call POST '/api/practice/game/start' @{gameId=$levelTwoShortOne} $cookie
+    $levelTwoFour = Call POST '/api/practice/finish' @{gameId=$levelTwoShortOne;eaten=4} $cookie
+    Check ($levelTwoFour.Body.state.pet.happiness -eq 0 -and $levelTwoFour.Body.state.happinessHalfPercentRemainder -eq 0) 'Four foods do not meet the level 2 eight-food happiness threshold'
+
+    $levelTwoShortTwo = [Guid]::NewGuid().ToString()
+    $null = Call POST '/api/practice/game/start' @{gameId=$levelTwoShortTwo} $cookie
+    $levelTwoAnotherFour = Call POST '/api/practice/finish' @{gameId=$levelTwoShortTwo;eaten=4} $cookie
+    Check ($levelTwoAnotherFour.Body.state.pet.happiness -eq 0 -and $levelTwoAnotherFour.Body.state.happinessHalfPercentRemainder -eq 0) 'Level 2 food counts do not accumulate across separate games'
+
+    $levelTwoFull = [Guid]::NewGuid().ToString()
+    $null = Call POST '/api/practice/game/start' @{gameId=$levelTwoFull} $cookie
+    $levelTwoEight = Call POST '/api/practice/finish' @{gameId=$levelTwoFull;eaten=8} $cookie
+    Check ($levelTwoEight.Body.awardedPoints -eq 15 -and $levelTwoEight.Body.state.pet.happiness -eq 0 -and $levelTwoEight.Body.state.happinessHalfPercentRemainder -eq 1) 'Eight foods at level 2 earn one half-percent'
 
     $abandonedGame = [Guid]::NewGuid().ToString()
     $null = Call POST '/api/practice/game/start' @{gameId=$abandonedGame} $cookie
     $null = Call POST '/api/practice/game/abandon' @{gameId=$abandonedGame} $cookie
-    Check ((Call GET '/api/practice/state' $null $cookie).Body.bestScore -eq 10) 'Abandoning a provisional record preserves the previous official best'
+    Check ((Call GET '/api/practice/state' $null $cookie).Body.bestScore -eq 8) 'Abandoning a provisional record preserves the previous official best'
     Check ((Call POST '/api/practice/finish' @{gameId=$abandonedGame;eaten=15} $cookie).Status -eq 409) 'An explicitly abandoned game cannot later commit its provisional record'
 
     $restartedGame = [Guid]::NewGuid().ToString()
@@ -135,7 +166,7 @@ try {
     $null = Call POST '/api/practice/game/start' @{gameId=$nextGame} $cookie
     Check ((Call POST '/api/practice/finish' @{gameId=$restartedGame;eaten=15} $cookie).Status -eq 409) 'Starting a new game invalidates the previous unfinished game provisional record'
     $abandoned = Call POST '/api/practice/finish' @{gameId=$nextGame;eaten=4} $cookie
-    Check ($abandoned.Body.awardedPoints -eq 0 -and $abandoned.Body.awardedCoins -eq 0 -and $abandoned.Body.state.bestScore -eq 10) 'Restart abandons unfinished rewards and keeps the previous account record'
+    Check ($abandoned.Body.awardedPoints -eq 0 -and $abandoned.Body.awardedCoins -eq 0 -and $abandoned.Body.state.bestScore -eq 8) 'Restart abandons unfinished rewards and keeps the previous account record'
 
     $purchase = Call POST '/api/shop/purchases' @{itemId=1;quantity=1} $cookie
     Check ($purchase.Status -eq 200 -and $purchase.Body.state.user.coins -eq 110) 'Practice-earned coins can purchase a Shop item'
@@ -143,7 +174,7 @@ try {
     Stop-TestServer
     Start-TestServer
     $persisted = (Call GET '/api/practice/state' $null $cookie).Body
-    Check ($persisted.points -eq 45 -and $persisted.bestScore -eq 10 -and $persisted.coins -eq 110) 'Practice points, committed record, and account currency persist after restart'
+    Check ($persisted.points -eq 30 -and $persisted.bestScore -eq 8 -and $persisted.coins -eq 110 -and $persisted.happinessHalfPercentRemainder -eq 1) 'Practice points, committed record, account currency, and earned half-percent persist after restart'
     Stop-TestServer
     Write-Host "Completed $script:checks Practice integration checks."
 } finally {

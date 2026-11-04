@@ -211,6 +211,10 @@ const api = {
 		return action('/api/pet/sleep');
 	},
 
+	wakePet() {
+		return action('/api/pet/wake');
+	},
+
 	bathPet() {
 		return action('/api/pet/bath');
 	},

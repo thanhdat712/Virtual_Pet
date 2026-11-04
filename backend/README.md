@@ -37,7 +37,9 @@ khởi động rồi tự bổ sung các cột mới cho database cũ.
 
 - Auth/session: `/api/auth/register`, `/api/auth/login`, `/api/auth/session`, `/api/auth/logout`
 - Trạng thái/catalog: `/api/game/state`, `/api/shop`
-- Game: mua hàng, cho ăn, chơi, ngủ, tắm, trang trí
+- Game: mua hàng, cho ăn, chơi, tắm, trang trí
+- Ngủ/thức: `POST /api/pet/sleep` bắt đầu giấc ngủ 30 phút; `POST /api/pet/wake` thức ngay,
+  không nhận thưởng nghỉ ngơi. Hết 30 phút, server tự thức pet và cộng năng lượng.
 - Profile/settings: đổi tên/loài pet, lưu tùy chọn âm thanh
 - Study: `/api/study/state`, `/api/study/time`, `/api/study/complete`; điểm, xu, màn đã qua,
   happiness và thời gian tiêu hao hunger/energy được lưu theo tài khoản trong SQLite.
@@ -62,8 +64,10 @@ thưởng lặp. Nếu cần chống sửa kết quả từ trình duyệt, cầ
 sang backend để server tự chấm từng câu.
 
 Practice tính thời gian khi trang Practice mở (kể cả menu/tạm dừng), và chốt điểm
-vào happiness cùng xu đủ điều kiện khi kết thúc ván. Record mới trong ván chỉ là
-tạm tính, được lưu thành kỷ lục tài khoản ở game over và bị bỏ nếu rời trang
+vào happiness cùng xu đủ điều kiện khi kết thúc ván. Mỗi 5 thức ăn được 15 điểm;
+happiness được tính riêng từng ván theo nhóm `5 + 3 * (level - 1)` thức ăn cho
+mỗi +0,5%, thức ăn dư không được cộng dồn sang ván sau. Record mới trong ván chỉ
+là tạm tính, được lưu thành kỷ lục tài khoản ở game over và bị bỏ nếu rời trang
 hoặc bắt đầu ván khác. Điểm đếm thức ăn do trình duyệt gửi, nên không được coi là
 xác thực chống gian lận.
 
